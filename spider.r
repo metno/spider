@@ -139,7 +139,7 @@ read_griddeddata<-function(mode="data") { #data,master,data_dem,master_dem
     }
     # data, check time to read is available
     if (mode=="data") {
-      ff_t<-format(tseq[t],format="%Y%m%d%H%M",tz="GMT")
+      ff_t<-format(t_to_read,format="%Y%m%d%H%M",tz="GMT")
       if (!(ff_t %in% tsteps_in)) {
         print(paste("warning: time step to read",ff_t,"not in input file",ff))
         return(NULL)
@@ -322,6 +322,10 @@ p<- add_argument(p, "--ffin_template",
                  help="path to + name (template) of the input observation files",
                  type="character",
                  default="none")
+p <- add_argument(p, "--ffin_hour_offset",
+                  help="hour offset",
+                  type="numeric",
+                  default=0)
 p <- add_argument(p, "--ffin_varname",
                   help="variable name in the netCDF file",
                   type="character",
@@ -644,14 +648,20 @@ for (t in 1:n_tseq) {
     print(paste("file not found",ffin))
     next
   }
-  print(paste("time file",tseq[t],ffin))
+  t_to_read<-format(
+              as.POSIXct(
+               as.numeric(
+    as.POSIXct(tseq[t],format=argv$ffin_date.format,tz="GMT")) 
+    + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
+              "%Y%m%d%H%M")
+  print(paste("time_to_read time file",t_to_read,tseq[t],ffin))
   r<-read_griddeddata()
   if (is.null(r)) {
-    print(paste("warning: problem while reading time file",tseq[t],ffin))
+    print(paste("warning: problem while reading time file",t_to_read,ffin))
     next
   }
   if (!any(!is.na(values<-getValues(r)))) {
-    print(paste("warning: all NAs for time file",tseq[t],ffin))
+    print(paste("warning: all NAs for time file",t_to_read,ffin))
     next
   }
   #----------------------------------------------------------------------------
