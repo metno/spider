@@ -159,36 +159,35 @@ oi_var_gridpoint_by_gridpoint<-function(i,
     idiv<-0
     xidi<-1/(1+eps2_spint[i])
     if (loocv) consider_obs[i]<-F
-    if (length(which(deltax<(box_o_nearest_halfwidth)))==1) 
-      return( ifelse(return_fg_only,
-                     NA,
-                     c(res,NA,NA,xidi,idiv,av,dh)) )
-    if (length(which(deltay<(box_o_nearest_halfwidth)))==1) 
-      return( ifelse(return_fg_only,
-                     NA,
-                     c(res,NA,NA,xidi,idiv,av,dh)) )
+    if (length(which(deltax<(box_o_nearest_halfwidth)))==1) { 
+      if (return_fg_only) {return(NA)} 
+      else { return(c(res,NA,NA,xidi,idiv,av,dh))}
+    }
+    if (length(which(deltay<(box_o_nearest_halfwidth)))==1) {
+        if (return_fg_only) {return(NA)} 
+        else { return(c(res,NA,NA,xidi,idiv,av,dh))}
+    }
   } else {
     res<-ifelse(exists("xb_spint"),xb_spint[i],NA)
     av<-NA
     idiv<-NA
     xidi<-0
     if (loocv) consider_obs[which(deltax<1 & deltay<1)]<-F
-    if (!any(deltax<(box_o_nearest_halfwidth))) 
-      return( ifelse(return_fg_only,
-                     NA,
-                     c(res,NA,NA,xidi,idiv,av,dh)) )
-    if (!any(deltay<(box_o_nearest_halfwidth))) 
-      return( ifelse(return_fg_only,
-                     NA,
-                     c(res,NA,NA,xidi,idiv,av,dh)) )
+    if (!any(deltax<(box_o_nearest_halfwidth))) {
+      if (return_fg_only) {return(NA)} 
+      else { return(c(res,NA,NA,xidi,idiv,av,dh))}
+    }
+    if (!any(deltay<(box_o_nearest_halfwidth))) {
+      if (return_fg_only) {return(NA)} 
+      else { return(c(res,NA,NA,xidi,idiv,av,dh))}
+    }
   }
   ixa<-which( deltax<(box_o_nearest_halfwidth) & 
               deltay<(box_o_nearest_halfwidth) & 
               consider_obs )
   if (length(ixa)==0) 
-    return( ifelse(return_fg_only,
-                   NA,
-                   c(res,NA,NA,xidi,idiv,av,dh))
+    if (return_fg_only) {return(NA)} 
+    else { return(c(res,NA,NA,xidi,idiv,av,dh))}
   disth2<-deltax[ixa]*deltax[ixa]+deltay[ixa]*deltay[ixa]
   if (length(ixa)>pmax) {
     ixb<-order(disth2, decreasing=F)[1:pmax]
@@ -210,11 +209,11 @@ oi_var_gridpoint_by_gridpoint<-function(i,
       if ( (zmin-zgrid_spint[i])>50 |
            (zgrid_spint[i]-zmax)>50 |
            (zmax-zmin)<25 ) fg<-"linear"
-    } 
+    }
     if (fg=="linear") {
       par<-c(yo_mean)
       opt<-optimize(f=vertprofbasic2opt,
-                    interval=c(argv$vmin,argv$vmax),
+                    interval=c(fg_min,fg_max),
                     vert_coord=zobs_spint[ixa],
                     gamma=fg_gamma,
                     obs=yo_spint[ixa])

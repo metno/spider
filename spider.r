@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # --~- spider.r -~--
 # SPIDER - poSt Process grIdded Datasets nEtcdf foRmat
-# See the software repository here: https://github.com/metno/seNorge_2018
+# See the software repository here: https://github.com/cristianlussana/spider
 #..............................................................................
 #Copyright and license
 # Copyright (C) 2018 MET Norway. The software is licensed under GPL version 3 
@@ -114,14 +114,31 @@ read_griddeddata<-function(mode="data") { #data,master,data_dem,master_dem
     ff_proj4_var<-argv$ffmaster_proj4_var
     ff_proj4_att<-argv$ffmaster_proj4_att
   } else if (mode=="master_dem") {
-    ff<-argv$ffmasterdem
-    ff_tpos<-argv$ffmasterdem_tpos
-    ff_epos<-argv$ffmasterdem_epos
-    ff_e<-argv$ffmasterdem_e
-    ff_varname<-argv$ffmasterdem_varname
-    ff_topdown<-argv$ffmasterdem_topdown
-    ff_ndim<-argv$ffmasterdem_ndim
-    ff_dimnames<-argv$ffmasterdem_dimnames
+    if (is.na(argv$ffmasterdem)) {
+      ff<-argv$ffmaster
+      ff_tpos<-argv$ffmaster_tpos
+      ff_epos<-argv$ffmaster_epos
+      ff_e<-argv$ffmaster_e
+      ff_varname<-ifelse(is.na(argv$ffmasterdem_varname),
+               argv$ffmaster_varname,argv$ffmasterdem_varname)
+      ff_topdown<-argv$ffmaster_topdown
+      if (is.na(argv$ffmasterdem_ndim)) {
+        ff_ndim<-argv$ffmaster_ndim
+        ff_dimnames<-argv$ffmaster_dimnames
+      } else {
+        ff_ndim<-argv$ffmasterdem_ndim
+        ff_dimnames<-argv$ffmasterdem_dimnames
+      }
+    } else {
+      ff<-argv$ffmasterdem
+      ff_tpos<-argv$ffmasterdem_tpos
+      ff_epos<-argv$ffmasterdem_epos
+      ff_e<-argv$ffmasterdem_e
+      ff_varname<-argv$ffmasterdem_varname
+      ff_topdown<-argv$ffmasterdem_topdown
+      ff_ndim<-argv$ffmasterdem_ndim
+      ff_dimnames<-argv$ffmasterdem_dimnames
+    }
     ff_proj4<-argv$ffmaster_proj4
     ff_proj4_var<-argv$ffmaster_proj4_var
     ff_proj4_att<-argv$ffmaster_proj4_att
@@ -145,7 +162,7 @@ read_griddeddata<-function(mode="data") { #data,master,data_dem,master_dem
         return(NULL)
       }
     # master grid, set time to read as the first time step
-    } else if (mode=="master") {
+    } else if (mode=="master" | mode=="data_dem" | mode=="master_dem") {
       ff_t<-tsteps_in[1]
     }
   }
@@ -299,6 +316,10 @@ p <- add_argument(p, "--correction_factor",
                   help="correction factor",
                   type="numeric",
                   default=NA)
+p <- add_argument(p, "--offset",
+                  help="offset",
+                  type="numeric",
+                  default=NA)
 #..............................................................................
 p<- add_argument(p, "--fun",
                  help="aggregation function",
@@ -448,22 +469,22 @@ p <- add_argument(p, "--ffmaster_e",
 p<- add_argument(p, "--ffmasterdem",
                  help="path to + name (template) of the input observation files",
                  type="character",
-                 default="none")
+                 default=NA)
 p <- add_argument(p, "--ffmasterdem_varname",
                   help="variable name in the netCDF file",
                   type="character",
-                  default="land_area_fraction")
+                  default=NA)
 p <- add_argument(p, "--ffmasterdem_topdown",
                   help="logical, netCDF topdown parameter. If TRUE then turn the fg upside down",
                   flag=T)
 p <- add_argument(p, "--ffmasterdem_ndim",
                   help="number of dimensions in the netCDF file",
                   type="numeric",
-                  default=3)
+                  default=NA)
 p <- add_argument(p, "--ffmasterdem_tpos",
                   help="position of the dimension ''time'' in the netCDF file",
                   type="numeric",
-                  default=3)
+                  default=NA)
 p <- add_argument(p, "--ffmasterdem_epos",
                   help="position of the dimension ''ensemble'' in the netCDF file",
                   type="numeric",
@@ -726,14 +747,17 @@ for (t in 1:n_tseq) {
   # Interpolation over master grid based on a non-linear vertical profile
   if (argv$latte) { # LATTE - interpoLATion verTical profilE
     if (!exists("rmaster")) {
+      cat("read master...")
       rmaster<-read_griddeddata("master")
       if (is.null(rmaster)) boom("ERROR problem reading master grid")
       if (!any(!is.na(values_ma<-getValues(rmaster)))) {
         print(paste("warning: all NAs for master grid file",argv$ffmaster))
         next
       }
+      cat("ok!\n")
     }
     if (!exists("rmaster_dem")) {
+      cat("read master dem...")
       rmaster_dem<-read_griddeddata("master_dem")
       if (is.null(rmaster_dem)) boom("ERROR problem reading master dem")
       if (!any(!is.na(values_ma_dem<-getValues(rmaster_dem)))) {
@@ -744,14 +768,16 @@ for (t in 1:n_tseq) {
         print(paste("warning: all NAs for conjunction of master & dem files"))
         next
       }
-      xy_ma<-xyFromCell(r,ix_ma)
+      cat("ok!\n")
+      xy_ma<-xyFromCell(rmaster,ix_ma) #dim nmaster 2
       nmaster<-length(ix_ma)
-      xgrid_spint<-xy_ma[ix_ma,1]
-      ygrid_spint<-xy_ma[ix_ma,2]
+      xgrid_spint<-xy_ma[,1]
+      ygrid_spint<-xy_ma[,2]
       zgrid_spint<-values_ma_dem[ix_ma]
       yo_to_check<-rep(NA,nmaster)
     }
     if (!exists("r_dem")) {
+      cat("read data dem...")
       r_dem<-read_griddeddata("data_dem")
       if (is.null(r_dem)) boom("ERROR problem reading dem")
       if (!any(!is.na(values_dem<-getValues(r_dem)))) {
@@ -759,43 +785,36 @@ for (t in 1:n_tseq) {
         next
       }
       rm(r_dem)
+      cat("ok!\n")
     }
     ix_in<-which(!is.na(values) & !is.na(values_dem))
     if (argv$ffin_proj4==argv$ffmaster_proj4) {
-      coord.new<-xyFromCell(r,ix_in)
+      coord.new<-xyFromCell(r,ix_in) #nobs 2
     } else {
+      cat("coordinate conversion...")
       coord.new<-spTransform( 
                   SpatialPoints(xyFromCell(r,ix_in),
                                  proj4string=CRS(argv$ffin_proj4)) 
                                             ,CRS(argv$ffmaster_proj4))
+      coord.new<-attr(coord.new,"coords") #nobs 2
+      cat("ok!\n")
     }
     if (!file.exists(fffun<-file.path(argv$spider_path,"lib","oivar.r")))
       boom(paste("file not found",fffun))
     source(fffun)
     # 
     nobs<-length(ix_in)
-    xobs_spint<-coord.new[ix_in]
-    yobs_spint<-coord.new[ix_in]
+    xobs_spint<-coord.new[,1]
+    yobs_spint<-coord.new[,2]
     zobs_spint<-values_dem[ix_in]
     yo_spint<-values[ix_in]
     fg_min<-min(yo_spint)-as.numeric(diff(range(yo_spint)))
     fg_max<-max(yo_spint)+as.numeric(diff(range(yo_spint)))
+    cat("who ordered latte?...")
     if (!is.na(argv$cores)) {
-      arr<-t(mcmapply(oi_var_gridpoint_by_gridpoint,
-                      1:nmaster,
-                      mc.cores=argv$cores,
-                      SIMPLIFY=T,
-                      box_o_nearest_halfwidth=argv$latte_halfbox,
-                      pmax=argv$latte_pmax,
-                      fg=argv$latte_fglab,
-                      fg_gamma=argv$latte_gamma,
-                      fg_min=fg_min,
-                      fg_max=fg_max,
-                      return_fg_only=T))
-    # no-multicores
-    } else {
-      arr<-t(mapply(oi_var_gridpoint_by_gridpoint,
+      arr<-mcmapply(oi_var_gridpoint_by_gridpoint,
                     1:nmaster,
+                    mc.cores=argv$cores,
                     SIMPLIFY=T,
                     box_o_nearest_halfwidth=argv$latte_halfbox,
                     pmax=argv$latte_pmax,
@@ -803,10 +822,23 @@ for (t in 1:n_tseq) {
                     fg_gamma=argv$latte_gamma,
                     fg_min=fg_min,
                     fg_max=fg_max,
-                    return_fg_only=T))
+                    return_fg_only=T)
+    # no-multicores
+    } else {
+      arr<-mapply(oi_var_gridpoint_by_gridpoint,
+                  1:nmaster,
+                  SIMPLIFY=T,
+                  box_o_nearest_halfwidth=argv$latte_halfbox,
+                  pmax=argv$latte_pmax,
+                  fg=argv$latte_fglab,
+                  fg_gamma=argv$latte_gamma,
+                  fg_min=fg_min,
+                  fg_max=fg_max,
+                  return_fg_only=T)
     }
+    cat("there you are!\n")
     r<-rmaster; r[]<-NA
-    r[ix_ma]<-arr[,1]
+    r[ix_ma]<-arr
   }
   #----------------------------------------------------------------------------
   # store in a raster stack 
@@ -834,6 +866,7 @@ if (argv$time_aggregation) {
 # Adjust output
 if (!exists("r")) r<-s
 if (!is.na(argv$correction_factor)) r<-r*argv$correction_factor
+if (!is.na(argv$offset)) r<-r+argv$offset
 #------------------------------------------------------------------------------
 # Write output
 xy<-xyFromCell(r,1:ncell(r))
