@@ -22,7 +22,6 @@ suppressPackageStartupMessages(library("raster"))
 suppressPackageStartupMessages(library("rgdal"))
 suppressPackageStartupMessages(library("ncdf4"))
 suppressPackageStartupMessages(library("dotnc"))
-suppressPackageStartupMessages(library("gibson"))
 #options(warn = 2, scipen = 999)
 options(scipen = 999)
 #
@@ -33,180 +32,12 @@ proj4.wgs84<-"+proj=longlat +datum=WGS84"
 proj4.ETRS_LAEA<-"+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +units=m +no_defs"
 proj4.utm33<-"+proj=utm +zone=33 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"
 proj4.lcc<-"+proj=lcc +lat_0=63 +lon_0=15 +lat_1=63 +lat_2=63 +no_defs +R=6.371e+06"
-# DQC - identify adjacent nodes - Establish (local-) triangulation (Delauney)
-# netcdf fixed parameters
-varname<-c("windspeed_10m")
-varunit<-c("m/s")
-varlongname<-c("wind_speed")
-varstandardname<-c("wind_speed")
-varversion<-c("1.0")
-reference<-c("")
-diground<-2
-summary<-c("daily wind speed (from 06 UTC prev day to 06 UTC day) based on MEPS hourly wind speed.")
-sourcestring<-"MET Norway"
-title<-"FFMRR-MEPS"
-comment<-"Our open data are licensed under Norwegian Licence for Open Government Data (NLOD) or a Creative Commons Attribution 4.0 International License at your preference. Credit should be given to The Norwegian Meteorological institute, shortened “MET Norway”, as the source of data."
 
+# -----------------------------------------------------------------------------
+# FUNCTIONS
 
-boom<-function(str) {
-  print(str)
-  q(status=1)
-}
-
-# + replace elements of a string with date-time elements
-replaceDate<-function(string=NULL,
-                      date.str=NULL,
-                      year_string="yyyy",
-                      month_string="mm",
-                      day_string="dd",
-                      hour_string="hh",
-                      format="%Y-%m-%d %H:%M:%S") {
-#------------------------------------------------------------------------------
-  if (is.null(string) | is.null(date.str)) return(NULL)
-  Rdate<-as.POSIXlt(str2Rdate(date.str,format=format))
-  yyyy<-Rdate$year+1900
-  mm<-formatC(Rdate$mon+1,width=2,flag="0")
-  dd<-formatC(Rdate$mday,width=2,flag="0")
-  hh<-formatC(Rdate$hour,width=2,flag="0")
-  out<-gsub(year_string,yyyy,string)
-  out<-gsub(month_string,formatC(mm,width=2,flag="0"),out)
-  out<-gsub(day_string,formatC(dd,width=2,flag="0"),out)
-  out<-gsub(hour_string,formatC(hh,width=2,flag="0"),out)
-  out
-}
-
-#+
-read_griddeddata<-function(mode="data") { #data,master,data_dem,master_dem
-  if (mode=="data") {
-    ff<-ffin
-    ff_tpos<-argv$ffin_tpos
-    ff_epos<-argv$ffin_epos
-    ff_e<-argv$ffin_e
-    ff_varname<-argv$ffin_varname
-    ff_topdown<-argv$ffin_topdown
-    ff_ndim<-argv$ffin_ndim
-    ff_dimnames<-argv$ffin_dimnames
-    ff_proj4<-argv$ffin_proj4
-    ff_proj4_var<-argv$ffin_proj4_var
-    ff_proj4_att<-argv$ffin_proj4_att
-  } else if (mode=="data_dem") {
-    ff<-argv$ffindem
-    ff_tpos<-argv$ffindem_tpos
-    ff_epos<-argv$ffindem_epos
-    ff_e<-argv$ffindem_e
-    ff_varname<-argv$ffindem_varname
-    ff_topdown<-argv$ffindem_topdown
-    ff_ndim<-argv$ffindem_ndim
-    ff_dimnames<-argv$ffindem_dimnames
-    ff_proj4<-argv$ffin_proj4
-    ff_proj4_var<-argv$ffin_proj4_var
-    ff_proj4_att<-argv$ffin_proj4_att
-  } else if (mode=="master") {
-    ff<-argv$ffmaster
-    ff_tpos<-argv$ffmaster_tpos
-    ff_epos<-argv$ffmaster_epos
-    ff_e<-argv$ffmaster_e
-    ff_varname<-argv$ffmaster_varname
-    ff_topdown<-argv$ffmaster_topdown
-    ff_ndim<-argv$ffmaster_ndim
-    ff_dimnames<-argv$ffmaster_dimnames
-    ff_proj4<-argv$ffmaster_proj4
-    ff_proj4_var<-argv$ffmaster_proj4_var
-    ff_proj4_att<-argv$ffmaster_proj4_att
-  } else if (mode=="master_dem") {
-    if (is.na(argv$ffmasterdem)) {
-      ff<-argv$ffmaster
-      ff_tpos<-argv$ffmaster_tpos
-      ff_epos<-argv$ffmaster_epos
-      ff_e<-argv$ffmaster_e
-      ff_varname<-ifelse(is.na(argv$ffmasterdem_varname),
-               argv$ffmaster_varname,argv$ffmasterdem_varname)
-      ff_topdown<-argv$ffmaster_topdown
-      if (is.na(argv$ffmasterdem_ndim)) {
-        ff_ndim<-argv$ffmaster_ndim
-        ff_dimnames<-argv$ffmaster_dimnames
-      } else {
-        ff_ndim<-argv$ffmasterdem_ndim
-        ff_dimnames<-argv$ffmasterdem_dimnames
-      }
-    } else {
-      ff<-argv$ffmasterdem
-      ff_tpos<-argv$ffmasterdem_tpos
-      ff_epos<-argv$ffmasterdem_epos
-      ff_e<-argv$ffmasterdem_e
-      ff_varname<-argv$ffmasterdem_varname
-      ff_topdown<-argv$ffmasterdem_topdown
-      ff_ndim<-argv$ffmasterdem_ndim
-      ff_dimnames<-argv$ffmasterdem_dimnames
-    }
-    ff_proj4<-argv$ffmaster_proj4
-    ff_proj4_var<-argv$ffmaster_proj4_var
-    ff_proj4_att<-argv$ffmaster_proj4_att
-  }
-  # time dimension not present
-  if (is.na(ff_tpos)) {
-    ff_tpos<-NULL
-    ff_t<-NULL
-  # time dimension present
-  } else {
-    # read input file time steps
-    if (!is.null( attr(tsteps_in<-try(nc4.getTime(ff)),"class") )) {
-      print(paste("warning: not able to read time dimension from file ",ff))
-      return(NULL)
-    }
-    # data, check time to read is available
-    if (mode=="data") {
-      ff_t<-format(t_to_read,format="%Y%m%d%H%M",tz="GMT")
-      if (!(ff_t %in% tsteps_in)) {
-        print(paste("warning: time step to read",ff_t,"not in input file",ff))
-        return(NULL)
-      }
-    # master grid, set time to read as the first time step
-    } else if (mode=="master" | mode=="data_dem" | mode=="master_dem") {
-      ff_t<-tsteps_in[1]
-    }
-  }
-  if (is.na(ff_epos)) ff_epos<-NULL
-  if (is.na(ff_e)) ff_e<-NULL
-  raux<-try(read_dotnc(nc.file=ff,
-                       nc.varname=ff_varname,
-                       topdown=ff_topdown,
-                       out.dim=list(ndim=ff_ndim,
-                                    tpos=ff_tpos,
-                                    epos=ff_epos,
-                                    names=ff_dimnames),
-                       proj4=ff_proj4,
-                       nc.proj4=list(var=ff_proj4_var,
-                                     att=ff_proj4_att),
-                       selection=list(t=ff_t,e=ff_e)))
-  if (!is.null(raux)) raux<-raux$stack
-  raux
-}
-
-#+
-plot_debug<-function(ff,
-                     r,
-                     r1=NULL,
-                     lbr=20,
-                     x,
-                     y,
-                     proj4,
-                     proj4plot=NULL) {
-  rmn<-range(getValues(r),na.rm=T)[1]
-  rmx<-range(getValues(r),na.rm=T)[2]
-  rbr<-seq(rmn,rmx,length=lbr)
-  col<-c(rev(rainbow((lbr-1))))
-  png(file=ff,width=800,height=800)
-  image(r,breaks=rbr,col=col)
-  if (!is.null(r1)) contour(r1,levels=c(0,1),add=T)
-#  xy<-as.data.frame(cbind(x,y))
-#  coordinates(xy)<-c("x","y")
-#  proj4string(xy)<-CRS(proj4)
-#  if (!is.null(proj4plot)) xy<-spTransform(xy,CRS(proj4plot))
-#  points(xy,cex=0.8,pch=19)
-  dev.off()
-}
-
+#+ Manage errors
+boom<-function(str,status=1) { print(str); q(status=status) }
 
 #==============================================================================
 # MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN -
@@ -308,6 +139,13 @@ p <- add_argument(p, "--latte_gamma",
                   type="numeric",
                   default=-0.0065)
 #..............................................................................
+p <- add_argument(p, "--metno_radar_dqc",
+                  help="data quality control over metno radar data",
+                  flag=T)
+p <- add_argument(p, "--reflectivity_to_precip",
+                  help="transform reflectivity to precipitation rate",
+                  flag=T)
+#..............................................................................
 p <- add_argument(p, "--time_aggregation",
                   help="aggregate data over time dimension (default=T if all others=F)",
                   flag=T)
@@ -325,6 +163,10 @@ p<- add_argument(p, "--fun",
                  help="aggregation function",
                  type="character",
                  default="none")
+p<- add_argument(p, "--fun_weights",
+                 help="aggregation function weights",
+                 type="character",
+                 default="1,1,...,1")
 p<- add_argument(p, "--frac",
                  help="fraction of available data",
                  type="numeric",
@@ -578,6 +420,14 @@ p<- add_argument(p, "--hour_string",
                  help="hh",
                  type="character",
                  default="hh")
+p<- add_argument(p, "--min_string",
+                 help="MM",
+                 type="character",
+                 default="MM")
+p<- add_argument(p, "--sec_string",
+                 help="SS",
+                 type="character",
+                 default="SS")
 #..............................................................................
 argv <- parse_args(p)
 #-----------------------------------------------------------------------------
@@ -621,9 +471,18 @@ if (!is.na(argv$cores)) {
 #------------------------------------------------------------------------------
 # Time sequence
 if (argv$date2=="none") {
-  if ( is.na(argv$time_n_prev) & is.na(argv$time_n_prev) ) bomb(paste0("error in date definition"))
+  if ( is.na(argv$time_n_prev) & 
+       is.na(argv$time_n_prev) ) bomb(paste0("error in date definition"))
   if (!is.na(argv$time_n_prev)) {
-    aux<-rev(seq(strptime(argv$date1,format=argv$date.format),length=argv$time_n_prev,by=paste((-argv$time_step),argv$time_unit)))
+    if (argv$time_unit %in% c("sec","secs","second","seconds")) {
+      aux<-rev(seq(strptime(argv$date1,format=argv$date.format),
+                   length=argv$time_n_prev,
+                   by=(-argv$time_step)))
+    } else {
+      aux<-rev(seq(strptime(argv$date1,format=argv$date.format),
+                   length=argv$time_n_prev,
+                   by=paste((-argv$time_step),argv$time_unit)))
+    }
     argv$date2<-argv$date1
     argv$date1_def<-format(aux[1],format=argv$date.format)
     rm(aux)
@@ -641,6 +500,9 @@ if (argv$date_out=="none") {
   argv$date_out<-argv$date1
   argv$date_out.format<-argv$date.format
 }
+if (!file.exists(fftimeseq<-file.path(argv$spider_path,"lib","createTimeSeq.r")))
+  boom(paste("file not found",fftimeseq))
+source(fftimeseq)
 tseq<-createTimeSeq(start_date=argv$date1_def,
                     stop_date=argv$date2,
                     format=argv$date.format,
@@ -657,6 +519,13 @@ n_tseq<-length(tseq)
 #------------------------------------------------------------------------------
 # Read Input files
 n<-0
+if (!file.exists(ffrepdate<-file.path(argv$spider_path,"lib","replaceDate.r")))
+  boom(paste("file not found",ffrepdate))
+source(ffrepdate)
+if (!file.exists(ffread<-file.path(argv$spider_path,"lib","read_griddeddata.r")))
+  boom(paste("file not found",ffread))
+source(ffread)
+t_ok<-vector()
 for (t in 1:n_tseq) {
   ffin<-replaceDate(string=argv$ffin_template,
                     date.str=format(tseq[t],format=argv$ffin_date.format,tz="GMT"),
@@ -666,7 +535,7 @@ for (t in 1:n_tseq) {
                     hour_string=argv$hour_string,
                     format=argv$ffin_date.format)
   if (!file.exists(ffin)) {
-    print(paste("file not found",ffin))
+#    print(paste("file not found",ffin))
     next
   }
   t_to_read<-format(
@@ -841,6 +710,33 @@ for (t in 1:n_tseq) {
     r[ix_ma]<-arr
   }
   #----------------------------------------------------------------------------
+  # radar data quality control
+  if (argv$metno_radar_dqc) {
+    var_dqcrad<-c("is_nodata",
+                  "is_blocked",
+                  "is_seaclutter",
+                  "is_groundclutter",
+                  "is_otherclutter")
+    nv_dqcrad<-length(var_dqcrad)
+    for (v in 1:nv_dqcrad) {   
+      u<-read_griddeddata("data",var=var_dqcrad[v])
+      if (is.null(u)) {
+        print(paste("warning: problem reading radar dqc var=",var_dqcrad[v]))
+        next
+      }
+      if (!any(!is.na(values_u<-getValues(u)))) {
+        print(paste("warning: all NAs for  radar dqc var=",var_dqcrad[v]))
+        next
+      }
+      r[which(getValues(u)==1)]<-NA
+    } # end for v
+  } 
+  #----------------------------------------------------------------------------
+  # convert from equivalent_reflectivity_factor to rain rate (mm/h) 
+  if (argv$reflectivity_to_precip) { 
+   r<-(10**(r/10)/200)**(5/8)
+  } 
+  #----------------------------------------------------------------------------
   # store in a raster stack 
   if (!exists("s"))  {
     s<-r
@@ -848,16 +744,65 @@ for (t in 1:n_tseq) {
     s<-stack(s,r)
   }
   n<-n+1
+  t_ok[n]<-t
   rm(r,values)
 } # end time loop
 #------------------------------------------------------------------------------
 # Aggregate gridpoint-by-gridpoint over time
 if (argv$time_aggregation) {
   if ((n/n_tseq)>=argv$frac) {
-    if (argv$fun=="sum")  r<-sum(s,na.rm=T)
-    if (argv$fun=="mean") r<-mean(s,na.rm=T)
-    if (argv$fun=="max")  r<-max(s,na.rm=T)
-    if (argv$fun=="min")  r<-min(s,na.rm=T)
+    # set weights
+    weights_aux<-suppressWarnings(
+                   as.numeric(strsplit(argv$fun_weights,",")[[1]])
+                 [which(!is.na(
+                   as.numeric(strsplit(argv$fun_weights,",")[[1]])))])
+    n_aux<-length(weights_aux)
+    weights<-rep(NA,n)
+    weights[1]<-weights_aux[1]
+    weights[2:(n-1)]<-rep(weights_aux[2:(n_aux-1)],n)[1:(n-2)]
+    weights[n]<-weights_aux[n_aux]
+    rm(weights_aux)
+    # apply function
+    if (!any(weights!=1)) {
+      if (argv$fun=="sum")  r<-sum(s,na.rm=T)
+      if (argv$fun=="mean") r<-mean(s,na.rm=T)
+      if (argv$fun=="max")  r<-max(s,na.rm=T)
+      if (argv$fun=="min")  r<-min(s,na.rm=T)
+      if (argv$fun=="radar_mean")  {
+        first<-T
+        for (t in 1:n) {
+          weight<-ifelse(format(tseq[t_ok[t]],format="%M%S",tz="GMT")=="0000",
+                         0.5,1)
+          dat<-getValues(subset(s,subset=t))
+          if (first) {
+            dat_mean<-dat
+            dat_cont<-dat
+            dat_cont[]<-NA 
+            dat_cont[!is.na(dat)]<-1
+            first<-F
+          } else {
+            ix_nona<-which(!is.na(dat))
+            ix_nonas<-which(!is.na(dat) & is.na(dat_cont))
+            if (length(ix_nonas)>0) {
+              dat_cont[ix_nonas]<-0
+              dat_mean[ix_nonas]<-0
+            }
+            if (length(ix_nona)>0) {
+              dat_cont[ix_nona]<-dat_cont[ix_nona]+1
+              dat_mean[ix_nona]<-dat_mean[ix_nona]+
+                      (weight*dat[ix_nona]-dat_mean[ix_nona])/dat_cont[ix_nona]
+            }
+            rm(ix_nona,ix_nonas)
+          }
+          rm(dat,weight)
+        }
+        r<-subset(s,subset=1)
+        r[]<-NA
+        ix<-which(!is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
+        if (length(ix)>0) r[ix]<-dat_mean[ix]
+        rm(dat_mean,dat_cont,first,ix)
+      }
+    } # here should start the case where the weights are different from 1
   } else {
     boom(paste("number of time steps available=",n," is less than required"))
   }
