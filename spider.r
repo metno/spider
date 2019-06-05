@@ -150,6 +150,21 @@ p <- add_argument(p, "--time_aggregation",
                   help="aggregate data over time dimension (default=T if all others=F)",
                   flag=T)
 #..............................................................................
+p <- add_argument(p, "--summ_stat",
+                  help="summary step-by-step statistics",
+                  flag=T)
+p<- add_argument(p, "--summ_stat_fun",
+                 help="function applied",
+                 type="character",
+                 default="wave_nrgx")
+p<- add_argument(p, "--ffout_summ_stat",
+                 help="full file name for the summary statistics",
+                 type="character",
+                 default="summstat.txt")
+p <- add_argument(p, "--ffout_summ_stat_append",
+                  help="append output",
+                  flag=T)
+#..............................................................................
 p <- add_argument(p, "--correction_factor",
                   help="correction factor",
                   type="numeric",
@@ -458,9 +473,16 @@ if (!is.na(argv$config_file)) {
   }
 }
 #------------------------------------------------------------------------------
-if (!argv$time_aggregation & !argv$upscale & 
-    !argv$downscale & !argv$latte) 
+if (!argv$time_aggregation & !argv$upscale & !argv$downscale & !argv$latte &
+    !argv$summ_stat) 
   argv$time_aggregation<-T
+#
+gridded_output<-F
+if (argv$time_aggregation | argv$upscale | argv$downscale | argv$latte) 
+  gridded_output<-T
+#
+if (argv$summ_stat & argv$summ_stat_fun=="wave_nrgx") 
+  suppressPackageStartupMessages(library("waveslim"))
 #-----------------------------------------------------------------------------
 # Multi-cores run
 if (!is.na(argv$cores)) {
@@ -528,7 +550,8 @@ source(ffread)
 t_ok<-vector()
 for (t in 1:n_tseq) {
   ffin<-replaceDate(string=argv$ffin_template,
-                    date.str=format(tseq[t],format=argv$ffin_date.format,tz="GMT"),
+                    date.str=format(tseq[t],
+                              format=argv$ffin_date.format,tz="GMT"),
                     year_string=argv$year_string,
                     month_string=argv$month_string,
                     day_string=argv$day_string,
@@ -737,11 +760,98 @@ for (t in 1:n_tseq) {
    r<-(10**(r/10)/200)**(5/8)
   } 
   #----------------------------------------------------------------------------
+  # summary statistics 
+  if (argv$summ_stat) { 
+    if (argv$summ_stat_fun=="wave_nrgx") {
+      obs<-as.matrix(r)
+      obs[is.na(obs)]<-0
+      if (!exists("nnboot")) {
+        mindim<-min(dim(obs))
+        maxdim<-max(dim(obs))
+        nnboot<-10
+        dimdy<-2**floor(log2(mindim))
+        nnscales<-log2(dimdy)+1
+        listscales<-2^(seq(1,nnscales)-1)*1
+        spandim1<-(dim(obs)[1]-dimdy)+1
+        spandim2<-(dim(obs)[2]-dimdy)+1
+        iistart<-round(runif(nnboot,min=1,max=spandim1))
+        jjstart<-round(runif(nnboot,min=1,max=spandim2))
+      }
+      En2o_boot<-array(data=NA,dim=c(nnscales,nnboot))
+      for(boot in seq(1,nnboot)){
+        obsdy<-obs[iistart[boot]:(iistart[boot]+dimdy-1),
+                   jjstart[boot]:(jjstart[boot]+dimdy-1)]
+        N<-log2(dim(obsdy)[1])
+        Eo.dwt<-dwt.2d(obsdy, wf = "haar", J = N)
+        En2o<-vector(mode="numeric",length=N)
+        for (i in 1:N) {
+          En2o[i] <- mean((Eo.dwt[[1 + 3 * (i - 1)]]/2^i)^2) + 
+                     mean((Eo.dwt[[2 + 3 * (i - 1)]]/2^i)^2) +
+                     mean((Eo.dwt[[3 + 3 * (i - 1)]]/2^i)^2)
+        }
+        En2o_boot[1:N,boot]<-En2o[1:N]
+print(En2o[1:N])
+print(sum(En2o)+mean(obsdy)**2)
+print(mean(obsdy**2))
+q()
+      }
+      En2o_t<-array(data=NA,dim=c(nnscales))
+      En2o_t[]<-rowMeans(En2o_boot,na.rm=T)  
+      En2o_t[nnscales]<-sum(En2o_t[1:(nnscales-1)],na.rm=T)
+      if (!file.exists(argv$ffout_summ_stat) | 
+          !argv$ffout_summ_stat_append) {
+        str<-"time;"
+        for (aux in 1:nnscales) 
+          str<-paste0(str,
+                      "En2_",
+                      formatC(listscales[aux],width=4,flag="0"),
+                      "km;")
+        str<-paste0(str,"\n")
+        cat(file=argv$ffout_summ_stat,append=F,str)
+        rm(str,aux)
+      }
+      cat(file=argv$ffout_summ_stat,append=T,
+          paste(t_to_read,
+                gsub(",",";",toString(round(En2o_t,9))),"\n",sep=";"))
+      rm(obs,En2o_boot,En2o_t,Eo.dwt)
+    } #endif summ_stat_fun=="wave_nrgx"
+     else if (argv$summ_stat_fun=="standard") {
+      if (!file.exists(argv$ffout_summ_stat)) {
+        cat(file=argv$ffout_summ_stat,append=F,
+            "time;mean;stdev;min;q01;q05;q10;q20;q25;q50;q75;q80;q90;q95;q99;max;\n")
+      }
+      obs<-getValues(r)[which(!is.na(getValues(r)))]
+      if (length(obs)>0) {
+        qvec<-as.vector(quantile(obs,
+              probs=c(0,0.01,0.05,0.1,0.2,0.25,0.5,0.75,0.8,0.9,0.95,0.99,1)))
+        cat(file=argv$ffout_summ_stat,append=T,
+            paste0(t_to_read,
+                   round(mean(obs),3),";",
+                   round(sd(obs),3),";",
+                   round(qvec[1],3),";",
+                   round(qvec[2],3),";",
+                   round(qvec[3],3),";",
+                   round(qvec[4],3),";",
+                   round(qvec[5],3),";",
+                   round(qvec[6],3),";",
+                   round(qvec[7],3),";",
+                   round(qvec[8],3),";",
+                   round(qvec[9],3),";",
+                   round(qvec[10],3),";",
+                   round(qvec[11],3),";",
+                   round(qvec[12],3),";",
+                   round(qvec[13],3),"\n"))
+      }
+    } #endif summ_stat_fun=="standard"
+  }
+  #----------------------------------------------------------------------------
   # store in a raster stack 
-  if (!exists("s"))  {
-    s<-r
-  } else {
-    s<-stack(s,r)
+  if (gridded_output )  {
+    if (!exists("s"))  {
+      s<-r
+    } else {
+      s<-stack(s,r)
+    }
   }
   n<-n+1
   t_ok[n]<-t
@@ -749,102 +859,111 @@ for (t in 1:n_tseq) {
 } # end time loop
 #------------------------------------------------------------------------------
 # Aggregate gridpoint-by-gridpoint over time
-if (argv$time_aggregation) {
-  if ((n/n_tseq)>=argv$frac) {
-    # set weights
-    weights_aux<-suppressWarnings(
-                   as.numeric(strsplit(argv$fun_weights,",")[[1]])
-                 [which(!is.na(
-                   as.numeric(strsplit(argv$fun_weights,",")[[1]])))])
-    n_aux<-length(weights_aux)
-    weights<-rep(NA,n)
-    weights[1]<-weights_aux[1]
-    weights[2:(n-1)]<-rep(weights_aux[2:(n_aux-1)],n)[1:(n-2)]
-    weights[n]<-weights_aux[n_aux]
-    rm(weights_aux)
-    # apply function
-    if (!any(weights!=1)) {
-      if (argv$fun=="sum")  r<-sum(s,na.rm=T)
-      if (argv$fun=="mean") r<-mean(s,na.rm=T)
-      if (argv$fun=="max")  r<-max(s,na.rm=T)
-      if (argv$fun=="min")  r<-min(s,na.rm=T)
-      if (argv$fun=="radar_mean")  {
-        first<-T
-        for (t in 1:n) {
-          weight<-ifelse(format(tseq[t_ok[t]],format="%M%S",tz="GMT")=="0000",
-                         0.5,1)
-          dat<-getValues(subset(s,subset=t))
-          if (first) {
-            dat_mean<-dat
-            dat_cont<-dat
-            dat_cont[]<-NA 
-            dat_cont[!is.na(dat)]<-1
-            first<-F
-          } else {
-            ix_nona<-which(!is.na(dat))
-            ix_nonas<-which(!is.na(dat) & is.na(dat_cont))
-            if (length(ix_nonas)>0) {
-              dat_cont[ix_nonas]<-0
-              dat_mean[ix_nonas]<-0
+if (gridded_output)  {
+  if (argv$time_aggregation) {
+    if ((n/n_tseq)>=argv$frac) {
+      # set weights
+      weights_aux<-suppressWarnings(
+                     as.numeric(strsplit(argv$fun_weights,",")[[1]])
+                   [which(!is.na(
+                     as.numeric(strsplit(argv$fun_weights,",")[[1]])))])
+      n_aux<-length(weights_aux)
+      weights<-rep(NA,n)
+      weights[1]<-weights_aux[1]
+      weights[2:(n-1)]<-rep(weights_aux[2:(n_aux-1)],n)[1:(n-2)]
+      weights[n]<-weights_aux[n_aux]
+      rm(weights_aux)
+      # apply function
+      if (!any(weights!=1)) {
+        if (argv$fun=="sum")  r<-sum(s,na.rm=T)
+        if (argv$fun=="mean") r<-mean(s,na.rm=T)
+        if (argv$fun=="max")  r<-max(s,na.rm=T)
+        if (argv$fun=="min")  r<-min(s,na.rm=T)
+        if (argv$fun=="radar_mean")  {
+          first<-T
+          for (t in 1:n) {
+            weight<-ifelse(format(tseq[t_ok[t]],format="%M%S",tz="GMT")=="0000",
+                           0.5,1)
+            dat<-getValues(subset(s,subset=t))
+            if (first) {
+              dat_mean<-dat
+              dat_cont<-dat
+              dat_cont[]<-NA 
+              dat_cont[!is.na(dat)]<-1
+              first<-F
+            } else {
+              ix_nona<-which(!is.na(dat))
+              ix_nonas<-which(!is.na(dat) & is.na(dat_cont))
+              if (length(ix_nonas)>0) {
+                dat_cont[ix_nonas]<-0
+                dat_mean[ix_nonas]<-0
+              }
+              if (length(ix_nona)>0) {
+                dat_cont[ix_nona]<-dat_cont[ix_nona]+1
+                dat_mean[ix_nona]<-dat_mean[ix_nona]+
+                        (weight*dat[ix_nona]-dat_mean[ix_nona])/
+                        dat_cont[ix_nona]
+              }
+              rm(ix_nona,ix_nonas)
             }
-            if (length(ix_nona)>0) {
-              dat_cont[ix_nona]<-dat_cont[ix_nona]+1
-              dat_mean[ix_nona]<-dat_mean[ix_nona]+
-                      (weight*dat[ix_nona]-dat_mean[ix_nona])/dat_cont[ix_nona]
-            }
-            rm(ix_nona,ix_nonas)
+            rm(dat,weight)
           }
-          rm(dat,weight)
+          r<-subset(s,subset=1)
+          r[]<-NA
+          ix<-which(!is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
+          if (length(ix)>0) r[ix]<-dat_mean[ix]
+          rm(dat_mean,dat_cont,first,ix)
         }
-        r<-subset(s,subset=1)
-        r[]<-NA
-        ix<-which(!is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
-        if (length(ix)>0) r[ix]<-dat_mean[ix]
-        rm(dat_mean,dat_cont,first,ix)
-      }
-    } # here should start the case where the weights are different from 1
-  } else {
-    boom(paste("number of time steps available=",n," is less than required"))
+      } # here should start the case where the weights are different from 1
+    } else {
+      boom(paste("number of time steps available=",n," is less than required"))
+    }
   }
-}
+} # endif exists "s"
+#
 #------------------------------------------------------------------------------
-# Adjust output
-if (!exists("r")) r<-s
-if (!is.na(argv$correction_factor)) r<-r*argv$correction_factor
-if (!is.na(argv$offset)) r<-r+argv$offset
-#------------------------------------------------------------------------------
-# Write output
-xy<-xyFromCell(r,1:ncell(r))
-x<-sort(unique(xy[,1]))
-y<-sort(unique(xy[,2]),decreasing=T)
-r.list<-list()
-grid<-array(data=NA,dim=c(length(x),length(y)))
-grid[,]<-matrix(data=r, ncol=length(y), nrow=length(x))
-r.list[[1]]<-grid
-rm(grid,r)
-out<-write_dotnc(grid.list=r.list,
-                 times=format(strptime(argv$date_out,argv$date_out.format),"%Y%m%d%H%M"),
-                 file.name=argv$ffout,
-                 grid.type=argv$ffout_gridtype,
-                 x=x,
-                 y=y,
-                 var.name=argv$ffout_varname,
-                 var.longname=argv$ffout_varlongname,
-                 var.standardname=argv$ffout_varstandardname,
-                 var.version=argv$ffout_varversion,
-                 times.unit=argv$ffout_times_unit,
-                 reference=argv$ffout_reference,
-                 proj4.string=argv$ffout_proj4,
-                 var.unit=argv$ffout_varunit,
-                 lonlat.out=argv$ffout_lonlat,
-                 round.dig=argv$ffout_diground,
-                 summary=argv$ffout_summary,
-                 source.string=argv$ffout_sourcestring,
-                 title=argv$ffout_title,
-                 comment=argv$ffout_comment,
-                 atts.var.add=NULL)
-t1<-Sys.time()
-print(paste("writing output file",argv$ffout," / time",round(t1-t0,1),attr(t1-t0,"unit")))
+# Gridded output
+if (gridded_output)  {
+  # adjust 
+  if (!exists("r")) r<-s
+  rm(s)
+  if (!is.na(argv$correction_factor)) r<-r*argv$correction_factor
+  if (!is.na(argv$offset)) r<-r+argv$offset
+  # write
+  xy<-xyFromCell(r,1:ncell(r))
+  x<-sort(unique(xy[,1]))
+  y<-sort(unique(xy[,2]),decreasing=T)
+  r.list<-list()
+  grid<-array(data=NA,dim=c(length(x),length(y)))
+  grid[,]<-matrix(data=r, ncol=length(y), nrow=length(x))
+  r.list[[1]]<-grid
+  rm(grid,r)
+  out<-write_dotnc(grid.list=r.list,
+                   times=format(strptime(argv$date_out,
+                                         argv$date_out.format),"%Y%m%d%H%M"),
+                   file.name=argv$ffout,
+                   grid.type=argv$ffout_gridtype,
+                   x=x,
+                   y=y,
+                   var.name=argv$ffout_varname,
+                   var.longname=argv$ffout_varlongname,
+                   var.standardname=argv$ffout_varstandardname,
+                   var.version=argv$ffout_varversion,
+                   times.unit=argv$ffout_times_unit,
+                   reference=argv$ffout_reference,
+                   proj4.string=argv$ffout_proj4,
+                   var.unit=argv$ffout_varunit,
+                   lonlat.out=argv$ffout_lonlat,
+                   round.dig=argv$ffout_diground,
+                   summary=argv$ffout_summary,
+                   source.string=argv$ffout_sourcestring,
+                   title=argv$ffout_title,
+                   comment=argv$ffout_comment,
+                   atts.var.add=NULL)
+  t1<-Sys.time()
+  print(paste("writing output file",argv$ffout,
+              " / time",round(t1-t0,1),attr(t1-t0,"unit")))
+} # endif exists "s"
 #------------------------------------------------------------------------------
 # Normal exit
 q(status=0) 
