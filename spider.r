@@ -561,6 +561,7 @@ if (!file.exists(ffread<-file.path(argv$spider_path,"lib","read_griddeddata.r"))
   boom(paste("file not found",ffread))
 source(ffread)
 t_ok<-vector()
+first<-T
 for (t in 1:n_tseq) {
   ffin<-replaceDate(string=argv$ffin_template,
                     date.str=format(tseq[t],
@@ -923,7 +924,7 @@ for (t in 1:n_tseq) {
       # Total squared-energy, sum(En2o) == mean(obs^2)
       En2o_t[(nnscales+1)]<-sum(En2o_t[1:nnscales],na.rm=T)
       if (!file.exists(argv$ffout_summ_stat) | 
-          !argv$ffout_summ_stat_append) {
+          (!argv$ffout_summ_stat_append & first)) {
         str<-"time;"
         for (aux in 1:nnscales) 
           str<-paste0(str,
@@ -941,7 +942,7 @@ for (t in 1:n_tseq) {
     } #endif summ_stat_fun=="wave_nrgx"
      else if (argv$summ_stat_fun=="standard") {
       if (!file.exists(argv$ffout_summ_stat) | 
-          !argv$ffout_summ_stat_append) {
+          (!argv$ffout_summ_stat_append & first)) {
         cat(file=argv$ffout_summ_stat,append=F,
             paste0("time;mean;stdev;min;",
                    "q01;q05;q10;q20;q25;q50;q75;q80;q90;q95;q99;",
@@ -983,6 +984,7 @@ for (t in 1:n_tseq) {
   n<-n+1
   t_ok[n]<-t
   rm(r,values)
+  first<-F
 } # end time loop
 #------------------------------------------------------------------------------
 # Aggregate gridpoint-by-gridpoint over time
