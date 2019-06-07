@@ -161,9 +161,21 @@ p<- add_argument(p, "--ffout_summ_stat",
                  help="full file name for the summary statistics",
                  type="character",
                  default="summstat.txt")
-p <- add_argument(p, "--ffout_summ_stat_append",
-                  help="append output",
-                  flag=T)
+p<- add_argument(p, "--ffout_summ_stat_append",
+                 help="append output",
+                 flag=T)
+p<- add_argument(p, "--summ_stat_condition_threshold",
+                 help="apply statistics on a selection of cases, where the field has at least \"ncells\" (or a fraction \"fcells\" of not NAs values) with a value higher than \"threshold\" ",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--summ_stat_condition_ncells",
+                 help="apply statistics on a selection of cases, where the field has at least \"ncells\" (or a fraction \"fcells\" of not NAs values) with a value higher than \"threshold\"",
+                 type="numeric",
+                 default=NA)
+p<- add_argument(p, "--summ_stat_condition_fcells",
+                 help="apply statistics on a selection of cases, where the field has at least \"ncells\" (or a fraction \"fcells\" of not NAs values) with a value higher than \"threshold\"",
+                 type="numeric",
+                 default=NA)
 #..............................................................................
 p <- add_argument(p, "--correction_factor",
                   help="correction factor",
@@ -483,6 +495,7 @@ if (argv$time_aggregation | argv$upscale | argv$downscale | argv$latte)
 #
 if (argv$summ_stat & argv$summ_stat_fun=="wave_nrgx") 
   suppressPackageStartupMessages(library("waveslim"))
+argv$summ_stat_condition_threshold<-as.numeric(gsub("_","-",argv$summ_stat_condition_threshold))
 #-----------------------------------------------------------------------------
 # Multi-cores run
 if (!is.na(argv$cores)) {
@@ -585,9 +598,20 @@ for (t in 1:n_tseq) {
               extent(argv$crop[1],argv$crop[2],argv$crop[3],argv$crop[4]))
     } else {
       coord.new<-spTransform( 
-                  SpatialPoints(xyFromCell(r,ix),
+                  SpatialPoints(rbind(c(argv$crop[1],argv$crop[3]),
+                                      c(argv$crop[1],argv$crop[4]),
+                                      c(argv$crop[2],argv$crop[3]),
+                                      c(argv$crop[2],argv$crop[4])),
                                  proj4string=CRS(argv$crop_proj4)) 
                                             ,CRS(argv$ffin_proj4))
+      bbox<-attr(coord.new,"bbox")
+      r<-crop(r,
+              extent(bbox[1,1],bbox[1,2],bbox[2,1],bbox[2,2]))
+      rm(coord.new,bbox)
+    }
+    if (!any(!is.na(values<-getValues(r)))) {
+      print(paste("warning: all NAs after crop"))
+      next
     }
   }
   #----------------------------------------------------------------------------
@@ -616,6 +640,10 @@ for (t in 1:n_tseq) {
     if (argv$master_mask) r1<-mask(r1,mask=rmaster)
     r<-r1
     rm(r1,coord.new)
+    if (!any(!is.na(values<-getValues(r)))) {
+      print(paste("warning: all NAs after upscale"))
+      next
+    }
   }
   #----------------------------------------------------------------------------
   # Downscale to finer grid
@@ -634,6 +662,10 @@ for (t in 1:n_tseq) {
     if (argv$master_mask) r1<-mask(r1,mask=rmaster)
     r<-r1
     rm(r1)
+    if (!any(!is.na(values<-getValues(r)))) {
+      print(paste("warning: all NAs after downscale"))
+      next
+    }
   }
   #----------------------------------------------------------------------------
   # Interpolation over master grid based on a non-linear vertical profile
@@ -731,6 +763,10 @@ for (t in 1:n_tseq) {
     cat("there you are!\n")
     r<-rmaster; r[]<-NA
     r[ix_ma]<-arr
+    if (!any(!is.na(values<-getValues(r)))) {
+      print(paste("warning: all NAs after latte"))
+      next
+    }
   }
   #----------------------------------------------------------------------------
   # radar data quality control
@@ -753,51 +789,139 @@ for (t in 1:n_tseq) {
       }
       r[which(getValues(u)==1)]<-NA
     } # end for v
+    if (!any(!is.na(values<-getValues(r)))) {
+      print(paste("warning: all NAs after radar dqc"))
+      next
+    }
   } 
   #----------------------------------------------------------------------------
   # convert from equivalent_reflectivity_factor to rain rate (mm/h) 
   if (argv$reflectivity_to_precip) { 
-   r<-(10**(r/10)/200)**(5/8)
+    r<-(10**(r/10)/200)**(5/8)
+    if (!any(!is.na(values<-getValues(r)))) {
+      print(paste("warning: all NAs after transforming reflectivity to precip"))
+      next
+    }
   } 
   #----------------------------------------------------------------------------
   # summary statistics 
-  if (argv$summ_stat) { 
+  if (argv$summ_stat) {
+    if (length( ixvalid<-which(!is.na(values)) )>0) {
+      ncells<-NA
+      fcells<-NA
+      if (!is.na(argv$summ_stat_condition_threshold)) {
+        ixtrue<-which( !is.na(values) & 
+                       values>argv$summ_stat_condition_threshold )
+        ncells<-length(ixtrue) 
+        fcells<-length(ixtrue)/length(ixvalid)
+        if ( !is.na(argv$summ_stat_condition_ncells) &
+             ncells<argv$summ_stat_condition_ncells ) 
+          next
+        if ( !is.na(argv$summ_stat_condition_fcells) &
+             fcells<argv$summ_stat_condition_fcells ) 
+          next
+      } 
+    } else {
+      next
+    }
     if (argv$summ_stat_fun=="wave_nrgx") {
-      obs<-as.matrix(r)
-      obs[is.na(obs)]<-0
       if (!exists("nnboot")) {
-        mindim<-min(dim(obs))
-        maxdim<-max(dim(obs))
+        mindim<-min(dim(r)[1:2])
+        resx<-res(r)[1]
+        resy<-res(r)[2]
+        # number of bootstrap samples
         nnboot<-10
+        # largest spatial scale (#cells) within the domain
         dimdy<-2**floor(log2(mindim))
+        # number of scales 1,...,dimdy
         nnscales<-log2(dimdy)+1
-        listscales<-2^(seq(1,nnscales)-1)*1
-        spandim1<-(dim(obs)[1]-dimdy)+1
-        spandim2<-(dim(obs)[2]-dimdy)+1
-        iistart<-round(runif(nnboot,min=1,max=spandim1))
-        jjstart<-round(runif(nnboot,min=1,max=spandim2))
+        # scales 1,...,dimdy (#cells)
+        listscales<-2**(seq(1,nnscales)-1)*1#cell
+        # select bootstrap grids SW corners 
+        spanx<-ncol(r)-dimdy
+        spany<-nrow(r)-dimdy
+        xsw<-xmin(r)+
+             round(runif(nnboot,min=0,max=spanx))*resx
+        ysw<-ymin(r)+
+             round(runif(nnboot,min=0,max=spany))*resy
       }
       En2o_boot<-array(data=NA,dim=c(nnscales,nnboot))
       for(boot in seq(1,nnboot)){
-        obsdy<-obs[iistart[boot]:(iistart[boot]+dimdy-1),
-                   jjstart[boot]:(jjstart[boot]+dimdy-1)]
-        N<-log2(dim(obsdy)[1])
-        Eo.dwt<-dwt.2d(obsdy, wf = "haar", J = N)
+        boots<-formatC(boot,width=2,flag="0")
+        # dimdy x dimdy grid
+        rboot_ext<-extent(xsw[boot],xsw[boot]+resx*dimdy,
+                          ysw[boot],ysw[boot]+resy*dimdy)
+        rboot<-crop(r,rboot_ext)
+        if (usemask<-any(is.na(getValues(rboot)))) {
+          rbootmask<-aggregate(rboot,fact=8,fun=mean,na.rm=F)
+          rbootmask<-disaggregate(rbootmask,fact=8)
+        }
+        obs<-as.matrix(rboot)
+        obs[is.na(obs)]<-0
+        # N= nnscales-1
+        N<-log2(dim(rboot)[1])
+        Eo.dwt<-dwt.2d(obs, wf = "haar", J = N)
         En2o<-vector(mode="numeric",length=N)
         for (i in 1:N) {
-          En2o[i] <- mean((Eo.dwt[[1 + 3 * (i - 1)]]/2^i)^2) + 
-                     mean((Eo.dwt[[2 + 3 * (i - 1)]]/2^i)^2) +
-                     mean((Eo.dwt[[3 + 3 * (i - 1)]]/2^i)^2)
+          is<-formatC(i,width=2,flag="0")
+          if (usemask) {
+            ragg1<-raster(ext=rboot_ext,
+                          res=c(2**i*resx,2**i*resy),
+                          crs=crs(r), vals=NA)
+            ragg2<-ragg1; ragg3<-ragg1
+            ragg1[]<-(Eo.dwt[[1+3*(i-1)]]/2**i)**2
+            ragg2[]<-(Eo.dwt[[2+3*(i-1)]]/2**i)**2
+            ragg3[]<-(Eo.dwt[[3+3*(i-1)]]/2**i)**2
+            En2o[i] <- cellStats(mask(disaggregate(ragg1,fact=2**i),rbootmask),stat="mean",na.rm=T) + 
+                       cellStats(mask(disaggregate(ragg2,fact=2**i),rbootmask),stat="mean",na.rm=T) +
+                       cellStats(mask(disaggregate(ragg3,fact=2**i),rbootmask),stat="mean",na.rm=T) 
+            rm(ragg1,ragg2,ragg3) 
+          } else {
+            En2o[i] <- mean((Eo.dwt[[1 + 3 * (i - 1)]]/2^i)^2) + 
+                       mean((Eo.dwt[[2 + 3 * (i - 1)]]/2^i)^2) +
+                       mean((Eo.dwt[[3 + 3 * (i - 1)]]/2^i)^2)
+
+          }
+#          ragg1<-raster(ext=rboot_ext,
+#                        res=c(2**i*resx,2**i*resy),
+#                        crs=crs(r), vals=NA)
+#          ragg2<-ragg1; ragg3<-ragg1
+#          ragg1[]<-(Eo.dwt[[1+3*(i-1)]]/2**i)**2
+#          ragg2[]<-(Eo.dwt[[2+3*(i-1)]]/2**i)**2
+#          ragg3[]<-(Eo.dwt[[3+3*(i-1)]]/2**i)**2
+#          png(file=paste0("map_",boots,"_comp_",is,"_1.png"),
+#              width=800,height=800)
+#          plot(ragg1)
+#          dev.off()
+#          png(file=paste0("map_",boots,"_comp_",is,"_2.png"),
+#              width=800,height=800)
+#          plot(ragg2)
+#          dev.off()
+#          png(file=paste0("map_",boots,"_comp_",is,"_3.png"),
+#              width=800,height=800)
+#          plot(ragg3)
+#          dev.off()
         }
+        # energies of mother wavelets
         En2o_boot[1:N,boot]<-En2o[1:N]
-print(En2o[1:N])
-print(sum(En2o)+mean(obsdy)**2)
-print(mean(obsdy**2))
-q()
+        # nnscales = N+1, energy of the father wavelet = mean(obs)**2
+        En2o_boot[(N+1),boot]<-cellStats(rboot,stat="mean",na.rm=T)**2
+#        png(file=paste0("map_",boots,".png"),width=800,height=800)
+#        plot(rboot,breaks=c(0,0.1,0.5,1,2,3,4,5,15),
+#             col=c("gray",rev(rainbow(7))))
+#        dev.off()
+#        png(file=paste0("nrgx_",boots,".png"),width=800,height=800)
+#        plot(En2o_boot[,boot],ylim=c(0,2),axes=F)
+#        axis(1,labels=listscales,at=1:nnscales)
+#        axis(2)
+#        abline(h=0)
+#        dev.off()
       }
-      En2o_t<-array(data=NA,dim=c(nnscales))
-      En2o_t[]<-rowMeans(En2o_boot,na.rm=T)  
-      En2o_t[nnscales]<-sum(En2o_t[1:(nnscales-1)],na.rm=T)
+      # control sum(En2o) == mean(obs^2)
+      En2o_t<-array(data=NA,dim=c(nnscales+1))
+      En2o_t[1:nnscales]<-rowMeans(En2o_boot,na.rm=T)  
+      # Total squared-energy, sum(En2o) == mean(obs^2)
+      En2o_t[(nnscales+1)]<-sum(En2o_t[1:nnscales],na.rm=T)
       if (!file.exists(argv$ffout_summ_stat) | 
           !argv$ffout_summ_stat_append) {
         str<-"time;"
@@ -805,8 +929,8 @@ q()
           str<-paste0(str,
                       "En2_",
                       formatC(listscales[aux],width=4,flag="0"),
-                      "km;")
-        str<-paste0(str,"\n")
+                      ";")
+        str<-paste0("En2_tot;",str,"\n")
         cat(file=argv$ffout_summ_stat,append=F,str)
         rm(str,aux)
       }
@@ -816,32 +940,35 @@ q()
       rm(obs,En2o_boot,En2o_t,Eo.dwt)
     } #endif summ_stat_fun=="wave_nrgx"
      else if (argv$summ_stat_fun=="standard") {
-      if (!file.exists(argv$ffout_summ_stat)) {
+      if (!file.exists(argv$ffout_summ_stat) | 
+          !argv$ffout_summ_stat_append) {
         cat(file=argv$ffout_summ_stat,append=F,
-            "time;mean;stdev;min;q01;q05;q10;q20;q25;q50;q75;q80;q90;q95;q99;max;\n")
+            paste0("time;mean;stdev;min;",
+                   "q01;q05;q10;q20;q25;q50;q75;q80;q90;q95;q99;",
+                   "max;thr_gt;ncell;fcell\n"))
       }
-      obs<-getValues(r)[which(!is.na(getValues(r)))]
-      if (length(obs)>0) {
-        qvec<-as.vector(quantile(obs,
-              probs=c(0,0.01,0.05,0.1,0.2,0.25,0.5,0.75,0.8,0.9,0.95,0.99,1)))
-        cat(file=argv$ffout_summ_stat,append=T,
-            paste0(t_to_read,
-                   round(mean(obs),3),";",
-                   round(sd(obs),3),";",
-                   round(qvec[1],3),";",
-                   round(qvec[2],3),";",
-                   round(qvec[3],3),";",
-                   round(qvec[4],3),";",
-                   round(qvec[5],3),";",
-                   round(qvec[6],3),";",
-                   round(qvec[7],3),";",
-                   round(qvec[8],3),";",
-                   round(qvec[9],3),";",
-                   round(qvec[10],3),";",
-                   round(qvec[11],3),";",
-                   round(qvec[12],3),";",
-                   round(qvec[13],3),"\n"))
-      }
+      qvec<-as.vector(quantile(values[ixvalid],
+            probs=c(0,0.01,0.05,0.1,0.2,0.25,0.5,0.75,0.8,0.9,0.95,0.99,1)))
+      cat(file=argv$ffout_summ_stat,append=T,
+          paste0(t_to_read,";",
+                 round(mean(values[ixvalid]),3),";",
+                 round(sd(values[ixvalid]),3),";",
+                 round(qvec[1],3),";",
+                 round(qvec[2],3),";",
+                 round(qvec[3],3),";",
+                 round(qvec[4],3),";",
+                 round(qvec[5],3),";",
+                 round(qvec[6],3),";",
+                 round(qvec[7],3),";",
+                 round(qvec[8],3),";",
+                 round(qvec[9],3),";",
+                 round(qvec[10],3),";",
+                 round(qvec[11],3),";",
+                 round(qvec[12],3),";",
+                 round(qvec[13],3),";",
+                 round(argv$summ_stat_condition_threshold,4),";",
+                 round(ncells,0),";",
+                 round(fcells,4),"\n"))
     } #endif summ_stat_fun=="standard"
   }
   #----------------------------------------------------------------------------
