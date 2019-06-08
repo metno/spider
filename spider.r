@@ -931,7 +931,7 @@ for (t in 1:n_tseq) {
                       "En2_",
                       formatC(listscales[aux],width=4,flag="0"),
                       ";")
-        str<-paste0("En2_tot;",str,"\n")
+        str<-paste0(str,"En2_tot;\n")
         cat(file=argv$ffout_summ_stat,append=F,str)
         rm(str,aux)
       }
