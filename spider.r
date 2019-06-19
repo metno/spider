@@ -39,6 +39,14 @@ proj4.lcc<-"+proj=lcc +lat_0=63 +lon_0=15 +lat_1=63 +lat_2=63 +no_defs +R=6.371e
 #+ Manage errors
 boom<-function(str,status=1) { print(str); q(status=status) }
 
+#+ Box-Cox transformation
+boxcox<-function(x,lambda) {
+  if (lambda==0) {
+    return(log(x))
+  } else {
+    return((x**lambda-1)/lambda)
+  }
+}
 #==============================================================================
 # MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN -
 #==============================================================================
@@ -58,7 +66,7 @@ p <- add_argument(p, "--date.format",
                   type="character",
                   default="%Y-%m-%dT%H")
 p <- add_argument(p, "--ffin_date.format",
-                  help="format of the date/time",
+                  help="format of the input date/time",
                   type="character",
                   default="%Y-%m-%dT%H")
 #
@@ -146,6 +154,19 @@ p <- add_argument(p, "--reflectivity_to_precip",
                   help="transform reflectivity to precipitation rate",
                   flag=T)
 #..............................................................................
+p <- add_argument(p, "--gridded_dqc",
+                  help="data quality control over gridded data",
+                  flag=T)
+p <- add_argument(p, "--gridded_dqc.min",
+                  help="minimum allowed value",
+                  type="numeric",
+                  default=0)
+p <- add_argument(p, "--gridded_dqc.max",
+                  help="maximum allowed value",
+                  type="numeric",
+                  default=200)
+
+#..............................................................................
 p <- add_argument(p, "--time_aggregation",
                   help="aggregate data over time dimension (default=T if all others=F)",
                   flag=T)
@@ -198,6 +219,12 @@ p<- add_argument(p, "--frac",
                  help="fraction of available data",
                  type="numeric",
                  default=0.9)
+p<- add_argument(p, "--fill_gaps",
+                 help="fill the gaps before applying \"fun\"",
+                 flag=T)
+p<- add_argument(p, "--stop_if_two_gaps",
+                 help="\"fill the gaps\" mode, stop if two consecutive gaps are found",
+                 flag=T)
 #..............................................................................
 p <- add_argument(p, "--master_trim",
                   help="should we apply \"trim\" function to the master?",
@@ -796,6 +823,93 @@ for (t in 1:n_tseq) {
     }
   } 
   #----------------------------------------------------------------------------
+  # data quality control
+  if (argv$gridded_dqc) {
+    suppressPackageStartupMessages(library("igraph"))
+    rval<-getValues(r)
+    # a. remove unplausible values
+    r[which(rval<argv$gridded_dqc.min | rval>argv$gridded_dqc.max)]<-NA
+    # b. remove patches of connected cells that are too small
+    #  check for small and isolated clumps (patches) of connected cells with 
+    #  precipitation greater than a predefined threshold
+    #   threshold 0 mm/h. remove all the clumps made of less than 100 cells
+    #   threshold 1 mm/h. remove all the clumps made of less than 50 cells
+    dqc.clump.thr<-c(0,1)
+    dqc.clump.n<-c(100,50)
+    for (i in 1:length(dqc.clump.thr)) {
+      raux<-r
+      if (any(rval<=dqc.clump.thr[i])) 
+        raux[which(rval<=dqc.clump.thr[i])]<-NA
+      rclump<-clump(raux)
+      fr<-freq(rclump)
+      ix<-which(!is.na(fr[,2]) & fr[,2]<=dqc.clump.n[i])
+      if (length(ix)>0) {
+        rval[getValues(rclump) %in% fr[ix,1]]<-NA
+        r[]<-rval
+      }
+      rm(raux,fr,ix,rclump)
+    }
+    # c. remove outliers. Check for outliers in square boxes of 51km by 51km
+    t0a<-Sys.time()
+    raux<-r
+    daux<-boxcox(x=rval,lambda=0.5)
+    raux[]<-daux
+    # compute mean and sd
+    raux_agg<-aggregate(raux,fact=5,fun=mean,na.rm=T)
+    daux_agg<-getValues(raux_agg)
+    ix_aux<-which(!is.na(daux_agg))
+    xyaux<-xyFromCell(raux_agg,ix_aux)
+    xrad_aux<-xyaux[,1]
+    yrad_aux<-xyaux[,2]
+    vrad_aux<-daux_agg[ix_aux]
+    get_rad_stat<-function(i,dh_ref=25000) { 
+      deltax<-abs(xrad_aux[i]-xrad_aux)
+      deltay<-abs(yrad_aux[i]-yrad_aux)
+      ix<-which( deltax<dh_ref & deltay<dh_ref )
+      dist<-deltax; dist[]<-NA
+      dist[ix]<-sqrt(deltax[ix]*deltax[ix]+deltay[ix]*deltay[ix])
+      ix<-which( !is.na(dist) & dist<dh_ref )
+      return(c(mean(vrad_aux[ix]),sd(vrad_aux[ix])))
+    }
+    if (!is.na(argv$cores)) {
+      arr<-mcmapply(get_rad_stat,
+                    1:length(ix_aux),
+                    mc.cores=argv$cores,
+                    SIMPLIFY=T)
+    # no-multicores
+    } else {
+      arr<-mapply(get_rad_stat,
+                  1:length(ix_aux),
+                  SIMPLIFY=T)
+    }
+    raux_agg[]<-NA; raux_agg[ix_aux]<-arr[1,]
+    raux<-disaggregate(raux_agg,fact=5)
+    if (ncell(raux)>ncell(r)) {
+      raux<-crop(raux,r)
+    } else if (ncell(raux)<ncell(r)) {
+      raux<-extend(raux,r)
+    }
+    avg<-getValues(raux)
+    raux_agg[]<-NA; raux_agg[ix_aux]<-arr[2,]
+    raux<-disaggregate(raux_agg,fact=5,method="bilinear",na.rm=T)
+    if (ncell(raux)>ncell(r)) {
+      raux<-crop(raux,r)
+    } else if (ncell(raux)<ncell(r)) {
+      raux<-extend(raux,r)
+    }
+    stdev<-getValues(raux)
+    ix<-which(stdev>0 & !is.na(daux) & !is.na(avg) & !is.na(stdev))
+    rm(arr,raux_agg,ix_aux,xrad_aux,yrad_aux,vrad_aux,daux_agg,xyaux)
+    # outliers are defined as in Lanzante,1997: abs(value-mean)/st.dev > 5
+    suspect<-which((abs(daux[ix]-avg[ix])/stdev[ix])>5) 
+    if (length(suspect)>0) rval[ix[suspect]]<-NA
+    r[]<-rval
+    rm(raux,daux,avg,stdev,ix,suspect,rval)
+    t1a<-Sys.time()
+    print(paste(" remove outliers - time",round(t1a-t0a,1),
+                                          attr(t1a-t0a,"unit")))
+  }
+  #----------------------------------------------------------------------------
   # convert from equivalent_reflectivity_factor to rain rate (mm/h) 
   if (argv$reflectivity_to_precip) { 
     r<-(10**(r/10)/200)**(5/8)
@@ -989,6 +1103,28 @@ for (t in 1:n_tseq) {
 #------------------------------------------------------------------------------
 # Aggregate gridpoint-by-gridpoint over time
 if (gridded_output)  {
+  if (argv$fill_gaps) {
+    imiss<-which(!(1:n_tseq %in% t_ok))
+    nmiss<-length(imiss)
+    if (nmiss>0) {
+      if (any(diff(imiss)==1) & argv$stop_if_two_gaps) 
+        boom(paste("ERROR two consecutive gaps found"))
+      r<-raster(s,layer=1)
+      for (i in imiss) {
+        r[]<-NA
+        iprev<-ifelse(i==1,2,(i-1))
+        inext<-ifelse(i==n_tseq,(n_tseq-1),(i+1))
+        r[]<-(getValues(raster(s,layer=iprev))+getValues(raster(s,layer=inext)))/2
+        if (!any(!is.na(getValues(r))) & argv$stop_if_two_gaps )
+          boom(paste("ERROR two consecutive gaps found"))
+        s<-stack(s,r)
+        n<-n+1
+        t_ok[n]<-i
+      }
+    }
+    if (exists("r")) rm(r,i,iprev,inext)
+    rm(imiss,nmiss)
+  }
   if (argv$time_aggregation) {
     if ((n/n_tseq)>=argv$frac) {
       # set weights
