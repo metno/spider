@@ -160,11 +160,11 @@ p <- add_argument(p, "--gridded_dqc",
 p <- add_argument(p, "--gridded_dqc.min",
                   help="minimum allowed value",
                   type="numeric",
-                  default=0)
+                  default=-10000)
 p <- add_argument(p, "--gridded_dqc.max",
                   help="maximum allowed value",
                   type="numeric",
-                  default=200)
+                  default=10000)
 
 #..............................................................................
 p <- add_argument(p, "--time_aggregation",
@@ -824,6 +824,12 @@ for (t in 1:n_tseq) {
   } 
   #----------------------------------------------------------------------------
   # data quality control
+  # filter out unplausible values, otherwise writing the outpur might crash
+  if (!is.na(argv$gridded_dqc.min) & !is.na(argv$gridded_dqc.max)) {
+    rval<-getValues(r)
+    r[which(rval<argv$gridded_dqc.min | rval>argv$gridded_dqc.max)]<-NA
+    rm(rval)
+  }
   if (argv$gridded_dqc) {
     suppressPackageStartupMessages(library("igraph"))
     rval<-getValues(r)
@@ -1139,6 +1145,7 @@ if (gridded_output)  {
       weights[n]<-weights_aux[n_aux]
       rm(weights_aux)
       # apply function
+      # case of all weights = 1
       if (!any(weights!=1)) {
         if (argv$fun=="sum")  r<-sum(s,na.rm=T)
         if (argv$fun=="mean") r<-mean(s,na.rm=T)
@@ -1179,7 +1186,42 @@ if (gridded_output)  {
           if (length(ix)>0) r[ix]<-dat_mean[ix]
           rm(dat_mean,dat_cont,first,ix)
         }
-      } # here should start the case where the weights are different from 1
+      # use weights
+      } else {
+        print("Using weights")
+        first<-T
+        for (t in t_ok) {
+          dat<-weights[t]*getValues(subset(s,subset=t))
+          if (first) {
+            dat_res<-dat
+            dat_cont<-dat
+            dat_cont[]<-NA 
+            dat_cont[!is.na(dat)]<-1
+            first<-F
+          } else {
+            if (argv$fun=="sum")  dat_res<-dat+dat_res
+            if (argv$fun=="mean") {
+              ix_nona<-which(!is.na(dat))
+              ix_nonas<-which(!is.na(dat) & is.na(dat_cont))
+              if (length(ix_nonas)>0) {
+                dat_cont[ix_nonas]<-0
+                dat_res[ix_nonas]<-0
+              }
+              if (length(ix_nona)>0) {
+                dat_cont[ix_nona]<-dat_cont[ix_nona]+1
+                dat_res[ix_nona]<-dat_res[ix_nona]+
+                        (dat[ix_nona]-dat_res[ix_nona])/
+                        dat_cont[ix_nona]
+              }
+              rm(ix_nona,ix_nonas)
+            }
+            if (argv$fun=="max")  dat_res<-pmax(dat,dat_res,na.rm=T)
+            if (argv$fun=="min")  dat_res<-pmin(dat,dat_res,na.rm=T)
+          }
+        }
+        r<-subset(s,subset=t_ok[1])
+        r[]<-dat_res
+      } # endif use weights
     } else {
       boom(paste("number of time steps available=",n," is less than required"))
     }
