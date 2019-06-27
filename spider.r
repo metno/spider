@@ -239,6 +239,10 @@ p<- add_argument(p, "--ffin_template",
                  help="path to + name (template) of the input observation files",
                  type="character",
                  default="none")
+p<- add_argument(p, "--ffin_template_alternative",
+                 help="path to + name (template) of the input observation files",
+                 type="character",
+                 default=NA)
 p <- add_argument(p, "--ffin_hour_offset",
                   help="hour offset",
                   type="numeric",
@@ -599,7 +603,7 @@ for (t in 1:n_tseq) {
                     hour_string=argv$hour_string,
                     format=argv$ffin_date.format)
   if (!file.exists(ffin)) {
-#    print(paste("file not found",ffin))
+    print(paste("file not found",ffin))
     next
   }
   t_to_read<-format(
@@ -610,9 +614,36 @@ for (t in 1:n_tseq) {
               "%Y%m%d%H%M")
   print(paste("time_to_read time file",t_to_read,tseq[t],ffin))
   r<-read_griddeddata()
+  # case of problems while reading the input file (e.g., missing timestep)
   if (is.null(r)) {
-    print(paste("warning: problem while reading time file",t_to_read,ffin))
-    next
+    # try an alternative input file, if provided
+    if (!is.na(argv$ffin_template_alternative)) {
+      print("---> using alternative input file template")
+      ffin<-replaceDate(string=argv$ffin_template_alternative,
+                        date.str=format(tseq[t],
+                                 format=argv$ffin_date.format,tz="GMT"),
+                        year_string=argv$year_string,
+                        month_string=argv$month_string,
+                        day_string=argv$day_string,
+                        hour_string=argv$hour_string,
+                        format=argv$ffin_date.format)
+      if (!file.exists(ffin)) {
+        print(paste("file not found",ffin))
+        next
+      }
+      t_to_read<-format(
+                  as.POSIXct(
+                   as.numeric(
+        as.POSIXct(tseq[t],format=argv$ffin_date.format,tz="GMT")) 
+        + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
+                  "%Y%m%d%H%M")
+      print(paste("time_to_read time file",t_to_read,tseq[t],ffin))
+      r<-read_griddeddata()
+    }
+    if (is.null(r)) {
+      print(paste("warning: problem while reading time file",t_to_read,ffin))
+      next
+    }
   }
   if (!any(!is.na(values<-getValues(r)))) {
     print(paste("warning: all NAs for time file",t_to_read,ffin))
