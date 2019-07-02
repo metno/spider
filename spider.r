@@ -206,6 +206,14 @@ p <- add_argument(p, "--offset",
                   help="offset",
                   type="numeric",
                   default=NA)
+p <- add_argument(p, "--dem_correction_factor",
+                  help="dem correction factor",
+                  type="numeric",
+                  default=NA)
+p <- add_argument(p, "--dem_offset",
+                  help="dem offset",
+                  type="numeric",
+                  default=NA)
 #..............................................................................
 p<- add_argument(p, "--fun",
                  help="aggregation function",
@@ -1265,8 +1273,6 @@ if (gridded_output)  {
   # adjust 
   if (!exists("r")) r<-s
   rm(s)
-  if (!is.na(argv$correction_factor)) r<-r*argv$correction_factor
-  if (!is.na(argv$offset)) r<-r+argv$offset
   # write
   xy<-xyFromCell(r,1:ncell(r))
   x<-sort(unique(xy[,1]))

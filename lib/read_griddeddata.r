@@ -112,6 +112,13 @@ read_griddeddata<-function(mode="data",var=NA) { #data,master,data_dem,master_de
                                      att=ff_proj4_att),
                        selection=list(t=ff_t,e=ff_e)))
   if (!is.null(raux)) raux<-raux$stack
+  if (mode=="data") {
+    if (!is.na(argv$correction_factor)) raux<-raux*argv$correction_factor
+    if (!is.na(argv$offset)) raux<-raux+argv$offset
+  } else if (mode=="data_dem") {
+    if (!is.na(argv$dem_correction_factor)) raux<-raux*argv$dem_correction_factor
+    if (!is.na(argv$dem_offset)) raux<-raux+argv$dem_offset
+  }  
   raux
 }
 
