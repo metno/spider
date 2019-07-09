@@ -755,6 +755,7 @@ for (t in 1:n_tseq) {
         print(paste("warning: all NAs for master dem file",argv$ffmasterdem))
         next
       }
+      # ix_ma, indexes to points that unmasked and not NAs
       if (length(ix_ma<-which(!is.na(values_ma) & !is.na(values_ma_dem)))==0) {
         print(paste("warning: all NAs for conjunction of master & dem files"))
         next
@@ -828,6 +829,9 @@ for (t in 1:n_tseq) {
                   return_fg_only=T)
     }
     cat("there you are!\n")
+    if (any(is.na(arr))) 
+      print(paste0("@@ warning: problems in regridding over ",length(which(is.na(arr))),
+                   " points"))
     r<-rmaster; r[]<-NA
     r[ix_ma]<-arr
     if (!any(!is.na(values<-getValues(r)))) {
