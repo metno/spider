@@ -262,8 +262,11 @@ oi_var_gridpoint_by_gridpoint<-function(i,
       xb_i<-min(xb_i,fg_max)
     }
   }
-  # probability of error in the estimation of the background
-  if ( (abs(xb_i-mean(yo_spint[ixa]))/max(0.5,sd(yo_spint[ixa])))>5 ) xb_i<-NA
+  # probability of error in the background estimation
+  if (fg=="Frei") {
+    sd<-ifelse(length(ixa)>1,max(0.5,sd(yo_spint[ixa])),0.5)
+    if ( (abs(xb_i-mean(yo_spint[ixa]))/sd)>5 ) xb_i<-NA
+  }
   if (return_fg_only) return(xb_i)
   # correlation matrices
   if (dh_adaptive) {
