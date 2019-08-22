@@ -32,6 +32,7 @@ proj4.wgs84<-"+proj=longlat +datum=WGS84"
 proj4.ETRS_LAEA<-"+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +units=m +no_defs"
 proj4.utm33<-"+proj=utm +zone=33 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"
 proj4.lcc<-"+proj=lcc +lat_0=63 +lon_0=15 +lat_1=63 +lat_2=63 +no_defs +R=6.371e+06"
+ffout_default<-"out.nc"
 
 # -----------------------------------------------------------------------------
 # FUNCTIONS
@@ -47,6 +48,79 @@ boxcox<-function(x,lambda) {
     return((x**lambda-1)/lambda)
   }
 }
+
+#+ select only certain vector elements based on thresholds
+which_threshold<-function(x,threshold,threshold1,type) {
+  if (is.na(type)) {
+    ix<-1:length(x)
+  } else if (type=="below") {
+    ix<-which(x<threshold)
+  } else if (type=="below=") {
+    ix<-which(x<=threshold)
+  } else if (type=="=within") {
+    ix<-which(x>=threshold & x<threshold1) 
+  } else if (type=="within") {
+    ix<-which(x>threshold & x<threshold1) 
+  } else if (type=="within=") {
+    ix<-which(x>threshold & x<=threshold1) 
+  } else if (type=="=within=") {
+    ix<-which(x>=threshold & x<=threshold1) 
+  } else if (type=="above") {
+    ix<-which(x>threshold) 
+  } else if (type=="above=") {
+    ix<-which(x>=threshold) 
+  }
+  ix
+}
+
+#+ compute verification scores 
+score_fun<-function(x,x_ref,
+                    lab="msess",
+                    threshold=NA,
+                    threshold1=NA,
+                    type=NA) {
+  if (lab %in% c("count_x","msess","bias","mae","mbias","rmse","rmsf")) {
+    if (lab=="count_x") {
+      score<-length(which_threshold(x,threshold,threshold1,type=type))
+    } else if (lab=="msess") {
+      ix<-which_threshold(x,threshold,threshold1,type=type)
+      score<-1-mean((x[ix]-x_ref[ix])**2,na.rm=T)/
+               mean((x_ref[ix]-mean(x_ref[ix],na.rm=T))**2,na.rm=T)
+    } else if (lab=="bias") {
+      ix<-which_threshold(x,threshold,threshold1,type=type)
+      score<-mean( x[ix]-x_ref[ix], na.rm=T)
+    } else if (lab=="mae") {
+      ix<-which_threshold(x,threshold,threshold1,type=type)
+      score<-mean( abs(x[ix]-x_ref[ix]), na.rm=T)
+    } else if (lab=="mbias") {
+      ix<-which_threshold(x,threshold,threshold1,type=type)
+      score<-mean( x[ix]/x_ref[ix], na.rm=T)
+    } else if (lab=="rmse") {
+      ix<-which_threshold(x,threshold,threshold1,type=type)
+      score<-mean( (x[ix]-x_ref[ix])**2, na.rm=T)
+    } else if (lab=="rmsf") {
+      ix<-which_threshold(x,threshold,threshold1,type=type)
+      score<-mean( (x[ix]/x_ref[ix])**2, na.rm=T)
+    } else {
+      score<-NA
+    }
+  } else if (lab %in% c("a","b","c","d")) {
+    yes<-which_threshold(x,threshold,threshold1,type=type)
+    yes_ref<-which_threshold(x_ref,threshold,threshold1,type=type)
+    if (length(yes)==0) {no<-1:length(x)} else {no<-(1:length(x))[-yes]}
+    if (length(yes_ref)==0) {no_ref<-1:length(x_ref)} else {no_ref<-(1:length(x_ref))[-yes_ref]}
+    if (lab=="a") { # hit
+      score<-length(which(yes %in% yes_ref))
+    } else if (lab=="b") { # false allarm
+      score<-length(which(yes %in% no_ref))
+    } else if (lab=="c") { # miss
+      score<-length(which(no %in% yes_ref))
+    } else if (lab=="d") { # correct rejection
+      score<-length(which(no %in% no_ref))
+    }
+  }
+  score
+}
 #==============================================================================
 # MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN -
 #==============================================================================
@@ -56,7 +130,8 @@ t0<-Sys.time()
 p <- arg_parser("ffmrr")
 #..............................................................................
 p <- add_argument(p, "date1",
-                  help="period start date",type="character")
+                  help="period start date (if \"none\" then date1 and date2 are derived from file)",
+                  type="character")
 p <- add_argument(p, "--date2",
                   help="period end date",
                   type="character",
@@ -197,6 +272,23 @@ p<- add_argument(p, "--summ_stat_condition_fcells",
                  help="apply statistics on a selection of cases, where the field has at least \"ncells\" (or a fraction \"fcells\" of not NAs values) with a value higher than \"threshold\"",
                  type="numeric",
                  default=NA)
+p <- add_argument(p, "--summ_stat_r",
+                  help="thresholds, used for summ_stat = \"freqdist\"",
+                  type="character",
+                  default=NA,
+                  nargs=Inf)
+p<- add_argument(p, "--summ_stat_b",
+                 help="type. used for summ_stat = \"freqdist\". One of 'below' (< x), 'below=' (<= x), '=within' (<= x <), 'within' (< x <), 'within=' (< x <=), '=within=' (<= x <=), 'above' (> x), or 'above=' (>= x). For threshold plots (ets, hit, within, etc) 'below/above' computes frequency below/above the threshold, and 'within' computes the frequency between consecutive thresholds",
+                 type="character",
+                 default="below")
+#..............................................................................
+p<- add_argument(p, "--ffout_summ_verif",
+                 help="full file name for the summary statistics in verification mode",
+                 type="character",
+                 default="summverif.txt")
+p<- add_argument(p, "--ffout_summ_verif_append",
+                 help="append output",
+                 flag=T)
 #..............................................................................
 p <- add_argument(p, "--correction_factor",
                   help="correction factor",
@@ -240,6 +332,23 @@ p <- add_argument(p, "--master_trim",
 p <- add_argument(p, "--master_mask",
                   help="should we use the master grid to maskout gridpoints?",
                   flag=T)
+#..............................................................................
+p <- add_argument(p, "--verif",
+                  help="verification against a reference dataset",
+                  flag=T)
+p<- add_argument(p, "--verif_metric",
+                 help="verification score",
+                 type="character",
+                 default="bias")
+p <- add_argument(p, "--verif_r",
+                  help="thresholds",
+                  type="numeric",
+                  default=NA,
+                  nargs=Inf)
+p<- add_argument(p, "--verif_b",
+                 help="type One of 'below' (< x), 'below=' (<= x), '=within' (<= x <), 'within' (< x <), 'within=' (< x <=), '=within=' (<= x <=), 'above' (> x), or 'above=' (>= x). For threshold plots (ets, hit, within, etc) 'below/above' computes frequency below/above the threshold, and 'within' computes the frequency between consecutive thresholds",
+                 type="character",
+                 default="below")
 #..............................................................................
 # IO
 # input file(s)
@@ -373,7 +482,7 @@ p <- add_argument(p, "--ffmaster_e",
                   help="ensemble member to read in the netCDF file",
                   type="numeric",
                   default=NA)
-# master grid
+# master grid (digital elevation model)
 p<- add_argument(p, "--ffmasterdem",
                  help="path to + name (template) of the input observation files",
                  type="character",
@@ -406,11 +515,64 @@ p <- add_argument(p, "--ffmasterdem_e",
                   help="ensemble member to read in the netCDF file",
                   type="numeric",
                   default=NA)
+#
+p<- add_argument(p, "--ffin_ref_template",
+                 help="path to + name (template) of the input observation files",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--ffin_ref_template_alternative",
+                 help="path to + name (template) of the input observation files",
+                 type="character",
+                 default=NA)
+p <- add_argument(p, "--ffin_ref_hour_offset",
+                  help="hour offset",
+                  type="numeric",
+                  default=0)
+p <- add_argument(p, "--ffin_ref_varname",
+                  help="variable name in the netCDF file",
+                  type="character",
+                  default="land_area_fraction")
+p <- add_argument(p, "--ffin_ref_topdown",
+                  help="logical, netCDF topdown parameter. If TRUE then turn the fg upside down",
+                  flag=T)
+p <- add_argument(p, "--ffin_ref_ndim",
+                  help="number of dimensions in the netCDF file",
+                  type="numeric",
+                  default=3)
+p <- add_argument(p, "--ffin_ref_tpos",
+                  help="position of the dimension ''time'' in the netCDF file",
+                  type="numeric",
+                  default=3)
+p <- add_argument(p, "--ffin_ref_epos",
+                  help="position of the dimension ''ensemble'' in the netCDF file",
+                  type="numeric",
+                  default=3)
+p <- add_argument(p, "--ffin_ref_dimnames",
+                  help="dimension names in the netCDF file",
+                  type="character",
+                  default=NA,
+                  nargs=Inf)
+p <- add_argument(p, "--ffin_ref_proj4",
+                  help="proj4 string",
+                  type="character",
+                  default="projection_lambert")
+p <- add_argument(p, "--ffin_ref_proj4_var",
+                  help="variable that include the specification of the proj4 string",
+                  type="character",
+                  default="projection_lambert")
+p <- add_argument(p, "--ffin_ref_proj4_att",
+                  help="attribute with the specification of the proj4 string",
+                  type="character",
+                  default="proj4")
+p <- add_argument(p, "--ffin_ref_e",
+                  help="ensemble member to read in the netCDF file",
+                  type="numeric",
+                  default=NA)
 # output file
 p<- add_argument(p, "--ffout",
                  help="output file",
                  type="character",
-                 default="out.nc")
+                 default=ffout_default)
 p<- add_argument(p, "--ffout_gridtype",
                  help="output grid type",
                  type="character",
@@ -495,6 +657,13 @@ p<- add_argument(p, "--sec_string",
                  type="character",
                  default="SS")
 #..............................................................................
+p <- add_argument(p, "--verbose",
+                  help="verbose mode",
+                  flag=T)
+p <- add_argument(p, "--debug",
+                  help="debug mode",
+                  flag=T)
+#..............................................................................
 argv <- parse_args(p)
 #-----------------------------------------------------------------------------
 # read configuration file
@@ -525,16 +694,52 @@ if (!is.na(argv$config_file)) {
 }
 #------------------------------------------------------------------------------
 if (!argv$time_aggregation & !argv$upscale & !argv$downscale & !argv$latte &
-    !argv$summ_stat) 
+    !argv$summ_stat & !argv$verif) 
   argv$time_aggregation<-T
 #
 gridded_output<-F
-if (argv$time_aggregation | argv$upscale | argv$downscale | argv$latte) 
+if (argv$time_aggregation | argv$upscale | argv$downscale | argv$latte | 
+    (argv$verif & argv$ffout!=ffout_default)) 
   gridded_output<-T
 #
 if (argv$summ_stat & argv$summ_stat_fun=="wave_nrgx") 
   suppressPackageStartupMessages(library("waveslim"))
 argv$summ_stat_condition_threshold<-as.numeric(gsub("_","-",argv$summ_stat_condition_threshold))
+# convert character to numbers
+if (any(!is.na(argv$summ_stat_r))) {
+  dots<-any(argv$summ_stat_r=="...")
+  if ( any(argv$summ_stat_r=="...") ) {
+    start<-as.numeric(gsub("_","-",argv$summ_stat_r[1]))
+    by<-as.numeric(gsub("_","-",argv$summ_stat_r[2]))-start
+    stop<-as.numeric(gsub("_","-",argv$summ_stat_r[4]))
+    argv$summ_stat_r<-seq(start,stop,by=by)
+    rm(start,stop,by)    
+  } else {
+    aux<-vector(mode="numeric",length=length(argv$summ_stat_r))
+    for (i in 1:length(argv$summ_stat_r)) 
+      aux[i]<-as.numeric(gsub("_","-",argv$summ_stat_r[i]))
+    argv$summ_stat_r<-aux
+    rm(aux)
+  }
+}
+
+if (any(!is.na(argv$verif_r))) {
+  dots<-any(argv$verif_r=="...")
+  if ( any(argv$verif_r=="...") ) {
+    start<-as.numeric(gsub("_","-",argv$verif_r[1]))
+    by<-as.numeric(gsub("_","-",argv$verif_r[2]))-start
+    stop<-as.numeric(gsub("_","-",argv$verif_r[4]))
+    argv$verif_r<-seq(start,stop,by=by)
+    rm(start,stop,by)    
+  } else {
+    aux<-vector(mode="numeric",length=length(argv$verif_r))
+    for (i in 1:length(argv$verif_r)) 
+      aux[i]<-as.numeric(gsub("_","-",argv$verif_r[i]))
+    argv$verif_r<-aux
+    rm(aux)
+  }
+}
+
 #-----------------------------------------------------------------------------
 # Multi-cores run
 if (!is.na(argv$cores)) {
@@ -544,51 +749,56 @@ if (!is.na(argv$cores)) {
 }
 #------------------------------------------------------------------------------
 # Time sequence
-if (argv$date2=="none") {
-  if ( is.na(argv$time_n_prev) & 
-       is.na(argv$time_n_prev) ) bomb(paste0("error in date definition"))
-  if (!is.na(argv$time_n_prev)) {
-    if (argv$time_unit %in% c("sec","secs","second","seconds")) {
-      aux<-rev(seq(strptime(argv$date1,format=argv$date.format),
-                   length=argv$time_n_prev,
-                   by=(-argv$time_step)))
-    } else {
-      aux<-rev(seq(strptime(argv$date1,format=argv$date.format),
-                   length=argv$time_n_prev,
-                   by=paste((-argv$time_step),argv$time_unit)))
-    }
-    argv$date2<-argv$date1
-    argv$date1_def<-format(aux[1],format=argv$date.format)
-    rm(aux)
-  }
-  if (!is.na(argv$time_n_succ)) {
-    aux<-rev(seq(strptime(argv$date1,format=argv$date.format),length=argv$time_n_succ,by=paste(argv$time_step,argv$time_unit)))
-    argv$date2<-format(aux[1],format=argv$date.format)
-    rm(aux)
-  }
+if (argv$date1=="none") {
+  if (!file.exists(argv$ffin_template)) boom(paste0("file not found",argv$ffin_template))
+  tseq<-as.POSIXlt(str2Rdate(nc4.getTime(argv$ffin_template),format="%Y%m%d%H%M"))
 } else {
-  argv$date1_def<-argv$date1
-}
-#
-if (argv$date_out=="none") {
-  argv$date_out<-argv$date1
-  argv$date_out.format<-argv$date.format
-}
-if (!file.exists(fftimeseq<-file.path(argv$spider_path,"lib","createTimeSeq.r")))
-  boom(paste("file not found",fftimeseq))
-source(fftimeseq)
-tseq<-createTimeSeq(start_date=argv$date1_def,
-                    stop_date=argv$date2,
-                    format=argv$date.format,
-                    time_step=argv$time_step,
-                    unit=argv$time_unit,
-                    season=NULL,
-                    hourOFday.sel=NULL,
-                    dayOFmonth.sel=NULL,
-                    N.prev=NULL,
-                    N.succ=NULL,
-                    RdateOnlyOut=T,
-                    verbose=F)
+  if (argv$date2=="none") {
+    if ( is.na(argv$time_n_prev) & 
+         is.na(argv$time_n_prev) ) bomb(paste0("error in date definition"))
+    if (!is.na(argv$time_n_prev)) {
+      if (argv$time_unit %in% c("sec","secs","second","seconds")) {
+        aux<-rev(seq(strptime(argv$date1,format=argv$date.format),
+                     length=argv$time_n_prev,
+                     by=(-argv$time_step)))
+      } else {
+        aux<-rev(seq(strptime(argv$date1,format=argv$date.format),
+                     length=argv$time_n_prev,
+                     by=paste((-argv$time_step),argv$time_unit)))
+      }
+      argv$date2<-argv$date1
+      argv$date1_def<-format(aux[1],format=argv$date.format)
+      rm(aux)
+    }
+    if (!is.na(argv$time_n_succ)) {
+      aux<-rev(seq(strptime(argv$date1,format=argv$date.format),length=argv$time_n_succ,by=paste(argv$time_step,argv$time_unit)))
+      argv$date2<-format(aux[1],format=argv$date.format)
+      rm(aux)
+    }
+  } else {
+    argv$date1_def<-argv$date1
+  }
+  #
+  if (argv$date_out=="none") {
+    argv$date_out<-argv$date1
+    argv$date_out.format<-argv$date.format
+  }
+  if (!file.exists(fftimeseq<-file.path(argv$spider_path,"lib","createTimeSeq.r")))
+    boom(paste("file not found",fftimeseq))
+  source(fftimeseq)
+  tseq<-createTimeSeq(start_date=argv$date1_def,
+                      stop_date=argv$date2,
+                      format=argv$date.format,
+                      time_step=argv$time_step,
+                      unit=argv$time_unit,
+                      season=NULL,
+                      hourOFday.sel=NULL,
+                      dayOFmonth.sel=NULL,
+                      N.prev=NULL,
+                      N.succ=NULL,
+                      RdateOnlyOut=T,
+                      verbose=F)
+} # end if (argv$date1=="none")
 n_tseq<-length(tseq)
 #------------------------------------------------------------------------------
 # Read Input files
@@ -602,6 +812,7 @@ source(ffread)
 t_ok<-vector()
 first<-T
 for (t in 1:n_tseq) {
+  if (argv$verbose & t%%100==0) print(paste("timestep",t,"/",n_tseq))
   ffin<-replaceDate(string=argv$ffin_template,
                     date.str=format(tseq[t],
                               format=argv$ffin_date.format,tz="GMT"),
@@ -620,7 +831,7 @@ for (t in 1:n_tseq) {
     as.POSIXct(tseq[t],format=argv$ffin_date.format,tz="GMT")) 
     + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
               "%Y%m%d%H%M")
-  print(paste("time_to_read time file",t_to_read,tseq[t],ffin))
+  if (argv$debug) print(paste("time_to_read time file",t_to_read,tseq[t],ffin))
   r<-read_griddeddata()
   # case of problems while reading the input file (e.g., missing timestep)
   if (is.null(r)) {
@@ -645,7 +856,7 @@ for (t in 1:n_tseq) {
         as.POSIXct(tseq[t],format=argv$ffin_date.format,tz="GMT")) 
         + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
                   "%Y%m%d%H%M")
-      print(paste("time_to_read time file",t_to_read,tseq[t],ffin))
+      if (argv$debug) print(paste("time_to_read time file",t_to_read,tseq[t],ffin))
       r<-read_griddeddata()
     }
     if (is.null(r)) {
@@ -656,6 +867,39 @@ for (t in 1:n_tseq) {
   if (!any(!is.na(values<-getValues(r)))) {
     print(paste("warning: all NAs for time file",t_to_read,ffin))
     next
+  }
+  #----------------------------------------------------------------------------
+  # read reference file
+  if (!is.na(argv$ffin_ref_template)) {
+    ffin_ref<-replaceDate(string=argv$ffin_ref_template,
+                          date.str=format(tseq[t],
+                                    format=argv$ffin_date.format,tz="GMT"),
+                          year_string=argv$year_string,
+                          month_string=argv$month_string,
+                          day_string=argv$day_string,
+                          hour_string=argv$hour_string,
+                          format=argv$ffin_date.format)
+    if (!file.exists(ffin_ref)) {
+      print(paste("file not found",ffin_ref))
+      next
+    }
+    t_to_read<-format(
+                as.POSIXct(
+                 as.numeric(
+      as.POSIXct(tseq[t],format=argv$ffin_date.format,tz="GMT")) 
+      + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
+                "%Y%m%d%H%M")
+    if (argv$debug) print(paste("time_to_read time file",t_to_read,tseq[t],ffin_ref))
+    r_ref<-read_griddeddata(mode="ref")
+    # case of problems while reading the input file (e.g., missing timestep)
+    if (is.null(r_ref)) {
+      print(paste("warning: problem while reading time file",t_to_read,ffin_ref))
+      next
+    }
+    if (!any(!is.na(values<-getValues(r_ref)))) {
+      print(paste("warning: all NAs for time file",t_to_read,ffin_ref))
+      next
+    }
   }
   #----------------------------------------------------------------------------
   # crop
@@ -1134,10 +1378,215 @@ for (t in 1:n_tseq) {
                  round(ncells,0),";",
                  round(fcells,4),"\n"))
     } #endif summ_stat_fun=="standard"
+     else if (argv$summ_stat_fun=="freqdist") {
+      # first time in, define variables
+      # NOTE: case of "within", num is a vector with dimension nr-1
+      #       otherwise, num is a vector with dimension nr
+      if (first) {
+        header_string<-integer(0)
+        nr<-length(argv$summ_stat_r)
+        for (i in 1:nr) {
+          if (argv$summ_stat_b=="=within" | argv$summ_stat_b=="within" |
+              argv$summ_stat_b=="within=" | argv$summ_stat_b=="=within=") {
+            if (i<nr) header_string<-paste0(header_string,
+                                            paste0(";num_",argv$summ_stat_b,"_",
+                                                   argv$summ_stat_r[i],"_",
+                                                   argv$summ_stat_r[(i+1)]))
+          } else {
+            header_string<-paste0(header_string,
+                                  paste0(";num_",argv$summ_stat_b,"_",
+                                         argv$summ_stat_r[i]))
+          }
+        }
+        header_string<-paste0(header_string,";numtot")
+        if (argv$summ_stat_b=="=within" | argv$summ_stat_b=="within" |
+            argv$summ_stat_b=="within=" | argv$summ_stat_b=="=within=") {
+          num<-vector(mode="numeric",length=(nr-1))
+        } else {
+          num<-vector(mode="numeric",length=nr)
+        }
+        num[]<-NA
+      }
+      # if required, write the file header
+      if (!file.exists(argv$ffout_summ_stat) | 
+           (!argv$ffout_summ_stat_append & first)) {
+         cat(file=argv$ffout_summ_stat,append=F,
+             paste0("time",header_string,"\n"))
+      }
+      # count the number of cases 
+      val<-getValues(r)
+      numtot<-length(which(!is.na(val)))
+      val<-val[which(!is.na(val))]
+      num[]<-NA
+      for (i in 1:nr) {
+        if ( argv$summ_stat_b %in% c("within","=within","within=","=within=") ) {
+          if (i<nr) num[i]<-score_fun(x=val,lab="count_x",
+                                      threshold=argv$summ_stat_r[i],
+                                      threshold1=argv$summ_stat_r[(i+1)],
+                                      type=argv$summ_stat_b)
+        } else { 
+          num[i]<-score_fun(x=val,lab="count_x",
+                            threshold=argv$summ_stat_r[i],
+                            type=argv$summ_stat_b)
+        }
+      }
+      if (exists("ix")) rm(ix)
+      rm(val)
+      # output
+      data_string<-integer(0)
+      for (i in 1:nr) {
+        if (argv$summ_stat_b=="=within" | argv$summ_stat_b=="within" |
+            argv$summ_stat_b=="within=" | argv$summ_stat_b=="=within=") {
+          if (i<nr) data_string<-paste0(data_string,";",num[i])
+        } else {
+          data_string<-paste0(data_string,";",num[i])
+        }
+      }
+      data_string<-paste0(data_string,";",numtot)
+      cat(file=argv$ffout_summ_stat,append=T,
+          paste0(t_to_read,";",data_string))
+    } #endif summ_stat_fun=="freqdist"
+  } # end if summary statistics
+  #----------------------------------------------------------------------------
+  # prepare for verification statistics 
+  if (argv$verif) {
+    if (gridded_output) {
+      # scores that require to store the whole dataset in memory
+      if (argv$verif_metric=="corr" |
+          argv$verif_metric=="msess" ) {
+        if (!exists("mat")) {
+          ix_ver<-which(!is.na(getValues(r)) & !is.na(getValues(r_ref)))
+          mat<-getValues(r)[ix_ver]
+          mat_ref<-getValues(r_ref)[ix_ver]
+          npoints<-length(mat_ref)
+          rmaster<-r; rmaster[]<-NA
+        } else {
+          mat<-cbind(mat,getValues(r)[ix_ver])
+          mat_ref<-cbind(mat_ref,getValues(r_ref)[ix_ver])
+        }
+      # scores that are computed online
+      } else {
+        if (argv$verif_metric=="mbias" |
+            argv$verif_metric=="rmsf" )
+          r<-r/r_ref
+        if (argv$verif_metric=="bias" | 
+            argv$verif_metric=="mae"  |
+            argv$verif_metric=="rmse" )
+          r<-r-r_ref
+        if (!exists("ix_ver")) ix_ver<-which(!is.na(getValues(r)))
+        dat<-getValues(r)[ix_ver]
+        if (argv$verif_metric=="mae") dat<-abs(dat)
+        if (argv$verif_metric=="rmse" | argv$verif_metric=="rmsf") dat<-dat**2
+        if (!exists("dat_mean")) {
+          rmaster<-r; rmaster[]<-NA
+          dat_mean<-dat
+          dat_cont<-dat
+          dat_cont[]<-NA 
+          dat_cont[!is.na(dat)]<-1
+        } else {
+          ix_nona<-which(!is.na(dat))
+          ix_nonas<-which(!is.na(dat) & is.na(dat_cont))
+          if (length(ix_nonas)>0) {
+            dat_cont[ix_nonas]<-0
+            dat_mean[ix_nonas]<-0
+          }
+          if (length(ix_nona)>0) {
+            dat_cont[ix_nona]<-dat_cont[ix_nona]+1
+            dat_mean[ix_nona]<-dat_mean[ix_nona]+
+                    (dat[ix_nona]-dat_mean[ix_nona])/
+                    dat_cont[ix_nona]
+          }
+          rm(ix_nona,ix_nonas)
+        }
+        rm(dat)
+      }
+    } # end if gridded output
+      # compute verif statistics on a step-by-step basis
+      else {
+      # first time in, define variables
+      # NOTE: case of "within", num is a vector with dimension nr-1
+      #       otherwise, num is a vector with dimension nr
+      if (first) {
+        header_string<-integer(0)
+        nr<-length(argv$verif_r)
+        if (nr>0) {
+          for (i in 1:nr) {
+            if (argv$verif_b=="=within" | argv$verif_b=="within" |
+                argv$verif_b=="within=" | argv$verif_b=="=within=") {
+              if (i<nr) header_string<-paste0(header_string,
+                                              paste0(";thr_",argv$verif_b,"_",
+                                                     argv$verif_r[i],"_",
+                                                     argv$verif_r[(i+1)]))
+            } else {
+              header_string<-paste0(header_string,
+                                    paste0(";thr_",argv$verif_b,"_",
+                                           argv$verif_r[i]))
+            }
+          }
+          header_string<-paste0(header_string,";numtot")
+          if (argv$verif_b=="=within" | argv$verif_b=="within" |
+              argv$verif_b=="within=" | argv$verif_b=="=within=") {
+            score<-vector(mode="numeric",length=(nr-1))
+          } else {
+            score<-vector(mode="numeric",length=nr)
+          }
+          score[]<-NA
+        # no thresolds
+        } else {
+          header_string<-paste0(";score;numtot")
+          score<-NA
+        }
+      }
+      # if required, write the file header
+      if (!file.exists(argv$ffout_verif) | 
+           (!argv$ffout_verif_append & first)) {
+         cat(file=argv$ffout_verif,append=F,
+             paste0("time",header_string,"\n"))
+      }
+      val<-getValues(r)
+      ref<-getValues(r_ref)
+      numtot<-length(aux<-which(!is.na(val) & !is.na(ref)))
+      val<-val[ix]
+      ref<-ref[ix]; rm(ix)
+      if (nr>0) {
+        score[]<-NA
+        for (i in 1:nr) {
+          if ( argv$verif_b %in% c("within","=within","within=","=within=") ) {
+            if (i<nr) score[i]<-score_fun(x=val,lab=argv$verif_metric,
+                                          threshold=argv$verif_r[i],
+                                          threshold1=argv$verif_r[(i+1)],
+                                          type=argv$verif_b)
+          } else { 
+            score[i]<-score_fun(x=val,lab=argv$verif_metric,
+                                threshold=argv$verif_r[i],
+                                type=argv$verif_b)
+          }
+        }
+      } else {
+        score<-score_fun(val,ref,argv$verif_metric)
+      }
+      rm(val,ref)
+      # output
+      if (nr>0) {
+        data_string<-integer(0)
+        for (i in 1:nr) {
+          if ( argv$verif_b %in% c("within","=within","within=","=within=") ) {
+            if (i<nr) data_string<-paste0(data_string,";",score[i])
+          } else {
+            data_string<-paste0(data_string,";",score[i])
+          }
+        }
+        data_string<-paste0(data_string,";",numtot)
+      } else {
+        data_string<-paste0(score,";",numtot)
+      }
+      cat(file=argv$ffout_verif,append=T,
+          paste0(t_to_read,";",data_string))
+    }
   }
   #----------------------------------------------------------------------------
   # store in a raster stack 
-  if (gridded_output )  {
+  if (gridded_output & !argv$verif)  {
     if (!exists("s"))  {
       s<-r
     } else {
@@ -1147,11 +1596,14 @@ for (t in 1:n_tseq) {
   n<-n+1
   t_ok[n]<-t
   rm(r,values)
+  if (exists("r_ref")) rm(r_ref)
   first<-F
 } # end time loop
 #------------------------------------------------------------------------------
 # Aggregate gridpoint-by-gridpoint over time
 if (gridded_output)  {
+  #----------------------------------------------------------------------------
+  # fill the gaps
   if (argv$fill_gaps) {
     imiss<-which(!(1:n_tseq %in% t_ok))
     nmiss<-length(imiss)
@@ -1174,6 +1626,8 @@ if (gridded_output)  {
     if (exists("r")) rm(r,i,iprev,inext)
     rm(imiss,nmiss)
   }
+  #----------------------------------------------------------------------------
+  # time aggregation
   if (argv$time_aggregation) {
     if ((n/n_tseq)>=argv$frac) {
       # set weights
@@ -1269,14 +1723,53 @@ if (gridded_output)  {
       boom(paste("number of time steps available=",n," is less than required"))
     }
   }
-} # endif exists "s"
-#
-#------------------------------------------------------------------------------
-# Gridded output
-if (gridded_output)  {
+  #----------------------------------------------------------------------------
+  # verification
+  if (argv$verif) {
+    if (argv$verif_metric=="corr" | 
+        argv$verif_metric=="msess" ) {
+      if (argv$verif_metric=="corr") {
+        fun_score<-function(i,method="pearson"){cor(mat[i,],mat_ref[i,],method=method)}
+      } else if (argv$verif_metric=="msess") {
+        mat_ref_mean<-rowMeans(mat_ref,na.rm=T)
+        fun_score<-function(i,method){
+          1 - mean( (    mat[i,]-    mat_ref[i,])**2,na.rm=T ) / 
+              mean( (mat_ref[i,]-mat_ref_mean[i])**2,na.rm=T )
+        }
+      }
+      if (!is.na(argv$cores)) {
+        dat_mean<-mcmapply(fun_score,
+                           1:npoints,
+                           mc.cores=argv$cores,
+                           SIMPLIFY=T)
+      # no-multicores
+      } else {
+        dat_mean<-mapply(fun_score,
+                         1:npoints,
+                         SIMPLIFY=T)
+      }
+      rm(mat,mat_ref)
+      if (exists("mat_ref_mean")) rm(mat_ref_mean)
+      dat_cont<-dat_mean
+      dat_cont[]<-n
+    } else if (argv$verif_metric=="rmse" | argv$verif_metric=="rmsf") {
+      dat_mean<-sqrt(dat_mean)
+    }
+    # define r again
+    r<-rmaster
+    rm(rmaster)
+    ix<-which(!is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
+    if (length(ix)>0) r[ix_ver[ix]]<-dat_mean[ix]
+    if (exists("dat_mean")) rm(dat_mean)
+    if (exists("dat_cont")) rm(dat_cont)
+    if (exists("ix_ver")) rm(ix_ver)
+    if (exists("ix")) rm(ix)
+  }
+  #------------------------------------------------------------------------------
+  # Gridded output
   # adjust 
   if (!exists("r")) r<-s
-  rm(s)
+  if (exists("s")) rm(s)
   # write
   xy<-xyFromCell(r,1:ncell(r))
   x<-sort(unique(xy[,1]))

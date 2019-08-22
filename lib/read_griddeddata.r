@@ -12,6 +12,18 @@ read_griddeddata<-function(mode="data",var=NA) { #data,master,data_dem,master_de
     ff_proj4<-argv$ffin_proj4
     ff_proj4_var<-argv$ffin_proj4_var
     ff_proj4_att<-argv$ffin_proj4_att
+  } else if (mode=="ref") {
+    ff<-ffin_ref
+    ff_tpos<-argv$ffin_ref_tpos
+    ff_epos<-argv$ffin_ref_epos
+    ff_e<-argv$ffin_ref_e
+    ff_varname<-ifelse(is.na(var),argv$ffin_ref_varname,var)
+    ff_topdown<-argv$ffin_ref_topdown
+    ff_ndim<-argv$ffin_ref_ndim
+    ff_dimnames<-argv$ffin_ref_dimnames
+    ff_proj4<-argv$ffin_ref_proj4
+    ff_proj4_var<-argv$ffin_ref_proj4_var
+    ff_proj4_att<-argv$ffin_ref_proj4_att
   } else if (mode=="data_dem") {
     ff<-argv$ffindem
     ff_tpos<-argv$ffindem_tpos
@@ -87,7 +99,7 @@ read_griddeddata<-function(mode="data",var=NA) { #data,master,data_dem,master_de
       return(NULL)
     }
     # data, check time to read is available
-    if (mode=="data") {
+    if (mode=="data" | mode=="ref") {
       ff_t<-format(t_to_read,format="%Y%m%d%H%M",tz="GMT")
       if (!(ff_t %in% tsteps_in)) {
         print(paste("warning: time step to read",ff_t,"not in input file",ff))
@@ -112,7 +124,7 @@ read_griddeddata<-function(mode="data",var=NA) { #data,master,data_dem,master_de
                                      att=ff_proj4_att),
                        selection=list(t=ff_t,e=ff_e)))
   if (!is.null(raux)) raux<-raux$stack
-  if (mode=="data") {
+  if (mode=="data" | mode=="ref") {
     if (!is.na(argv$correction_factor)) raux<-raux*argv$correction_factor
     if (!is.na(argv$offset)) raux<-raux+argv$offset
   } else if (mode=="data_dem") {
