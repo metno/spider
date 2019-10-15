@@ -170,6 +170,11 @@ p <- add_argument(p, "--time_n_succ",
                   help="number of successive time steps",
                   type="numeric",
                   default=NA)
+p <- add_argument(p, "--date_filter_by_month",
+                  help="month(s) to consider, within the time period chosen",
+                  type="numeric",
+                  default=NA,
+                  nargs=Inf)
 #..............................................................................
 p<- add_argument(p, "--spider_path",
                  help="where is the spider.r file?",
@@ -332,6 +337,23 @@ p <- add_argument(p, "--master_trim",
 p <- add_argument(p, "--master_mask",
                   help="should we use the master grid to maskout gridpoints?",
                   flag=T)
+#..............................................................................
+p <- add_argument(p, "--polygon_mask",
+                  help="mask out with polygons",
+                  flag=T)
+p<- add_argument(p, "--ffin_polygon_shp",
+                 help="filename with polygons (shapefile)",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--polygon_layer",
+                 help="layer name in the input file with polygons (shapefile)",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--polygon_ids",
+                 help="polygon IDs to use",
+                 type="numeric",
+                 default=NA,
+                 nargs=Inf)
 #..............................................................................
 p <- add_argument(p, "--verif",
                   help="verification against a reference dataset",
@@ -750,12 +772,14 @@ if (!is.na(argv$cores)) {
 #------------------------------------------------------------------------------
 # Time sequence
 if (argv$date1=="none") {
-  if (!file.exists(argv$ffin_template)) boom(paste0("file not found",argv$ffin_template))
-  tseq<-as.POSIXlt(str2Rdate(nc4.getTime(argv$ffin_template),format="%Y%m%d%H%M"))
+  if (!file.exists(argv$ffin_template))
+     boom(paste0("file not found",argv$ffin_template))
+  tseq<-as.POSIXlt(str2Rdate(nc4.getTime(argv$ffin_template),
+                   format="%Y%m%d%H%M"))
 } else {
   if (argv$date2=="none") {
     if ( is.na(argv$time_n_prev) & 
-         is.na(argv$time_n_prev) ) bomb(paste0("error in date definition"))
+         is.na(argv$time_n_succ) ) bomb(paste0("error in date definition"))
     if (!is.na(argv$time_n_prev)) {
       if (argv$time_unit %in% c("sec","secs","second","seconds")) {
         aux<-rev(seq(strptime(argv$date1,format=argv$date.format),
@@ -771,7 +795,9 @@ if (argv$date1=="none") {
       rm(aux)
     }
     if (!is.na(argv$time_n_succ)) {
-      aux<-rev(seq(strptime(argv$date1,format=argv$date.format),length=argv$time_n_succ,by=paste(argv$time_step,argv$time_unit)))
+      aux<-rev(seq(strptime(argv$date1,format=argv$date.format),
+                            length=argv$time_n_succ,
+                            by=paste(argv$time_step,argv$time_unit)))
       argv$date2<-format(aux[1],format=argv$date.format)
       rm(aux)
     }
@@ -799,6 +825,15 @@ if (argv$date1=="none") {
                       RdateOnlyOut=T,
                       verbose=F)
 } # end if (argv$date1=="none")
+# consider only some months
+if (any(!is.na(argv$date_filter_by_month))) {
+  if (length(ix<-which( as.integer(format(tseq,format="%m",tz="GMT")) %in% 
+                        argv$date_filter_by_month ))>0) {
+    tseq<-tseq[ix]
+  } else {
+    boom("date_filter_by_month is outside the time period chosen")
+  }
+}
 n_tseq<-length(tseq)
 #------------------------------------------------------------------------------
 # Read Input files
@@ -949,6 +984,7 @@ for (t in 1:n_tseq) {
       r1<-rasterize(x=coord.new, y=rmaster, field=values[ix], fun=min)
     }
     if (argv$master_mask) r1<-mask(r1,mask=rmaster)
+    if (argv$master_trim) r1<-trim(r1)
     r<-r1
     rm(r1,coord.new)
     if (!any(!is.na(values<-getValues(r)))) {
@@ -1082,6 +1118,45 @@ for (t in 1:n_tseq) {
       print(paste("warning: all NAs after latte"))
       next
     }
+  }
+  #----------------------------------------------------------------------------
+  # Use the mask(s) if needed
+  if (argv$master_mask & !argv$latte & !argv$downscale & !argv$upscale) {
+    if (!exists("rmaster")) {
+      rmaster<-read_griddeddata("master")
+      if (is.null(rmaster)) boom("ERROR problem reading master grid")
+    }
+    if (argv$master_mask) r1<-mask(r,mask=rmaster)
+    r<-r1
+    rm(r1)
+    if (!any(!is.na(values<-getValues(r)))) {
+      print(paste("warning: all NAs after mask"))
+      next
+    }
+  }
+  #
+  if (argv$polygon_mask) {
+    if (!file.exists(argv$ffin_polygon_shp)) {
+      print(paste("warning: file not found",argv$ffin_polygon_shp))
+      next
+    }
+    poly<-suppressWarnings(suppressMessages(readOGR(argv$ffin_polygon_shp,argv$polygon_layer,
+           stringsAsFactors=F,verbose=F)))
+    if (as.character(poly@proj4string)!=as.character(crs(r))) poly<-spTransform(poly,crs(r))
+    if (any(!is.na(argv$polygon_ids))) {
+      if (length(ix<-which(poly@data$ID %in% argv$polygon_ids))>0) {
+        poly<-poly[ix,]
+      } else {
+        print("warning: the shapefile doe not contain the dpscified IDs. Skip this timestep")
+        next
+      }
+    } 
+    r<-mask(r,poly)
+    if (!any(!is.na(values<-getValues(r)))) {
+      print(paste("warning: all NAs after polygon mask"))
+      next
+    }
+
   }
   #----------------------------------------------------------------------------
   # radar data quality control
@@ -1444,7 +1519,7 @@ for (t in 1:n_tseq) {
       }
       data_string<-paste0(data_string,";",numtot)
       cat(file=argv$ffout_summ_stat,append=T,
-          paste0(t_to_read,";",data_string))
+          paste0(t_to_read,data_string,"\n"))
     } #endif summ_stat_fun=="freqdist"
   } # end if summary statistics
   #----------------------------------------------------------------------------
