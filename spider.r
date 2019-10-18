@@ -1202,8 +1202,8 @@ for (t in 1:n_tseq) {
     }
     if (argv$point_mask_proj4!=as.character(crs(r))) { 
       coord.new<- attr( spTransform( SpatialPoints(cbind(argv$point_mask_x,
-                                                         argv$point_mask_y,
-                                                         proj4string=argv$point_mask_proj4)),
+                                                         argv$point_mask_y),
+                                                         proj4string=CRS(argv$point_mask_proj4)),
                                crs(r)), "coords")
       point_x<-coord.new[,1]
       point_y<-coord.new[,2]
