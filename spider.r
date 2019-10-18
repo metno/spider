@@ -175,6 +175,9 @@ p <- add_argument(p, "--date_filter_by_month",
                   type="numeric",
                   default=NA,
                   nargs=Inf)
+p <- add_argument(p, "--one_timestep_for_file",
+                  help="read the first timestep from each file",
+                  flag=T)
 #..............................................................................
 p<- add_argument(p, "--spider_path",
                  help="where is the spider.r file?",
@@ -245,7 +248,6 @@ p <- add_argument(p, "--gridded_dqc.max",
                   help="maximum allowed value",
                   type="numeric",
                   default=10000)
-
 #..............................................................................
 p <- add_argument(p, "--time_aggregation",
                   help="aggregate data over time dimension (default=T if all others=F)",
@@ -255,7 +257,7 @@ p <- add_argument(p, "--summ_stat",
                   help="summary step-by-step statistics",
                   flag=T)
 p<- add_argument(p, "--summ_stat_fun",
-                 help="function applied",
+                 help="function applied (list_values, wave_nrgx, standard, freqdist)",
                  type="character",
                  default="wave_nrgx")
 p<- add_argument(p, "--ffout_summ_stat",
@@ -354,6 +356,33 @@ p<- add_argument(p, "--polygon_ids",
                  type="numeric",
                  default=NA,
                  nargs=Inf)
+#..............................................................................
+p <- add_argument(p, "--point_mask",
+                  help="extract only a list of points",
+                  flag=T)
+p<- add_argument(p, "--point_mask_x",
+                 help="list of easting-coordinates (negative: eg use _2 for -2)",
+                 type="character",
+                 default=NA,
+                 nargs=Inf)
+p<- add_argument(p, "--point_mask_y",
+                 help="list of northing-coordinates (negative: eg use _2 for -2)",
+                 type="character",
+                 default=NA,
+                 nargs=Inf)
+p<- add_argument(p, "--point_mask_labels",
+                 help="list of labels (negative: eg use _2 for -2)",
+                 type="character",
+                 default=NA,
+                 nargs=Inf)
+p<- add_argument(p, "--point_mask_proj4",
+                 help="proj4 string",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--point_mask_method",
+                 help="interpolation method (simple or bilinear)",
+                 type="character",
+                 default="simple")
 #..............................................................................
 p <- add_argument(p, "--verif",
                   help="verification against a reference dataset",
@@ -727,6 +756,8 @@ if (argv$time_aggregation | argv$upscale | argv$downscale | argv$latte |
 if (argv$summ_stat & argv$summ_stat_fun=="wave_nrgx") 
   suppressPackageStartupMessages(library("waveslim"))
 argv$summ_stat_condition_threshold<-as.numeric(gsub("_","-",argv$summ_stat_condition_threshold))
+argv$point_mask_x<-as.numeric(gsub("_","-",argv$point_mask_x))
+argv$point_mask_y<-as.numeric(gsub("_","-",argv$point_mask_y))
 # convert character to numbers
 if (any(!is.na(argv$summ_stat_r))) {
   dots<-any(argv$summ_stat_r=="...")
@@ -1156,7 +1187,35 @@ for (t in 1:n_tseq) {
       print(paste("warning: all NAs after polygon mask"))
       next
     }
-
+  }
+  #----------------------------------------------------------------------------
+  # Extract a list of points
+  if (argv$point_mask) {
+    if ( any(is.na(argv$point_mask_x)) | any(is.na(argv$point_mask_y)) |
+         length(argv$point_mask_x)!=length(argv$point_mask_y) |
+         length(argv$point_mask_x)!=length(argv$point_mask_labels) ) {
+      print("warning: something is wrong with the list of points")
+      print(argv$point_mask_x)
+      print(argv$point_mask_y)
+      print(argv$point_mask_label)
+      next
+    }
+    if (argv$point_mask_proj4!=as.character(crs(r))) { 
+      coord.new<- attr( spTransform( SpatialPoints(cbind(argv$point_mask_x,
+                                                         argv$point_mask_y,
+                                                         proj4string=argv$point_mask_proj4)),
+                               crs(r)), "coords")
+      point_x<-coord.new[,1]
+      point_y<-coord.new[,2]
+    } else {
+      point_x<-argv$point_mask_x
+      point_y<-argv$point_mask_y
+    }
+    if (!any(!is.na( values<-extract(r,cbind(point_x,point_y),
+                                     method=argv$point_mask_method) ) ) ) {
+      print(paste("warning: all NAs after point mask"))
+      next
+    }
   }
   #----------------------------------------------------------------------------
   # radar data quality control
@@ -1307,7 +1366,23 @@ for (t in 1:n_tseq) {
     } else {
       next
     }
-    if (argv$summ_stat_fun=="wave_nrgx") {
+    #--------------------------------------------------------------------------
+    # argv$summ_stat_fun=="list_values"
+    if (argv$summ_stat_fun=="list_values") {
+      if (!file.exists(argv$ffout_summ_stat) | 
+          (!argv$ffout_summ_stat_append & first)) {
+        cat(file=argv$ffout_summ_stat,append=F,
+            paste0("time;label;x;y;value;\n"))
+      }
+      cat(file=argv$ffout_summ_stat,append=T,
+          paste0(t_to_read,";",
+                 argv$point_mask_labels,";",
+                 round(argv$point_mask_x,6),";",
+                 round(argv$point_mask_y,6),";",
+                 round(values,6),"\n"))
+    #--------------------------------------------------------------------------
+    # argv$summ_stat_fun=="wave_nrgx"
+    } else if (argv$summ_stat_fun=="wave_nrgx") {
       if (!exists("nnboot")) {
         mindim<-min(dim(r)[1:2])
         resx<-res(r)[1]
@@ -1422,6 +1497,8 @@ for (t in 1:n_tseq) {
                 gsub(",",";",toString(round(En2o_t,9))),"\n",sep=";"))
       rm(obs,En2o_boot,En2o_t,Eo.dwt)
     } #endif summ_stat_fun=="wave_nrgx"
+    #--------------------------------------------------------------------------
+    # argv$summ_stat_fun=="standard"
      else if (argv$summ_stat_fun=="standard") {
       if (!file.exists(argv$ffout_summ_stat) | 
           (!argv$ffout_summ_stat_append & first)) {
@@ -1453,6 +1530,8 @@ for (t in 1:n_tseq) {
                  round(ncells,0),";",
                  round(fcells,4),"\n"))
     } #endif summ_stat_fun=="standard"
+    #--------------------------------------------------------------------------
+    # argv$summ_stat_fun=="freqdist"
      else if (argv$summ_stat_fun=="freqdist") {
       # first time in, define variables
       # NOTE: case of "within", num is a vector with dimension nr-1

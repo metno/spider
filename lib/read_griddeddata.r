@@ -98,6 +98,8 @@ read_griddeddata<-function(mode="data",var=NA) { #data,master,data_dem,master_de
       print(paste("warning: not able to read time dimension from file ",ff))
       return(NULL)
     }
+    # special case when the user ask to read the first timestep for each file
+    if (argv$one_timestep_for_file) t_to_read<-nc4.getTime(ff)[1]
     # data, check time to read is available
     if (mode=="data" | mode=="ref") {
       ff_t<-format(t_to_read,format="%Y%m%d%H%M",tz="GMT")
