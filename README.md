@@ -7,4 +7,10 @@ Required R-packages:
 * raster
 * rgdal
 * ncdf4
-* dotnc
+* dotnc (not available on CRAN)
+
+dotnc is available with the spider installation in rpackages/dotnc_0.0.5.tar.gz. To install it:
+
+´´´
+>R CMD INSTALL rpackages/dotnc_0.0.5.tar.gz
+´´´
