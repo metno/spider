@@ -11,6 +11,6 @@ Required R-packages:
 
 dotnc is available with the spider installation in rpackages/dotnc_0.0.5.tar.gz. To install it:
 
-´´´
+```
 >R CMD INSTALL rpackages/dotnc_0.0.5.tar.gz
-´´´
+```
