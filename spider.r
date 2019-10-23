@@ -684,27 +684,27 @@ p<- add_argument(p, "--ffout_comment",
                  type="character",
                  default="")
 p<- add_argument(p, "--year_string",
-                 help="yyyy",
+                 help="string, placeholder for year",
                  type="character",
                  default="yyyy")
 p<- add_argument(p, "--month_string",
-                 help="mm",
+                 help="string, placeholder for month",
                  type="character",
                  default="mm")
 p<- add_argument(p, "--day_string",
-                 help="dd",
+                 help="string, placeholder for day",
                  type="character",
                  default="dd")
 p<- add_argument(p, "--hour_string",
-                 help="hh",
+                 help="string, placeholder for hour",
                  type="character",
                  default="hh")
 p<- add_argument(p, "--min_string",
-                 help="MM",
+                 help="string, placeholder for minute",
                  type="character",
                  default="MM")
 p<- add_argument(p, "--sec_string",
-                 help="SS",
+                 help="string, placeholder for second",
                  type="character",
                  default="SS")
 #..............................................................................
@@ -886,6 +886,7 @@ for (t in 1:n_tseq) {
                     month_string=argv$month_string,
                     day_string=argv$day_string,
                     hour_string=argv$hour_string,
+                    sec_string=argv$sec_string,
                     format=argv$ffin_date.format)
   if (!file.exists(ffin)) {
     print(paste("file not found",ffin))
@@ -911,6 +912,7 @@ for (t in 1:n_tseq) {
                         month_string=argv$month_string,
                         day_string=argv$day_string,
                         hour_string=argv$hour_string,
+                        sec_string=argv$sec_string,
                         format=argv$ffin_date.format)
       if (!file.exists(ffin)) {
         print(paste("file not found",ffin))
@@ -944,6 +946,7 @@ for (t in 1:n_tseq) {
                           month_string=argv$month_string,
                           day_string=argv$day_string,
                           hour_string=argv$hour_string,
+                          sec_string=argv$sec_string,
                           format=argv$ffin_date.format)
     if (!file.exists(ffin_ref)) {
       print(paste("file not found",ffin_ref))
