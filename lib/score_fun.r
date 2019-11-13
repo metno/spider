@@ -19,7 +19,7 @@ score_fun<-function(i=NA,
 #  - as the vector x_ref
 # NOTES:
 #  - lab in "count_x","a","b","c","d","msess","bias","mae","rmse","mbias",
-#           "rmsf","seeps"
+#           "rmsf","seeps","corr"
 #  - NAs are allowed in the input datasets
 #  - scores "a"..."d", the order does not matter, simply count occurrences
 #  - for other scores:
