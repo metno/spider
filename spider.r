@@ -40,92 +40,11 @@ ffout_default<-"out.nc"
 #+ Manage errors
 boom<-function(str,status=1) { print(str); q(status=status) }
 
-#+ Box-Cox transformation
-boxcox<-function(x,lambda) {
-  if (lambda==0) {
-    return(log(x))
-  } else {
-    return((x**lambda-1)/lambda)
-  }
-}
-
-#+ select only certain vector elements based on thresholds
-which_threshold<-function(x,threshold,threshold1,type) {
-  if (is.na(type)) {
-    ix<-1:length(x)
-  } else if (type=="below") {
-    ix<-which(x<threshold)
-  } else if (type=="below=") {
-    ix<-which(x<=threshold)
-  } else if (type=="=within") {
-    ix<-which(x>=threshold & x<threshold1) 
-  } else if (type=="within") {
-    ix<-which(x>threshold & x<threshold1) 
-  } else if (type=="within=") {
-    ix<-which(x>threshold & x<=threshold1) 
-  } else if (type=="=within=") {
-    ix<-which(x>=threshold & x<=threshold1) 
-  } else if (type=="above") {
-    ix<-which(x>threshold) 
-  } else if (type=="above=") {
-    ix<-which(x>=threshold) 
-  }
-  ix
-}
-
-#+ compute verification scores 
-score_fun<-function(x,x_ref,
-                    lab="msess",
-                    threshold=NA,
-                    threshold1=NA,
-                    type=NA) {
-  if (lab %in% c("count_x","msess","bias","mae","mbias","rmse","rmsf")) {
-    if (lab=="count_x") {
-      score<-length(which_threshold(x,threshold,threshold1,type=type))
-    } else if (lab=="msess") {
-      ix<-which_threshold(x,threshold,threshold1,type=type)
-      score<-1-mean((x[ix]-x_ref[ix])**2,na.rm=T)/
-               mean((x_ref[ix]-mean(x_ref[ix],na.rm=T))**2,na.rm=T)
-    } else if (lab=="bias") {
-      ix<-which_threshold(x,threshold,threshold1,type=type)
-      score<-mean( x[ix]-x_ref[ix], na.rm=T)
-    } else if (lab=="mae") {
-      ix<-which_threshold(x,threshold,threshold1,type=type)
-      score<-mean( abs(x[ix]-x_ref[ix]), na.rm=T)
-    } else if (lab=="mbias") {
-      ix<-which_threshold(x,threshold,threshold1,type=type)
-      score<-mean( x[ix]/x_ref[ix], na.rm=T)
-    } else if (lab=="rmse") {
-      ix<-which_threshold(x,threshold,threshold1,type=type)
-      score<-mean( (x[ix]-x_ref[ix])**2, na.rm=T)
-    } else if (lab=="rmsf") {
-      ix<-which_threshold(x,threshold,threshold1,type=type)
-      score<-mean( (x[ix]/x_ref[ix])**2, na.rm=T)
-    } else {
-      score<-NA
-    }
-  } else if (lab %in% c("a","b","c","d")) {
-    yes<-which_threshold(x,threshold,threshold1,type=type)
-    yes_ref<-which_threshold(x_ref,threshold,threshold1,type=type)
-    if (length(yes)==0) {no<-1:length(x)} else {no<-(1:length(x))[-yes]}
-    if (length(yes_ref)==0) {no_ref<-1:length(x_ref)} else {no_ref<-(1:length(x_ref))[-yes_ref]}
-    if (lab=="a") { # hit
-      score<-length(which(yes %in% yes_ref))
-    } else if (lab=="b") { # false allarm
-      score<-length(which(yes %in% no_ref))
-    } else if (lab=="c") { # miss
-      score<-length(which(no %in% yes_ref))
-    } else if (lab=="d") { # correct rejection
-      score<-length(which(no %in% no_ref))
-    }
-  }
-  score
-}
 #==============================================================================
 # MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN - MAIN -
 #==============================================================================
 t0<-Sys.time()
-# [] Read command line arguments and/or set parameters to default
+# [] Command line arguments, parameter defaults -@@BEGIN@@ (jump to @@END@@)
 # create parser object
 p <- arg_parser("ffmrr")
 #..............................................................................
@@ -400,6 +319,18 @@ p<- add_argument(p, "--verif_b",
                  help="type One of 'below' (< x), 'below=' (<= x), '=within' (<= x <), 'within' (< x <), 'within=' (< x <=), '=within=' (<= x <=), 'above' (> x), or 'above=' (>= x). For threshold plots (ets, hit, within, etc) 'below/above' computes frequency below/above the threshold, and 'within' computes the frequency between consecutive thresholds",
                  type="character",
                  default="below")
+p<- add_argument(p, "--verif_corr_method",
+                 help="verification, correlation method \"pearson\" (default), \"kendall\", \"spearman\"",
+                 type="character",
+                 default="pearson")
+p <- add_argument(p, "--verif_seeps_threshold",
+                  help="verification, seeps precip yes/no threshold (mm)",
+                  type="numeric",
+                  default=1)
+p <- add_argument(p, "--verif_seeps_type",
+                  help="verification, seeps error (default, 0-1, 0=the best) or skill-score (0-1, 1=the best)",
+                  type="character",
+                  default="error")
 #..............................................................................
 # IO
 # input file(s)
@@ -716,6 +647,7 @@ p <- add_argument(p, "--debug",
                   flag=T)
 #..............................................................................
 argv <- parse_args(p)
+# Command line arguments, parameter defaults - @@END@@
 #-----------------------------------------------------------------------------
 # read configuration file
 if (!is.na(argv$config_file)) {
@@ -744,13 +676,27 @@ if (!is.na(argv$config_file)) {
   }
 }
 #------------------------------------------------------------------------------
-if (!argv$time_aggregation & !argv$upscale & !argv$downscale & !argv$latte &
-    !argv$summ_stat & !argv$verif) 
+# Load functions
+for (file in list.files(path = file.path(argv$spider_path,"lib"),
+                        pattern = ".r", full.names=T) ) 
+  source(file)
+rm(file)
+#------------------------------------------------------------------------------
+# default is time_aggregation
+if ( !argv$time_aggregation & 
+     !argv$upscale & 
+     !argv$downscale & 
+     !argv$latte &
+     !argv$summ_stat & 
+     !argv$verif ) 
   argv$time_aggregation<-T
 #
 gridded_output<-F
-if (argv$time_aggregation | argv$upscale | argv$downscale | argv$latte | 
-    (argv$verif & argv$ffout!=ffout_default)) 
+if ( argv$time_aggregation | 
+     argv$upscale | 
+     argv$downscale | 
+     argv$latte | 
+    (argv$verif & argv$ffout!=ffout_default) ) 
   gridded_output<-T
 #
 if (argv$summ_stat & argv$summ_stat_fun=="wave_nrgx") 
@@ -840,9 +786,6 @@ if (argv$date1=="none") {
     argv$date_out<-argv$date1
     argv$date_out.format<-argv$date.format
   }
-  if (!file.exists(fftimeseq<-file.path(argv$spider_path,"lib","createTimeSeq.r")))
-    boom(paste("file not found",fftimeseq))
-  source(fftimeseq)
   tseq<-createTimeSeq(start_date=argv$date1_def,
                       stop_date=argv$date2,
                       format=argv$date.format,
@@ -867,17 +810,15 @@ if (any(!is.na(argv$date_filter_by_month))) {
 }
 n_tseq<-length(tseq)
 #------------------------------------------------------------------------------
-# Read Input files
-n<-0
-if (!file.exists(ffrepdate<-file.path(argv$spider_path,"lib","replaceDate.r")))
-  boom(paste("file not found",ffrepdate))
-source(ffrepdate)
-if (!file.exists(ffread<-file.path(argv$spider_path,"lib","read_griddeddata.r")))
-  boom(paste("file not found",ffread))
-source(ffread)
+# -.- Main loop overt time -.-
+#  Read Input files / elaboration
+# loop over all the n_tseq times, however some timesteps may not be used
+# used timesteps are "n" and they are stored into t_ok (n-vector)
+#  t_ok[i] is the i-th index to the tseq element used
 t_ok<-vector()
+n<-0
 first<-T
-for (t in 1:n_tseq) {
+for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   if (argv$verbose & t%%100==0) print(paste("timestep",t,"/",n_tseq))
   ffin<-replaceDate(string=argv$ffin_template,
                     date.str=format(tseq[t],
@@ -931,7 +872,7 @@ for (t in 1:n_tseq) {
       print(paste("warning: problem while reading time file",t_to_read,ffin))
       next
     }
-  }
+  } # end, try an alternative input file
   if (!any(!is.na(values<-getValues(r)))) {
     print(paste("warning: all NAs for time file",t_to_read,ffin))
     next
@@ -1105,9 +1046,6 @@ for (t in 1:n_tseq) {
       coord.new<-attr(coord.new,"coords") #nobs 2
       cat("ok!\n")
     }
-    if (!file.exists(fffun<-file.path(argv$spider_path,"lib","oivar.r")))
-      boom(paste("file not found",fffun))
-    source(fffun)
     # 
     nobs<-length(ix_in)
     xobs_spint<-coord.new[,1]
@@ -1577,12 +1515,14 @@ for (t in 1:n_tseq) {
       num[]<-NA
       for (i in 1:nr) {
         if ( argv$summ_stat_b %in% c("within","=within","within=","=within=") ) {
-          if (i<nr) num[i]<-score_fun(x=val,lab="count_x",
+          if (i<nr) num[i]<-score_fun(x=val,
+                                      lab="count_x",
                                       threshold=argv$summ_stat_r[i],
                                       threshold1=argv$summ_stat_r[(i+1)],
                                       type=argv$summ_stat_b)
         } else { 
-          num[i]<-score_fun(x=val,lab="count_x",
+          num[i]<-score_fun(x=val,
+                            lab="count_x",
                             threshold=argv$summ_stat_r[i],
                             type=argv$summ_stat_b)
         }
@@ -1609,8 +1549,9 @@ for (t in 1:n_tseq) {
   if (argv$verif) {
     if (gridded_output) {
       # scores that require to store the whole dataset in memory
-      if (argv$verif_metric=="corr" |
-          argv$verif_metric=="msess" ) {
+      if (argv$verif_metric=="corr"  |
+          argv$verif_metric=="msess" | 
+          argv$verif_metric=="seeps" ) {
         if (!exists("mat")) {
           ix_ver<-which(!is.na(getValues(r)) & !is.na(getValues(r_ref)))
           mat<-getValues(r)[ix_ver]
@@ -1623,17 +1564,20 @@ for (t in 1:n_tseq) {
         }
       # scores that are computed online
       } else {
-        if (argv$verif_metric=="mbias" |
-            argv$verif_metric=="rmsf" )
+        if ( argv$verif_metric=="mbias" |
+             argv$verif_metric=="rmsf" )
           r<-r/r_ref
-        if (argv$verif_metric=="bias" | 
-            argv$verif_metric=="mae"  |
-            argv$verif_metric=="rmse" )
+        if ( argv$verif_metric=="bias" | 
+             argv$verif_metric=="mae"  |
+             argv$verif_metric=="rmse" )
           r<-r-r_ref
         if (!exists("ix_ver")) ix_ver<-which(!is.na(getValues(r)))
         dat<-getValues(r)[ix_ver]
-        if (argv$verif_metric=="mae") dat<-abs(dat)
-        if (argv$verif_metric=="rmse" | argv$verif_metric=="rmsf") dat<-dat**2
+        if ( argv$verif_metric=="mae" ) 
+          dat<-abs(dat)
+        if ( argv$verif_metric=="rmse" | 
+             argv$verif_metric=="rmsf") 
+          dat<-dat**2
         if (!exists("dat_mean")) {
           rmaster<-r; rmaster[]<-NA
           dat_mean<-dat
@@ -1657,7 +1601,7 @@ for (t in 1:n_tseq) {
         }
         rm(dat)
       }
-    } # end if gridded output
+    } # end if gridded output is TRUE
       # compute verif statistics on a step-by-step basis
       else {
       # first time in, define variables
@@ -1700,28 +1644,36 @@ for (t in 1:n_tseq) {
          cat(file=argv$ffout_verif,append=F,
              paste0("time",header_string,"\n"))
       }
+      # compute score
       val<-getValues(r)
       ref<-getValues(r_ref)
       numtot<-length(aux<-which(!is.na(val) & !is.na(ref)))
       val<-val[ix]
       ref<-ref[ix]; rm(ix)
+      # use thresholds if needed
       if (nr>0) {
         score[]<-NA
         for (i in 1:nr) {
           if ( argv$verif_b %in% c("within","=within","within=","=within=") ) {
-            if (i<nr) score[i]<-score_fun(x=val,lab=argv$verif_metric,
+            if (i<nr) score[i]<-score_fun(x=val,
+                                          x_ref=ref,
+                                          lab=argv$verif_metric,
                                           threshold=argv$verif_r[i],
                                           threshold1=argv$verif_r[(i+1)],
                                           type=argv$verif_b)
           } else { 
-            score[i]<-score_fun(x=val,lab=argv$verif_metric,
+            score[i]<-score_fun(x=val,
+                                x_ref=ref,
+                                lab=argv$verif_metric,
                                 threshold=argv$verif_r[i],
                                 type=argv$verif_b)
           }
         }
       } else {
-        score<-score_fun(val,ref,argv$verif_metric)
-      }
+        score<-score_fun(x=val,
+                         x_ref=ref,
+                         lab=argv$verif_metric)
+      } # end compute score
       rm(val,ref)
       # output
       if (nr>0) {
@@ -1739,8 +1691,8 @@ for (t in 1:n_tseq) {
       }
       cat(file=argv$ffout_verif,append=T,
           paste0(t_to_read,";",data_string))
-    }
-  }
+    } # end if gridded_output yes/no
+  } # end if verif
   #----------------------------------------------------------------------------
   # store in a raster stack 
   if (gridded_output & !argv$verif)  {
@@ -1750,12 +1702,13 @@ for (t in 1:n_tseq) {
       s<-stack(s,r)
     }
   }
+  # update counters of valid timesteps
   n<-n+1
   t_ok[n]<-t
   rm(r,values)
   if (exists("r_ref")) rm(r_ref)
   first<-F
-} # end time loop
+} # MAIN LOOP @@END@@
 #------------------------------------------------------------------------------
 # Aggregate gridpoint-by-gridpoint over time
 if (gridded_output)  {
@@ -1883,27 +1836,40 @@ if (gridded_output)  {
   #----------------------------------------------------------------------------
   # verification
   if (argv$verif) {
-    if (argv$verif_metric=="corr" | 
-        argv$verif_metric=="msess" ) {
+    if (argv$verif_metric=="corr"  | 
+        argv$verif_metric=="msess" |
+        argv$verif_metric=="seeps" ) {
       if (argv$verif_metric=="corr") {
-        fun_score<-function(i,method="pearson"){cor(mat[i,],mat_ref[i,],method=method)}
+        threshold<-NA
+        threshold1<-NA
+        type<-argv$verif_corr_method
       } else if (argv$verif_metric=="msess") {
-        mat_ref_mean<-rowMeans(mat_ref,na.rm=T)
-        fun_score<-function(i,method){
-          1 - mean( (    mat[i,]-    mat_ref[i,])**2,na.rm=T ) / 
-              mean( (mat_ref[i,]-mat_ref_mean[i])**2,na.rm=T )
-        }
+        threshold<-NA
+        threshold1<-NA
+        type<-NA
+      } else if (argv$verif_metric=="seeps") {
+        threshold<-argv$verif_seeps_threshold
+        threshold1<-argv$verif_seeps_threshold
+        type<-argv$verif_seeps_type
       }
       if (!is.na(argv$cores)) {
-        dat_mean<-mcmapply(fun_score,
+        dat_mean<-mcmapply(score_fun,
                            1:npoints,
                            mc.cores=argv$cores,
-                           SIMPLIFY=T)
+                           SIMPLIFY=T, 
+                           lab=argv$verif_metric,
+                           threshold=threshold,
+                           threshold1=threshold1,
+                           type=type)
       # no-multicores
       } else {
-        dat_mean<-mapply(fun_score,
+        dat_mean<-mapply(score_fun,
                          1:npoints,
-                         SIMPLIFY=T)
+                         SIMPLIFY=T,
+                         lab=argv$verif_metric,
+                         threshold=threshold,
+                         threshold1=threshold1,
+                         type=type)
       }
       rm(mat,mat_ref)
       if (exists("mat_ref_mean")) rm(mat_ref_mean)
@@ -1922,7 +1888,7 @@ if (gridded_output)  {
     if (exists("ix_ver")) rm(ix_ver)
     if (exists("ix")) rm(ix)
   }
-  #------------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------
   # Gridded output
   # adjust 
   if (!exists("r")) r<-s
@@ -1961,7 +1927,7 @@ if (gridded_output)  {
   t1<-Sys.time()
   print(paste("writing output file",argv$ffout,
               " / time",round(t1-t0,1),attr(t1-t0,"unit")))
-} # endif exists "s"
+} # endif gridded_output
 #------------------------------------------------------------------------------
 # Normal exit
 q(status=0) 
