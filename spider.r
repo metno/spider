@@ -328,9 +328,22 @@ p <- add_argument(p, "--verif_seeps_threshold",
                   type="numeric",
                   default=1)
 p <- add_argument(p, "--verif_seeps_type",
-                  help="verification, seeps error (default, 0-1, 0=the best) or skill-score (0-1, 1=the best)",
+                  help="verification, seeps error (default, 0-1, 0=the best) or skill-score (0-1, 1=the best). Special type: \"light_rain_threshold\" then the output is not SEEPS but the threshold used for distinction between light and heavy rainfall",
                   type="character",
                   default="error")
+p <- add_argument(p, "--verif_contab_threshold",
+                  help="verification, contingency table for binary events (a,b,c,d,ets) threshold defining the event",
+                  type="numeric",
+                  default=1)
+p <- add_argument(p, "--verif_contab_threshold1",
+                  help="verification, contingency table for binary events (a,b,c,d,ets) additional threshold defining the event",
+                  type="numeric",
+                  default=1)
+p <- add_argument(p, "--verif_contab_type",
+                  help="verification, contingency table for binary events (see \"--verif_b\"). Special labels: \"wet\" (event=yes if above= threshold), \"dry\" (below threshold), \"light\" (threshold =within light_threshold, where light_threshold is the value that includes the lowest 2/3 of the wet-precipitation values), \"heavy\" (above light_threshold) ",
+                  type="character",
+                  default="error")
+
 #..............................................................................
 # IO
 # input file(s)
@@ -1549,9 +1562,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   if (argv$verif) {
     if (gridded_output) {
       # scores that require to store the whole dataset in memory
-      if (argv$verif_metric=="corr"  |
-          argv$verif_metric=="msess" | 
-          argv$verif_metric=="seeps" ) {
+      if (argv$verif_metric %in% c("corr","msess","ets","a","b","c","d","seeps")) {
         if (!exists("mat")) {
           ix_ver<-which(!is.na(getValues(r)) & !is.na(getValues(r_ref)))
           mat<-getValues(r)[ix_ver]
@@ -1564,19 +1575,15 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
         }
       # scores that are computed online
       } else {
-        if ( argv$verif_metric=="mbias" |
-             argv$verif_metric=="rmsf" )
+        if ( argv$verif_metric %in% c("mbias","rmsf") )
           r<-r/r_ref
-        if ( argv$verif_metric=="bias" | 
-             argv$verif_metric=="mae"  |
-             argv$verif_metric=="rmse" )
+        if ( argv$verif_metric %in% c("bias","mae","rmse") )
           r<-r-r_ref
         if (!exists("ix_ver")) ix_ver<-which(!is.na(getValues(r)))
         dat<-getValues(r)[ix_ver]
         if ( argv$verif_metric=="mae" ) 
           dat<-abs(dat)
-        if ( argv$verif_metric=="rmse" | 
-             argv$verif_metric=="rmsf") 
+        if ( argv$verif_metric %in% c("rmse","rmsf") ) 
           dat<-dat**2
         if (!exists("dat_mean")) {
           rmaster<-r; rmaster[]<-NA
@@ -1836,9 +1843,7 @@ if (gridded_output)  {
   #----------------------------------------------------------------------------
   # verification
   if (argv$verif) {
-    if (argv$verif_metric=="corr"  | 
-        argv$verif_metric=="msess" |
-        argv$verif_metric=="seeps" ) {
+    if (argv$verif_metric %in% c("corr","msess","ets","a","b","c","d","seeps")) {
       if (argv$verif_metric=="corr") {
         threshold<-NA
         threshold1<-NA
@@ -1851,6 +1856,10 @@ if (gridded_output)  {
         threshold<-argv$verif_seeps_threshold
         threshold1<-argv$verif_seeps_threshold
         type<-argv$verif_seeps_type
+      } else if (argv$verif_metric %in% c("a","b","c","d","ets")) {
+        threshold<-argv$verif_contab_threshold
+        threshold1<-argv$verif_contab_threshold1
+        type<-argv$verif_contab_type
       }
       if (!is.na(argv$cores)) {
         dat_mean<-mcmapply(score_fun,
@@ -1875,7 +1884,7 @@ if (gridded_output)  {
       if (exists("mat_ref_mean")) rm(mat_ref_mean)
       dat_cont<-dat_mean
       dat_cont[]<-n
-    } else if (argv$verif_metric=="rmse" | argv$verif_metric=="rmsf") {
+    } else if (argv$verif_metric %in% c("rmse","rmsf")) {
       dat_mean<-sqrt(dat_mean)
     }
     # define r again

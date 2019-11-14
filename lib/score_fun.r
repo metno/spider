@@ -57,16 +57,84 @@ score_fun<-function(i=NA,
   }
   # count_x is the only score that do not use mat_ref
   if (lab=="count_x") {
-    score<-length( which_threshold(mat[i,],threshold,threshold1,type) )
+    if (is.na(type)) return(NA)
+    if (type=="below") {
+      score<-which(mat[i,]<threshold)
+    } else if (type=="below=") {
+      score<-which(mat[i,]<=threshold)
+    } else if (type=="=within") {
+      score<-which(mat[i,]>=threshold & mat[i,]<threshold) 
+    } else if (type=="within") {
+      score<-which(mat[i,]>threshold & mat[i,]<threshold) 
+    } else if (type=="within=") {
+      score<-which(mat[i,]>threshold & mat[i,]<=threshold) 
+    } else if (type=="=within=") {
+      score<-which(mat[i,]>=threshold & mat[i,]<=threshold) 
+    } else if (type=="above") {
+      score<-which(mat[i,]>threshold) 
+    } else if (type=="above=") {
+      score<-which(mat[i,]>=threshold) 
+    }
   # use the reference data. not assume temporal allignment mat and mat_ref
-  } else if (lab %in% c("a","b","c","d")) {
-    if (is.na(threshold)) return(NA)
-    ix_val<-which(!is.na(mat[i,]))
-    n_val<-length(ix_val)
-    yes_val<-which_threshold(mat[i,ix_val],threshold,threshold1,type)
-    ix_ref<-which(!is.na(mat_ref[i,]))
-    n_ref<-length(ix_ref)
-    yes_ref<-which_threshold(mat_ref[i,ix_ref],threshold,threshold1,type)
+  } else if (lab %in% c("a","b","c","d","ets")) {
+    if (is.na(type)) return(NA)
+    n_val<-length( ix_val <- which(!is.na(mat[i,])) )
+    n_ref<-length( ix_ref <- which(!is.na(mat_ref[i,])) )
+    if (n_val==0 | n_ref==0) return(NA)
+    if (type %in% c("wet","dry","light","heavy")) {
+      if ( is.na(threshold))  threshold<-0.25 # mm
+      if (is.na(threshold1)) threshold1<-threshold
+      if (type %in% c("light","heavy")) {
+        prob_light_to_heavy<-2 # light is twice as much likely than heavy
+        v_dry<- mat_ref[i,ix_ref] < threshold1
+        v_p<-vector(mode="numeric",length=2)
+        v_p[1]<- length(which(v_dry)) / n_ref
+        v_p[2]<- prob_light_to_heavy/(prob_light_to_heavy+1) * (1-v_p[1])
+        # define thresholds (quantiles)
+        v_q<-vector(mode="numeric",length=3)
+        v_q<- c( threshold1, 
+                 as.numeric(quantile( mat_ref[i,ix[which(!v_dry)]], 
+                            probs=(v_p[1]+v_p[2]), type=4)) )
+        if (type == "light" ) {
+          threshold<-v_q[1]
+          threshold1<-v_q[2]
+          type<-"=within"
+        } else { # heavy
+          threshold<-v_q[2]
+          threshold1<-NA
+          type<-"above="
+        }
+      } else if (type == "dry") {
+        type<-"below"
+      } else if (type == "wet") {
+        type<-"above="
+      }
+    }
+    if (type=="below") {
+      yes_val<-which(mat[i,]<threshold)
+      yes_ref<-which(mat_ref[i,]<threshold1)
+    } else if (type=="below=") {
+      yes_val<-which(mat[i,]<=threshold)
+      yes_ref<-which(mat_ref[i,]<=threshold1)
+    } else if (type=="=within") {
+      yes_val<-which(mat[i,]>=threshold & mat[i,]<threshold) 
+      yes_ref<-which(mat_ref[i,]>=threshold1 & mat_ref[i,]<threshold1) 
+    } else if (type=="within") {
+      yes_val<-which(mat[i,]>threshold & mat[i,]<threshold) 
+      yes_ref<-which(mat_ref[i,]>threshold1 & mat_ref[i,]<threshold1) 
+    } else if (type=="within=") {
+      yes_val<-which(mat[i,]>threshold & mat[i,]<=threshold) 
+      yes_ref<-which(mat_ref[i,]>threshold1 & mat_ref[i,]<=threshold1) 
+    } else if (type=="=within=") {
+      yes_val<-which(mat[i,]>=threshold & mat[i,]<=threshold) 
+      yes_ref<-which(mat_ref[i,]>=threshold1 & mat_ref[i,]<=threshold1) 
+    } else if (type=="above") {
+      yes_val<-which(mat[i,]>threshold) 
+      yes_ref<-which(mat_ref[i,]>threshold1) 
+    } else if (type=="above=") {
+      yes_val<-which(mat[i,]>=threshold) 
+      yes_ref<-which(mat_ref[i,]>=threshold1) 
+    }
     if (length(yes_val)==0) {no_val<-ix_val} else {no_val<-ix_val[-yes_val]}
     if (length(yes_ref)==0) {no_ref<-ix_ref} else {no_ref<-ix_ref[-yes_ref]}
     # kind of ad-hoc "table" Rcommand
@@ -78,6 +146,13 @@ score_fun<-function(i=NA,
       score<-length(which(no_val %in% yes_ref))
     } else if (lab=="d") { # correct rejection
       score<-length(which(no_val %in% no_ref))
+    } else if (lab=="ets") {
+      a<-length(which(yes_val %in% yes_ref))
+      b<-length(which(yes_val %in% no_ref))
+      c<-length(which(no_val %in% yes_ref))
+      d<-length(which(no_val %in% no_ref))
+      a_random<-(a+c)*(a+b)/(a+b+c+d)
+      score<-(a-a_random)/(a+c+b-a_random)
     }
   # use the reference dataset. temporal allignment mat and mat_ref
   } else {
@@ -85,9 +160,25 @@ score_fun<-function(i=NA,
     if (is.na(threshold) | lab=="seeps") {
       ix<-which( !is.na(mat[i,]) & !is.na(mat_ref[i,]) )
     } else {
-    # thresholding is done on the reference values, then use all not-NA pairs
-      ix<-which_threshold(mat_ref[i,],threshold,threshold1,type)
-      ix<-ix[which(ix %in% which(!is.na(mat[i,])))]
+      if (is.na(type)) return(NA)
+      # thresholding is done on the reference values, then use all not-NA pairs
+      if (type=="below") {
+        ix<-which(mat_ref[i,]<threshold & !is.na(mat[i,]))
+      } else if (type=="below=") {
+        ix<-which(mat_ref[i,]<=threshold & !is.na(mat[i,]))
+      } else if (type=="=within") {
+        ix<-which(mat_ref[i,]>=threshold & mat_ref[i,]<threshold1 & !is.na(mat[i,])) 
+      } else if (type=="within") {
+        ix<-which(mat_ref[i,]>threshold & mat_ref[i,]<threshold1 & !is.na(mat[i,])) 
+      } else if (type=="within=") {
+        ix<-which(mat_ref[i,]>threshold & mat_ref[i,]<=threshold1 & !is.na(mat[i,])) 
+      } else if (type=="=within=") {
+        ix<-which(mat_ref[i,]>=threshold & mat_ref[i,]<=threshold1 & !is.na(mat[i,])) 
+      } else if (type=="above") {
+        ix<-which(mat_ref[i,]>threshold & !is.na(mat[i,])) 
+      } else if (type=="above=") {
+        ix<-which(mat_ref[i,]>=threshold & !is.na(mat[i,])) 
+      }
     }
     if (length(ix)==0) return(NA)
     if (lab=="msess") {
@@ -106,50 +197,43 @@ score_fun<-function(i=NA,
     } else if (lab=="rmsf") {
       score<- mean(    (mat[i,ix] / mat_ref[i,ix])**2)
     } else if (lab=="seeps") {
+      n<-length(ix)
       if ( is.na(threshold))  threshold<-0.25 # mm
       if (is.na(threshold1)) threshold1<-threshold
       if (is.na(type)) type<-"error" # "skillscore"
       prob_light_to_heavy<-2 # light is twice as much likely than heavy
-      # must have the same lengths! that is "n"
-      if ( (n<-length(mat[i,ix])) != length(mat_ref[i,ix]) ) return(NA)
       # prec yes/no
       v_dry<- mat_ref[i,ix] < threshold1
-      f_dry<-     mat[i,ix] < threshold
       # define probabilities (1=dry, 2=light, 3=heavy)
       # based on p3=p2/2 (and p1+p2+p3=1)
-#      v_p<-vector(mode="numeric",length=3)
       v_p<-vector(mode="numeric",length=2)
       v_p[1]<- length(which(v_dry)) / n
       # check if SEEPS is applicable
       if ( v_p[1]<0.1 | v_p[1]>0.85 ) return(NA)
       v_p[2]<- prob_light_to_heavy/(prob_light_to_heavy+1) * (1-v_p[1])
-#      v_p[3]<- v_p[2] / prob_light_to_heavy
-#      f_p<-vector(mode="numeric",length=3)
-#      f_p[1]<- length(which(f_dry)) / n
-#      f_p[2]<- 2/3 * (1-f_p[1])
-#      f_p[3]<- f_p[2] / 2 
-#      f_p[1]<- v_p[1]
-#      f_p[2]<- v_p[2]
-#      f_p[3]<- v_p[3]
-      # define thresholds (quantiles)
-      v_q<-vector(mode="numeric",length=3)
-      f_q<-vector(mode="numeric",length=3)
-      v_q<- c( threshold1, as.numeric(quantile( mat_ref[i,ix[which(!v_dry)]], probs=(v_p[1]+v_p[2]),type=4)) )
-      f_q<- c(  threshold, as.numeric(quantile(     mat[i,ix[which(!f_dry)]], probs=(v_p[1]+v_p[2]),type=4)) )
-      # Scoring Matrix (from ECMWF memo, Eq.(4))
-      # observed categories dry, light, heavy from left to right
-      # forecast categories dry, light, heavy from the top down
-      scoring_matrix<- 0.5 * cbind( c(            0,     1/v_p[1], 1/v_p[1]+3/(2+v_p[1]) ), 
-                                    c( 1/(1-v_p[1]),            0,          3/(2+v_p[1]) ), 
-                                    c( 4/(1-v_p[1]), 3/(1-v_p[1]),                     0 ) )
-      # vf/class 11/11, 12/10, 13/13, 21/01, 22/00, 23/03, 31/31, 32/30, 33/33
-      class<- 10 * as.numeric(mat_ref[i,ix]<v_q[1]) + 30 * as.numeric(mat_ref[i,ix]>v_q[2]) +
-               1 * as.numeric(    mat[i,ix]<f_q[1]) +  3 * as.numeric(    mat[i,ix]>f_q[2])
-      contt<- 1/n * cbind( c(length(which(class==11)),length(which(class==10)),length(which(class==13)) ),
-                           c(length(which(class== 1)),length(which(class== 0)),length(which(class== 3)) ),
-                           c(length(which(class==31)),length(which(class==30)),length(which(class==33)) ) )
-      score<-sum(contt*scoring_matrix)
-      if (type=="skillscore") score<-1-score
+      # define thresholds (quantiles), v_p[1]+v_p[2] == 1-1/(prob_light_to_heavy+1)
+      v_q<-vector(mode="numeric",length=2)
+      v_q<- c( threshold1, 
+               as.numeric(quantile( mat_ref[i,ix], 
+                          probs=(v_p[1]+v_p[2]),type=4)) )
+      if (type=="light_rain_threshold") {
+        score<-v_q[2]
+      } else {
+        # Scoring Matrix (from ECMWF memo, Eq.(4))
+        # observed categories dry, light, heavy from left to right
+        # forecast categories dry, light, heavy from the top down
+        scoring_matrix<- 0.5 * cbind( c(            0,     1/v_p[1], 1/v_p[1]+3/(2+v_p[1]) ), 
+                                      c( 1/(1-v_p[1]),            0,          3/(2+v_p[1]) ), 
+                                      c( 4/(1-v_p[1]), 3/(1-v_p[1]),                     0 ) )
+        # vf/class 11/11, 12/10, 13/13, 21/01, 22/00, 23/03, 31/31, 32/30, 33/33
+        class<- 10 * as.numeric(mat_ref[i,ix]<v_q[1]) + 30 * as.numeric(mat_ref[i,ix]>v_q[2]) +
+                 1 * as.numeric(    mat[i,ix]<v_q[1]) +  3 * as.numeric(    mat[i,ix]>v_q[2])
+        contt<- 1/n * cbind( c(length(which(class==11)),length(which(class==10)),length(which(class==13)) ),
+                             c(length(which(class== 1)),length(which(class== 0)),length(which(class== 3)) ),
+                             c(length(which(class==31)),length(which(class==30)),length(which(class==33)) ) )
+        score<-sum(contt*scoring_matrix)
+        if (type=="skillscore") score<-1-score
+      }
     } else {
       score<-NA
     }
