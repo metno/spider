@@ -656,6 +656,47 @@ p<- add_argument(p, "--sec_string",
                  type="character",
                  default="SS")
 #..............................................................................
+p <- add_argument(p, "--pam",
+                  help="plot a map",
+                  flag=T)
+p<- add_argument(p, "--ffout_pam_template",
+                 help="path to + name (template) of the output png file",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--pam_width",
+                 help="png resolution, width",
+                 type="numeric",
+                 default=800)
+p<- add_argument(p, "--pam_height",
+                 help="png resolution, height",
+                 type="numeric",
+                 default=800)
+p<- add_argument(p, "--pam_ffshp_borders",
+                 help="path to + name to the borders (shapefile)",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--pam_ffshp_borders_layer",
+                 help="layer",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--pam_fool_path",
+                 help="path to the fool library (color_table dir included)",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--pam_fool_coltab",
+                 help="fool color table abbreviation",
+                 type="character",
+                 default=NA)
+p <- add_argument(p, "--pam_fool_breaks",
+                  help="range to plot (min max)",
+                  type="numeric",
+                  default=NA,
+                  nargs=2)
+p<- add_argument(p, "--pam_leg_type",
+                 help="legend yes/no and type (NA no legend)",
+                 type="character",
+                 default=NA)
+#..............................................................................
 p <- add_argument(p, "--verbose",
                   help="verbose mode",
                   flag=T)
@@ -705,6 +746,7 @@ if ( !argv$time_aggregation &
      !argv$downscale & 
      !argv$latte &
      !argv$summ_stat & 
+     !argv$pam & 
      !argv$verif ) 
   argv$time_aggregation<-T
 #
@@ -773,7 +815,7 @@ if (argv$date1=="none") {
 } else {
   if (argv$date2=="none") {
     if ( is.na(argv$time_n_prev) & 
-         is.na(argv$time_n_succ) ) bomb(paste0("error in date definition"))
+         is.na(argv$time_n_succ) ) boom(paste0("error in date definition"))
     if (!is.na(argv$time_n_prev)) {
       if (argv$time_unit %in% c("sec","secs","second","seconds")) {
         aux<-rev(seq(strptime(argv$date1,format=argv$date.format),
@@ -829,6 +871,7 @@ if (any(!is.na(argv$date_filter_by_month))) {
   if (length(ix<-which( as.integer(format(tseq,format="%m",tz="GMT")) %in% 
                         argv$date_filter_by_month ))>0) {
     tseq<-tseq[ix]
+    if (exists("tseq_ref")) tseq_ref<-tseq_ref[ix]
   } else {
     boom("date_filter_by_month is outside the time period chosen")
   }
@@ -1719,6 +1762,32 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
       s<-stack(s,r)
     }
   }
+  #----------------------------------------------------------------------------
+  # plot
+  if (argv$pam) {
+     ffout_png<-replaceDate(string=argv$ffout_pam_template,
+                            date.str=format(tseq[t],
+                                      format=argv$ffin_date.format,tz="GMT"),
+                            year_string=argv$year_string,
+                            month_string=argv$month_string,
+                            day_string=argv$day_string,
+                            hour_string=argv$hour_string,
+                            sec_string=argv$sec_string,
+                            format=argv$ffin_date.format)
+    pam(ffout=list(name=ffout_png,
+                   width=argv$pam_width,
+                   height=argv$pam_height),
+        borders_par=list(name=argv$pam_ffshp_borders,
+                         layer=argv$pam_ffshp_borders_layer),
+        fig_par=list(mar=c(.5,.5,.5,.5),
+                     fool_coltab=argv$pam_fool_coltab,
+                     fool_path=argv$pam_fool_path,
+                     fool_breaks=argv$pam_fool_breaks),
+        leg_par=list(type=argv$pam_leg_type),
+        raster_to_plot=r
+       ) 
+  }
+  #----------------------------------------------------------------------------
   # update counters of valid timesteps
   n<-n+1
   t_ok[n]<-t
