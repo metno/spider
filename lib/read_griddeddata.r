@@ -29,7 +29,7 @@ read_griddeddata<-function(mode="data",var=NA) { #data,master,data_dem,master_de
     ff_tpos<-argv$ffindem_tpos
     ff_epos<-argv$ffindem_epos
     ff_e<-argv$ffindem_e
-    ff_varname<-argv$ffindem_varname
+    ff_varname<-ifelse(is.na(var),argv$ffindem_varname,var)
     ff_topdown<-argv$ffindem_topdown
     ff_ndim<-argv$ffindem_ndim
     ff_dimnames<-argv$ffindem_dimnames
@@ -41,7 +41,7 @@ read_griddeddata<-function(mode="data",var=NA) { #data,master,data_dem,master_de
     ff_tpos<-argv$ffmaster_tpos
     ff_epos<-argv$ffmaster_epos
     ff_e<-argv$ffmaster_e
-    ff_varname<-argv$ffmaster_varname
+    ff_varname<-ifelse(is.na(var),argv$ffmaster_varname,var)
     ff_topdown<-argv$ffmaster_topdown
     ff_ndim<-argv$ffmaster_ndim
     ff_dimnames<-argv$ffmaster_dimnames
@@ -69,7 +69,8 @@ read_griddeddata<-function(mode="data",var=NA) { #data,master,data_dem,master_de
       ff_tpos<-argv$ffmasterdem_tpos
       ff_epos<-argv$ffmasterdem_epos
       ff_e<-argv$ffmasterdem_e
-      ff_varname<-argv$ffmasterdem_varname
+      ff_varname<-ifelse(is.na(argv$ffmasterdem_varname),
+               argv$ffmaster_varname,argv$ffmasterdem_varname)
       ff_topdown<-argv$ffmasterdem_topdown
       ff_ndim<-argv$ffmasterdem_ndim
       ff_dimnames<-argv$ffmasterdem_dimnames

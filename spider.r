@@ -519,8 +519,12 @@ p<- add_argument(p, "--ffin_ref_template_alternative",
                  help="path to + name (template) of the input observation files",
                  type="character",
                  default=NA)
+p <-  add_argument(p, "--tseq_ref_hour_offset",
+                  help="hour offset (this will affect the filename)",
+                  type="numeric",
+                  default=0)
 p <- add_argument(p, "--ffin_ref_hour_offset",
-                  help="hour offset",
+                  help="hour offset (this will affect the netcdf timestep readed, but not the filename)",
                   type="numeric",
                   default=0)
 p <- add_argument(p, "--ffin_ref_varname",
@@ -811,6 +815,14 @@ if (argv$date1=="none") {
                       N.succ=NULL,
                       RdateOnlyOut=T,
                       verbose=F)
+  if (!is.na(argv$ffin_ref_template)) {
+    if (argv$tseq_ref_hour_offset==0) {
+      tseq_ref<-tseq
+    } else {
+      tseq_ref<-as.POSIXlt(as.POSIXct(tseq,tz="GMT")+
+                           argv$tseq_ref_hour_offset*3600,tz="GMT")
+    }
+  }
 } # end if (argv$date1=="none")
 # consider only some months
 if (any(!is.na(argv$date_filter_by_month))) {
@@ -894,7 +906,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   # read reference file
   if (!is.na(argv$ffin_ref_template)) {
     ffin_ref<-replaceDate(string=argv$ffin_ref_template,
-                          date.str=format(tseq[t],
+                          date.str=format(tseq_ref[t],
                                     format=argv$ffin_date.format,tz="GMT"),
                           year_string=argv$year_string,
                           month_string=argv$month_string,
@@ -1111,9 +1123,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
       rmaster<-read_griddeddata("master")
       if (is.null(rmaster)) boom("ERROR problem reading master grid")
     }
-    if (argv$master_mask) r1<-mask(r,mask=rmaster)
-    r<-r1
-    rm(r1)
+    r<-mask(r,mask=rmaster)
     if (!any(!is.na(values<-getValues(r)))) {
       print(paste("warning: all NAs after mask"))
       next
@@ -1568,7 +1578,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
           mat<-getValues(r)[ix_ver]
           mat_ref<-getValues(r_ref)[ix_ver]
           npoints<-length(mat_ref)
-          rmaster<-r; rmaster[]<-NA
+          if (!exists("rmaster")) {rmaster<-r; rmaster[]<-NA}
         } else {
           mat<-cbind(mat,getValues(r)[ix_ver])
           mat_ref<-cbind(mat_ref,getValues(r_ref)[ix_ver])
@@ -1586,7 +1596,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
         if ( argv$verif_metric %in% c("rmse","rmsf") ) 
           dat<-dat**2
         if (!exists("dat_mean")) {
-          rmaster<-r; rmaster[]<-NA
+          if (!exists("rmaster")) {rmaster<-r; rmaster[]<-NA}
           dat_mean<-dat
           dat_cont<-dat
           dat_cont[]<-NA 
