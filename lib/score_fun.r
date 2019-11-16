@@ -93,7 +93,7 @@ score_fun<-function(i=NA,
         # define thresholds (quantiles)
         v_q<-vector(mode="numeric",length=3)
         v_q<- c( threshold1, 
-                 as.numeric(quantile( mat_ref[i,ix[which(!v_dry)]], 
+                 as.numeric(quantile( mat_ref[i,ix_ref[which(!v_dry)]], 
                             probs=(v_p[1]+v_p[2]), type=4)) )
         if (type == "light" ) {
           threshold<-v_q[1]
