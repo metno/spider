@@ -679,6 +679,10 @@ p<- add_argument(p, "--pam_ffshp_borders_layer",
                  help="layer",
                  type="character",
                  default=NA)
+p<- add_argument(p, "--pam_ffshp_borders_lwd",
+                 help="borders line width",
+                 type="character",
+                 default=NA)
 p<- add_argument(p, "--pam_fool_path",
                  help="path to the fool library (color_table dir included)",
                  type="character",
@@ -692,10 +696,24 @@ p <- add_argument(p, "--pam_fool_breaks",
                   type="numeric",
                   default=NA,
                   nargs=2)
+p <- add_argument(p, "--pam_xlim",
+                  help="x-coordinate range (min max)",
+                  type="numeric",
+                  default=NA,
+                  nargs=2)
+p <- add_argument(p, "--pam_ylim",
+                  help="y-coordinate range (min max)",
+                  type="numeric",
+                  default=NA,
+                  nargs=2)
 p<- add_argument(p, "--pam_leg_type",
                  help="legend yes/no and type (NA no legend)",
                  type="character",
                  default=NA)
+p<- add_argument(p, "--pam_leg_dig",
+                 help="legend round to significant digits",
+                 type="numeric",
+                 default=2)
 #..............................................................................
 p <- add_argument(p, "--verbose",
                   help="verbose mode",
@@ -1778,12 +1796,16 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
                    width=argv$pam_width,
                    height=argv$pam_height),
         borders_par=list(name=argv$pam_ffshp_borders,
-                         layer=argv$pam_ffshp_borders_layer),
+                         layer=argv$pam_ffshp_borders_layer,
+                         lwd=argv$pam_ffshp_borders_lwd),
         fig_par=list(mar=c(.5,.5,.5,.5),
+                     xlim=argv$pam_xlim,
+                     ylim=argv$pam_ylim,
                      fool_coltab=argv$pam_fool_coltab,
                      fool_path=argv$pam_fool_path,
                      fool_breaks=argv$pam_fool_breaks),
-        leg_par=list(type=argv$pam_leg_type),
+        leg_par=list(type=argv$pam_leg_type,
+                     dig=argv$pam_leg_dig),
         raster_to_plot=r
        ) 
   }

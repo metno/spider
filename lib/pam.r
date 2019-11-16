@@ -51,54 +51,98 @@ color.bar1<-function(col,
 }
 
 pam<-function(ffout=list(name=NA,width=800,height=800),
-              borders_par=list(name=NA,layer=NA,proj4=NA,proj4to=NA,lwd=2),
+              borders_par=list(name=NA,
+                               layer=NA,
+                               proj4=NA,
+                               proj4to=NA,
+                               lwd=6),
               fig_par=list(mar=c(.5,.5,.5,.5),
+                           xlim=NA,
+                           ylim=NA,
                            colors=NA,
                            breaks=NA,
                            fool_coltab=NA,
                            fool_path=NA,
                            fool_breaks=NA),
               leg_par=list(type=NA,
-                           aux=NA),
-              raster_to_plot
+                           dig=0),
+              raster_to_plot,
+              verbose=T
               ) {
-  if (!is.na(borders_par$name)) {
-    borders<-readOGR(borders_par$name,borders_par$layer)
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+  if (verbose) {
+    print(paste("distributions of values to plot min,10-th perc,20-th perc,...,max",
+      toString(round(quantile(getValues(raster_to_plot),probs=seq(0,1,by=0.1),na.rm=T),5))))
   }
+  # borders
+  if (!is.na(borders_par$name)) {
+    borders<-readOGR(borders_par$name,borders_par$layer,verbose=F)
+  }
+  # set xlim and ylim
+  if (any(is.na(fig_par$xlim))) 
+    fig_par$xlim<-as.numeric(extent(raster_to_plot)[1:2])
+  if (any(is.na(fig_par$ylim))) 
+    fig_par$ylim<-as.numeric(extent(raster_to_plot)[3:4])
+  # colors and breaks
   if (!is.na(fig_par$fool_coltab)) {
-    require(fool)
+    suppressPackageStartupMessages(require(fool))
     coltab<-load_color_table(path=fig_par$fool_path,abbrv=fig_par$fool_coltab)
     fig_par$breaks<-seq(fig_par$fool_breaks[1],
                         fig_par$fool_breaks[2],
                         length=(length(coltab)+1))
     fig_par$colors<-c(coltab)
-    print(fig_par$breaks)
-    print(raster_to_plot)
   }
+  # ensure no blank regions in the map
+  dat<-getValues(raster_to_plot)
+  if (any(ix<-(dat<min(fig_par$breaks) & !is.na(dat)))) 
+    raster_to_plot[which(ix)]<-min(fig_par$breaks)
+  if (any(ix<-(dat>max(fig_par$breaks) & !is.na(dat)))) 
+    raster_to_plot[which(ix)]<-max(fig_par$breaks)
+  # plot!
   if (!is.na(ffout$name)) 
     png(file=ffout$name,width=ffout$width,height=ffout$height)
   par(mar=fig_par$mar)
   if (!any(is.na(fig_par$breaks))) {
-    image(raster_to_plot,col=fig_par$colors,breaks=fig_par$breaks,xlab="",ylab="",axes=F)
+    image(raster_to_plot,
+          col=fig_par$colors,
+          breaks=fig_par$breaks,
+          xlim=fig_par$xlim,
+          ylim=fig_par$ylim,
+          xlab="",
+          ylab="",axes=F)
   } else {
-    image(raster_to_plot,xlab="",ylab="",axes=F)
+    image(raster_to_plot,
+          xlim=fig_par$xlim,
+          ylim=fig_par$ylim,
+          xlab="",
+          ylab="",axes=F)
   }
+  # plot borders
   if (!is.na(borders_par$name)) plot(borders,add=T,lwd=borders_par$lwd) 
+  # plot legend
   if (!is.na(leg_par$type)) {
-    tstr<-vector()
-    for (i in 1:length(fig_par$colors)) {
-      if (i==length(fig_par$colors)) {
-    #    tstr[i]<-paste0(">",br[i],"mm")
-      } else {
-        tstr[i]<-paste0(round(fig_par$breaks[i+1],1))
-      }
-    }
-
+#    tstr<-vector()
+#    for (i in 1:length(fig_par$colors)) {
+#      if (i==length(fig_par$colors)) {
+#    #    tstr[i]<-paste0(">",br[i],"mm")
+#      } else {
+#        tstr[i]<-paste0(round(fig_par$breaks[i+1],1))
+#      }
+#    }
     if (leg_par$type=="color_bar") {
-#      color.bar1(col=fig_par$colors,breaks_as_strings=tstr,x1=4,x2=5.5,y1=62.8,y2=71.4,dx=1.3,cex=1.3)
-      fool::color.bar(col=fig_par$colors,breaks=fig_par$breaks,x1=4,x2=5.5,y1=62.8,y2=71.4,dx=1.3,cex=1.3,nticks=11,legdig=2)
+      color_bar(col=fig_par$colors,
+                breaks=fig_par$breaks,
+                xlim=fig_par$xlim,
+                ylim=fig_par$ylim,
+                cex=2.3,
+                cutTails=F,
+                nticks=11,
+                legdig=leg_par$dig)
     }
   }
   box()
+  # end of plot
   if (!is.na(ffout$name)) dev.off()
+  if (verbose) print(paste("written file",ffout$name))
 }
