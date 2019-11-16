@@ -81,9 +81,9 @@ score_fun<-function(i=NA,
     n_val<-length( ix_val <- which(!is.na(mat[i,])) )
     n_ref<-length( ix_ref <- which(!is.na(mat_ref[i,])) )
     if (n_val==0 | n_ref==0) return(NA)
+    if ( is.na(threshold))  threshold<-0.25 # mm
+    if (is.na(threshold1)) threshold1<-threshold
     if (type %in% c("wet","dry","light","heavy")) {
-      if ( is.na(threshold))  threshold<-0.25 # mm
-      if (is.na(threshold1)) threshold1<-threshold
       if (type %in% c("light","heavy")) {
         prob_light_to_heavy<-2 # light is twice as much likely than heavy
         v_dry<- mat_ref[i,ix_ref] < threshold1
@@ -101,7 +101,7 @@ score_fun<-function(i=NA,
           type<-"=within"
         } else { # heavy
           threshold<-v_q[2]
-          threshold1<-NA
+          threshold1<-v_q[2]
           type<-"above="
         }
       } else if (type == "dry") {
@@ -111,29 +111,29 @@ score_fun<-function(i=NA,
       }
     }
     if (type=="below") {
-      yes_val<-which(mat[i,]<threshold)
-      yes_ref<-which(mat_ref[i,]<threshold1)
+      yes_val<-which(mat[i,ix_val]<threshold)
+      yes_ref<-which(mat_ref[i,ix_ref]<threshold1)
     } else if (type=="below=") {
-      yes_val<-which(mat[i,]<=threshold)
-      yes_ref<-which(mat_ref[i,]<=threshold1)
+      yes_val<-which(mat[i,ix_val]<=threshold)
+      yes_ref<-which(mat_ref[i,ix_ref]<=threshold1)
     } else if (type=="=within") {
-      yes_val<-which(mat[i,]>=threshold & mat[i,]<threshold) 
-      yes_ref<-which(mat_ref[i,]>=threshold1 & mat_ref[i,]<threshold1) 
+      yes_val<-which(mat[i,ix_val]>=threshold & mat[i,ix_val]<threshold) 
+      yes_ref<-which(mat_ref[i,ix_ref]>=threshold1 & mat_ref[i,ix_ref]<threshold1) 
     } else if (type=="within") {
-      yes_val<-which(mat[i,]>threshold & mat[i,]<threshold) 
-      yes_ref<-which(mat_ref[i,]>threshold1 & mat_ref[i,]<threshold1) 
+      yes_val<-which(mat[i,ix_val]>threshold & mat[i,ix_val]<threshold) 
+      yes_ref<-which(mat_ref[i,ix_ref]>threshold1 & mat_ref[i,ix_ref]<threshold1) 
     } else if (type=="within=") {
-      yes_val<-which(mat[i,]>threshold & mat[i,]<=threshold) 
-      yes_ref<-which(mat_ref[i,]>threshold1 & mat_ref[i,]<=threshold1) 
+      yes_val<-which(mat[i,ix_val]>threshold & mat[i,ix_val]<=threshold) 
+      yes_ref<-which(mat_ref[i,ix_ref]>threshold1 & mat_ref[i,ix_ref]<=threshold1) 
     } else if (type=="=within=") {
-      yes_val<-which(mat[i,]>=threshold & mat[i,]<=threshold) 
-      yes_ref<-which(mat_ref[i,]>=threshold1 & mat_ref[i,]<=threshold1) 
+      yes_val<-which(mat[i,ix_val]>=threshold & mat[i,ix_val]<=threshold) 
+      yes_ref<-which(mat_ref[i,ix_ref]>=threshold1 & mat_ref[i,ix_ref]<=threshold1) 
     } else if (type=="above") {
-      yes_val<-which(mat[i,]>threshold) 
-      yes_ref<-which(mat_ref[i,]>threshold1) 
+      yes_val<-which(mat[i,ix_val]>threshold) 
+      yes_ref<-which(mat_ref[i,ix_ref]>threshold1) 
     } else if (type=="above=") {
-      yes_val<-which(mat[i,]>=threshold) 
-      yes_ref<-which(mat_ref[i,]>=threshold1) 
+      yes_val<-which(mat[i,ix_val]>=threshold) 
+      yes_ref<-which(mat_ref[i,ix_ref]>=threshold1) 
     }
     if (length(yes_val)==0) {no_val<-ix_val} else {no_val<-ix_val[-yes_val]}
     if (length(yes_ref)==0) {no_ref<-ix_ref} else {no_ref<-ix_ref[-yes_ref]}
