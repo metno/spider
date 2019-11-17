@@ -331,6 +331,14 @@ p <- add_argument(p, "--verif_seeps_type",
                   help="verification, seeps error (default, 0-1, 0=the best) or skill-score (0-1, 1=the best). Special type: \"light_rain_threshold\" then the output is not SEEPS but the threshold used for distinction between light and heavy rainfall",
                   type="character",
                   default="error")
+p <- add_argument(p, "--verif_roblinreg_threshold",
+                  help="verification, roblinreg precip yes/no threshold (mm)",
+                  type="numeric",
+                  default=1)
+p <- add_argument(p, "--verif_roblinreg_type",
+                  help="verification, condition to apply to threshold.",
+                  type="character",
+                  default="above=")
 p <- add_argument(p, "--verif_contab_threshold",
                   help="verification, contingency table for binary events (a,b,c,d,ets) threshold defining the event",
                   type="numeric",
@@ -905,7 +913,9 @@ t_ok<-vector()
 n<-0
 first<-T
 for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
-  if (argv$verbose & t%%100==0) print(paste("timestep",t,"/",n_tseq))
+  if (argv$verbose & t%%100==0) 
+    print(paste("timestep",t,"/",n_tseq,
+          "elapsed time",round(Sys.time()-t0,2),attr(Sys.time()-t0,"unit")))
   ffin<-replaceDate(string=argv$ffin_template,
                     date.str=format(tseq[t],
                               format=argv$ffin_date.format,tz="GMT"),
@@ -1633,7 +1643,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   if (argv$verif) {
     if (gridded_output) {
       # scores that require to store the whole dataset in memory
-      if (argv$verif_metric %in% c("corr","msess","ets","a","b","c","d","seeps")) {
+      if (argv$verif_metric %in% c("corr","msess","ets","a","b","c","d","seeps","roblinreg")) {
         if (!exists("mat")) {
           ix_ver<-which(!is.na(getValues(r)) & !is.na(getValues(r_ref)))
           mat<-getValues(r)[ix_ver]
@@ -1944,7 +1954,7 @@ if (gridded_output)  {
   #----------------------------------------------------------------------------
   # verification
   if (argv$verif) {
-    if (argv$verif_metric %in% c("corr","msess","ets","a","b","c","d","seeps")) {
+    if (argv$verif_metric %in% c("corr","msess","ets","a","b","c","d","seeps","roblinreg")) {
       if (argv$verif_metric=="corr") {
         threshold<-NA
         threshold1<-NA
@@ -1957,6 +1967,10 @@ if (gridded_output)  {
         threshold<-argv$verif_seeps_threshold
         threshold1<-argv$verif_seeps_threshold
         type<-argv$verif_seeps_type
+      } else if (argv$verif_metric=="roblinreg") {
+        threshold<-argv$verif_roblinreg_threshold
+        threshold1<-argv$verif_roblinreg_threshold
+        type<-argv$verif_roblinreg_type
       } else if (argv$verif_metric %in% c("a","b","c","d","ets")) {
         threshold<-argv$verif_contab_threshold
         threshold1<-argv$verif_contab_threshold1

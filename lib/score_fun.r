@@ -159,9 +159,33 @@ score_fun<-function(i=NA,
     # no thresholding, then use all not-NA pairs 
     if (is.na(threshold) | lab=="seeps") {
       ix<-which( !is.na(mat[i,]) & !is.na(mat_ref[i,]) )
+    # thresholding is done both on the reference and evaluated values
+    } else if (lab=="roblinreg") {
+      if (is.na(type)) return(NA)
+      if (type=="below") {
+        ix<-which(mat_ref[i,]<threshold & mat[i,]<threshold)
+      } else if (type=="below=") {
+        ix<-which(mat_ref[i,]<=threshold & mat[i,]<=threshold)
+      } else if (type=="=within") {
+        ix<-which(mat_ref[i,]>=threshold & mat_ref[i,]<threshold1 &
+                      mat[i,]>=threshold &     mat[i,]<threshold1) 
+      } else if (type=="within") {
+        ix<-which(mat_ref[i,]>threshold & mat_ref[i,]<threshold1 & 
+                      mat[i,]>threshold &     mat[i,]<threshold1 ) 
+      } else if (type=="within=") {
+        ix<-which(mat_ref[i,]>threshold & mat_ref[i,]<=threshold1 & 
+                      mat[i,]>threshold &     mat[i,]<=threshold1) 
+      } else if (type=="=within=") {
+        ix<-which(mat_ref[i,]>=threshold & mat_ref[i,]<=threshold1 & 
+                      mat[i,]>=threshold &     mat[i,]<=threshold1) 
+      } else if (type=="above") {
+        ix<-which(mat_ref[i,]>threshold & mat[i,]>threshold) 
+      } else if (type=="above=") {
+        ix<-which(mat_ref[i,]>=threshold & mat[i,]>=threshold) 
+      }
+    # thresholding is done on the reference values, then use all not-NA pairs
     } else {
       if (is.na(type)) return(NA)
-      # thresholding is done on the reference values, then use all not-NA pairs
       if (type=="below") {
         ix<-which(mat_ref[i,]<threshold & !is.na(mat[i,]))
       } else if (type=="below=") {
@@ -180,7 +204,7 @@ score_fun<-function(i=NA,
         ix<-which(mat_ref[i,]>=threshold & !is.na(mat[i,])) 
       }
     }
-    if (length(ix)==0) return(NA)
+    if (n<-length(ix)==0) return(NA)
     if (lab=="msess") {
       score<- 1 - mean( (    mat[i,ix] -       mat_ref[i,ix])**2) /
                   mean( (mat_ref[i,ix] - mean(mat_ref[i,ix]))**2)
@@ -196,8 +220,16 @@ score_fun<-function(i=NA,
       score<- mean(    (mat[i,ix] - mat_ref[i,ix])**2)
     } else if (lab=="rmsf") {
       score<- mean(    (mat[i,ix] / mat_ref[i,ix])**2)
+    } else if (lab=="roblinreg") { # robust linear regression
+      bxp<-boxplot(mat[i,ix]~round(mat_ref[i,ix],0),plot=F)
+      # "stats" "n"     "conf"  "out"   "group" "names"
+      iy<-which(bxp$n>10)
+      if (length(iy<-which(bxp$n>10))<3) {
+        score<-NA
+      } else {
+        score<-as.numeric(lm(bxp$stats[3,iy]~as.numeric(bxp$names[iy])+0)$coefficients[1])
+      }
     } else if (lab=="seeps") {
-      n<-length(ix)
       if ( is.na(threshold))  threshold<-0.25 # mm
       if (is.na(threshold1)) threshold1<-threshold
       if (is.na(type)) type<-"error" # "skillscore"
