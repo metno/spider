@@ -699,11 +699,28 @@ p<- add_argument(p, "--pam_fool_coltab",
                  help="fool color table abbreviation",
                  type="character",
                  default=NA)
+p<- add_argument(p, "--pam_fool_coltab_rev",
+                 help="reverse fool color table",
+                 flag=T)
 p <- add_argument(p, "--pam_fool_breaks",
-                  help="range to plot (min max)",
+                  help="breaks when pam_fool_coltab is specified. breaks are specified as: range to plot (min max) and one can specify the number of ticks in the legend (pam_leg_cbar_nticks)",
                   type="numeric",
                   default=NA,
                   nargs=2)
+p <- add_argument(p, "--pam_colors",
+                  help="colors.",
+                  type="numeric",
+                  default=NA,
+                  nargs=Inf)
+p <- add_argument(p, "--pam_breaks",
+                  help="breaks. if specified has the priority over \"pam_fool_breaks\".",
+                  type="numeric",
+                  default=NA,
+                  nargs=Inf)
+p <- add_argument(p, "--pam_disagg_fact",
+                  help="plot a more detailed map. the field is refined using bilinear interpolation",
+                  type="numeric",
+                  default=NA)
 p <- add_argument(p, "--pam_xlim",
                   help="x-coordinate range (min max)",
                   type="numeric",
@@ -715,13 +732,21 @@ p <- add_argument(p, "--pam_ylim",
                   default=NA,
                   nargs=2)
 p<- add_argument(p, "--pam_leg_type",
-                 help="legend yes/no and type (NA no legend)",
+                 help="legend yes/no and type (NA no legend). types: \"color_bar\" (use when colors are specified through \"pam_fool_coltab\"), \"color_bar_mybreaks\".",
                  type="character",
                  default=NA)
 p<- add_argument(p, "--pam_leg_dig",
                  help="legend round to significant digits",
                  type="numeric",
                  default=2)
+p<- add_argument(p, "--pam_leg_cbar_nticks",
+                 help="number of thicks when pam_leg_type is set to \"color_bar\"",
+                 type="numeric",
+                 default=11)
+p<- add_argument(p, "--pam_leg_height",
+                 help="legend height (\"standard\", \"wide\")",
+                 type="character",
+                 default="standard")
 #..............................................................................
 p <- add_argument(p, "--verbose",
                   help="verbose mode",
@@ -972,6 +997,10 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   if (!any(!is.na(values<-getValues(r)))) {
     print(paste("warning: all NAs for time file",t_to_read,ffin))
     next
+  }
+  if (argv$verbose) {
+    print(paste("extension of the raster file (xmin,xmax,ymin,ymax)",
+                toString(round(extent(r),6))))
   }
   #----------------------------------------------------------------------------
   # read reference file
@@ -1812,9 +1841,15 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
                      xlim=argv$pam_xlim,
                      ylim=argv$pam_ylim,
                      fool_coltab=argv$pam_fool_coltab,
+                     fool_coltab_rev=argv$pam_fool_coltab_rev,
                      fool_path=argv$pam_fool_path,
-                     fool_breaks=argv$pam_fool_breaks),
+                     fool_breaks=argv$pam_fool_breaks,
+                     breaks=argv$pam_breaks,
+                     disagg_fact=argv$pam_disagg_fact,
+                     colors=argv$pam_colors),
         leg_par=list(type=argv$pam_leg_type,
+                     nticks=argv$pam_leg_cbar_nticks,
+                     height=argv$pam_leg_height,
                      dig=argv$pam_leg_dig),
         raster_to_plot=r
        ) 

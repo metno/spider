@@ -57,6 +57,7 @@ pam<-function(ffout=list(name=NA,width=800,height=800),
                                proj4to=NA,
                                lwd=6),
               fig_par=list(mar=c(.5,.5,.5,.5),
+                           disagg_fact=NA,
                            xlim=NA,
                            ylim=NA,
                            colors=NA,
@@ -65,6 +66,8 @@ pam<-function(ffout=list(name=NA,width=800,height=800),
                            fool_path=NA,
                            fool_breaks=NA),
               leg_par=list(type=NA,
+                           nticks=11,
+                           height=NA,
                            dig=0),
               raster_to_plot,
               verbose=T
@@ -88,10 +91,18 @@ pam<-function(ffout=list(name=NA,width=800,height=800),
   if (!is.na(fig_par$fool_coltab)) {
     suppressPackageStartupMessages(require(fool))
     coltab<-load_color_table(path=fig_par$fool_path,abbrv=fig_par$fool_coltab)
-    fig_par$breaks<-seq(fig_par$fool_breaks[1],
-                        fig_par$fool_breaks[2],
-                        length=(length(coltab)+1))
+    if (fig_par$fool_coltab_rev) coltab<-rev(coltab)
+    if (any(is.na(fig_par$breaks))) {
+      fig_par$breaks<-seq(fig_par$fool_breaks[1],
+                          fig_par$fool_breaks[2],
+                          length=(length(coltab)+1))
+    }
     fig_par$colors<-c(coltab)
+  }
+  if (length(fig_par$breaks)!=(length(fig_par$colors)+1)) {
+    print(paste("must have one more break than colors (#breaks,#colors)",
+                length(fig_par$breaks),length(fig_par$colors)))
+    return(NA)
   }
   # ensure no blank regions in the map
   dat<-getValues(raster_to_plot)
@@ -99,6 +110,8 @@ pam<-function(ffout=list(name=NA,width=800,height=800),
     raster_to_plot[which(ix)]<-min(fig_par$breaks)
   if (any(ix<-(dat>max(fig_par$breaks) & !is.na(dat)))) 
     raster_to_plot[which(ix)]<-max(fig_par$breaks)
+  if (!is.na(fig_par$disagg_fact)) 
+    raster_to_plot<-disaggregate(raster_to_plot,fact=fig_par$disagg_fact,method="bilinear")
   # plot!
   if (!is.na(ffout$name)) 
     png(file=ffout$name,width=ffout$width,height=ffout$height)
@@ -122,23 +135,34 @@ pam<-function(ffout=list(name=NA,width=800,height=800),
   if (!is.na(borders_par$name)) plot(borders,add=T,lwd=borders_par$lwd) 
   # plot legend
   if (!is.na(leg_par$type)) {
-#    tstr<-vector()
-#    for (i in 1:length(fig_par$colors)) {
-#      if (i==length(fig_par$colors)) {
-#    #    tstr[i]<-paste0(">",br[i],"mm")
-#      } else {
-#        tstr[i]<-paste0(round(fig_par$breaks[i+1],1))
-#      }
-#    }
     if (leg_par$type=="color_bar") {
       color_bar(col=fig_par$colors,
                 breaks=fig_par$breaks,
                 xlim=fig_par$xlim,
                 ylim=fig_par$ylim,
+                height=leg_par$height,
                 cex=2.3,
                 cutTails=F,
                 nticks=11,
                 legdig=leg_par$dig)
+    } else if (leg_par$type=="color_bar_mybreaks") {
+      tstr<-vector()
+      for (i in 1:length(fig_par$colors)) {
+        if (i==length(fig_par$colors)) {
+      #    tstr[i]<-paste0(">",br[i],"mm")
+        } else {
+          tstr[i]<-paste0(round(fig_par$breaks[i+1],1))
+        }
+      }
+      color_bar(col=fig_par$colors,
+                breaks_as_strings=tstr,
+                xlim=fig_par$xlim,
+                ylim=fig_par$ylim,
+                height=leg_par$height,
+                cex=2.3,
+                cutTails=F,
+                legdig=leg_par$dig)
+
     }
   }
   box()

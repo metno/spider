@@ -9,6 +9,7 @@ color_bar <- function(col,
                       legdig=0,
                       xlim=NA,
                       ylim=NA,
+                      height="standard", # "wide"
                       cex=1) {
 #------------------------------------------------------------------------------
 # col. n-vector with colors (n=number of colors)
@@ -23,8 +24,13 @@ color_bar <- function(col,
   yu<-y_range/50
   x1<- xlim[1]+ .5 * xu
   x2<-      x1+  2 * xu
-  y1<- ylim[1]+ 25 * yu 
-  y2<- ylim[2]- 1.5 * yu 
+  if (height=="standard") {
+    y1<- ylim[1]+ 25 * yu 
+    y2<- ylim[2]- 1.5 * yu 
+  } else if (height=="wide") {
+    y1<- ylim[1]+ 1.5 * yu 
+    y2<- ylim[2]- 1.5 * yu 
+  }
   dx<- 2.4 * xu
   if (any(!is.na(breaks_as_strings))) {
     nbr<-length(breaks_as_strings)
@@ -43,20 +49,30 @@ color_bar <- function(col,
     }
   }
   dy<-(y2-y1)/length(col)
-  rect(x1+dx,y1,
+  rect(x1-dx,y1,
        x2+1.5*dx,y2+dx,
        col="white", border=NA)
-  text((x2+1.5*dx/2),
-       (y1+dy/2+(ticks-1)*dy),
-       round(breaks[ticks],legdig),
-       cex=cex)
   text((x1+x2)/2,
         y2+dx/2,
         legtxt,
         cex=cex)
-  for (i in 1:(length(col))) {
-   y = (i-1)*dy + y1 
-   rect(x1,y,x2,y+dy, col=col[i], border=NA)
+  if (any(!is.na(breaks_as_strings))) {
+    for (i in 1:(length(col))) {
+     y = (i-1)*dy + y1 
+     border<-ifelse(i==1,"black","black") 
+     rect(x1,y,x2,y+dy, col=col[i], border=border)
+     if (i!=length(col)) lines(c(x1,x2+0.1*abs(x2-x1)),c(y+dy,y+dy))
+     if (i!=length(col)) text((x2+1.5*dx/2),(y+dy), breaks[i],cex=cex)
+    }
+  } else {
+    text((x2+1.5*dx/2),
+         (y1+dy/2+(ticks-1)*dy),
+         round(breaks[ticks],legdig),
+         cex=cex)
+    for (i in 1:(length(col))) {
+     y = (i-1)*dy + y1 
+     rect(x1,y,x2,y+dy, col=col[i], border=NA)
+    }
   }
 }
 
