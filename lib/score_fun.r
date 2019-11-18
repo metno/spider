@@ -51,9 +51,12 @@ score_fun<-function(i=NA,
   # transform x and x_ref into 1D mat and mat_ref
   if (is.na(i)) {
     i<-1
-    if (is.na(x) & is.na(xref)) return(NA)
-    if (!is.na(x)) mat<-array(data=x,dim=c(1,length(x)))
-    if (!is.na(x_ref)) mat_ref<-array(data=x_ref,dim=c(1,length(x_ref)))
+    if (exists("x")) mat<-array(data=x,dim=c(1,length(x)))
+    if (!any(!is.na(mat))) return(NA)
+    if (exists("xref")) {
+      mat_ref<-array(data=x_ref,dim=c(1,length(x_ref)))
+      if (!any(!is.na(mat_ref))) return(NA)
+    }
   }
   # count_x is the only score that do not use mat_ref
   if (lab=="count_x") {
@@ -75,6 +78,7 @@ score_fun<-function(i=NA,
     } else if (type=="above=") {
       score<-which(mat[i,]>=threshold) 
     }
+    score<-length(score)
   # use the reference data. not assume temporal allignment mat and mat_ref
   } else if (lab %in% c("a","b","c","d","ets")) {
     if (is.na(type)) return(NA)
