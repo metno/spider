@@ -171,6 +171,9 @@ p <- add_argument(p, "--gridded_dqc.max",
 p <- add_argument(p, "--time_aggregation",
                   help="aggregate data over time dimension (default=T if all others=F)",
                   flag=T)
+p <- add_argument(p, "--time_aggregation_online",
+                  help="online step-by-step aggregation, instead of reading all the files then aggregate",
+                  flag=T)
 #..............................................................................
 p <- add_argument(p, "--summ_stat",
                   help="summary step-by-step statistics",
@@ -998,9 +1001,12 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     print(paste("warning: all NAs for time file",t_to_read,ffin))
     next
   }
-  if (argv$verbose) {
+  if (argv$verbose & first) {
     print(paste("extension of the raster file (xmin,xmax,ymin,ymax)",
-                toString(round(extent(r),6))))
+                round(extent(r)[1],6),
+                round(extent(r)[2],6),
+                round(extent(r)[3],6),
+                round(extent(r)[4],6)))
   }
   #----------------------------------------------------------------------------
   # read reference file
@@ -1812,11 +1818,22 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   } # end if verif
   #----------------------------------------------------------------------------
   # store in a raster stack 
-  if (gridded_output & !argv$verif)  {
+  if (gridded_output & !argv$verif & !argv$time_aggregation_online)  {
     if (!exists("s"))  {
       s<-r
     } else {
       s<-stack(s,r)
+    }
+  } else if (gridded_output & !argv$verif & argv$time_aggregation_online) {
+    if (!exists("s"))  {
+      s<-r
+    } else {
+      if (argv$fun=="sum")  {
+        sval<-getValues(s); rval<-getValues(r)
+        ix_aux<-which(!is.na(sval) & !is.na(rval) & is.finite(sval) & is.finite(rval))
+        if (length(ix_aux)>0) s[ix_aux]<-sval[ix_aux]+rval[ix_aux]
+        rm(sval,rval,ix_aux)
+      }
     }
   }
   #----------------------------------------------------------------------------
@@ -1891,7 +1908,7 @@ if (gridded_output)  {
   }
   #----------------------------------------------------------------------------
   # time aggregation
-  if (argv$time_aggregation) {
+  if (argv$time_aggregation & !argv$time_aggregation_online) {
     if ((n/n_tseq)>=argv$frac) {
       # set weights
       weights_aux<-suppressWarnings(
