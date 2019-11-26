@@ -175,6 +175,10 @@ p <- add_argument(p, "--time_aggregation_online",
                   help="online step-by-step aggregation, instead of reading all the files then aggregate",
                   flag=T)
 #..............................................................................
+p <- add_argument(p, "--time_cat",
+                  help="concatenate files overt time",
+                  flag=T)
+#..............................................................................
 p <- add_argument(p, "--summ_stat",
                   help="summary step-by-step statistics",
                   flag=T)
@@ -796,6 +800,7 @@ rm(file)
 #------------------------------------------------------------------------------
 # default is time_aggregation
 if ( !argv$time_aggregation & 
+     !argv$time_cat & 
      !argv$upscale & 
      !argv$downscale & 
      !argv$latte &
@@ -806,6 +811,7 @@ if ( !argv$time_aggregation &
 #
 gridded_output<-F
 if ( argv$time_aggregation | 
+     argv$time_cat | 
      argv$upscale | 
      argv$downscale | 
      argv$latte | 
@@ -2074,13 +2080,23 @@ if (gridded_output)  {
   x<-sort(unique(xy[,1]))
   y<-sort(unique(xy[,2]),decreasing=T)
   r.list<-list()
-  grid<-array(data=NA,dim=c(length(x),length(y)))
-  grid[,]<-matrix(data=r, ncol=length(y), nrow=length(x))
+  if (argv$time_cat) {
+    grid<-array(data=NA,dim=c(length(x),length(y),nlayers(r)))
+    for (i in 1:nlayers(r)) 
+      grid[,,i]<-matrix(data=subset(r,subset=i), 
+                        ncol=length(y), nrow=length(x))
+    date_out<-format(tseq[t_ok],"%Y%m%d%H%M",tz="UTC")
+  } else {
+    grid<-array(data=NA,dim=c(length(x),length(y)))
+    grid[,]<-matrix(data=r, ncol=length(y), nrow=length(x))
+    date_out<-format(strptime(argv$date_out,
+                              argv$date_out.format,tz="UTC"),
+                              "%Y%m%d%H%M",tz="UTC")
+  }
   r.list[[1]]<-grid
   rm(grid,r)
   out<-write_dotnc(grid.list=r.list,
-                   times=format(strptime(argv$date_out,
-                                         argv$date_out.format),"%Y%m%d%H%M"),
+                   times=date_out,
                    file.name=argv$ffout,
                    grid.type=argv$ffout_gridtype,
                    x=x,
