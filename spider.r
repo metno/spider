@@ -245,7 +245,7 @@ p<- add_argument(p, "--fun",
                  type="character",
                  default="none")
 p<- add_argument(p, "--fun_weights",
-                 help="aggregation function weights",
+                 help="weights used in the aggregation. If we call the weights specified by the user with w1, w2, ..., wN, then the result= w1_norm * field_1 + w2_norm * field_2 + ... + wN_norm * field_N. In the program the weights are normalized such that their sum is equal to 1, in other words w1_norm= w1/sum(w1,w2,...,wN), w2_norm= w2/sum(w1,w2,...,wN) and so on. NOTE: for the aggregation function \"radar_mean\" the weights are set by default to \"0.5,1,...,0.5\"",
                  type="character",
                  default="1,1,...,1")
 p<- add_argument(p, "--frac",
@@ -1936,6 +1936,7 @@ if (gridded_output)  {
         if (argv$fun=="min")  r<-min(s,na.rm=T)
         if (argv$fun=="radar_mean")  {
           first<-T
+          weight_sum<-0
           for (t in 1:n) {
             weight<-ifelse(format(tseq[t_ok[t]],format="%M%S",tz="GMT")=="0000",
                            0.5,1)
@@ -1954,10 +1955,9 @@ if (gridded_output)  {
                 dat_mean[ix_nonas]<-0
               }
               if (length(ix_nona)>0) {
+                weight_sum<-weight_sum+weight
                 dat_cont[ix_nona]<-dat_cont[ix_nona]+1
-                dat_mean[ix_nona]<-dat_mean[ix_nona]+
-                        (weight*dat[ix_nona]-dat_mean[ix_nona])/
-                        dat_cont[ix_nona]
+                dat_mean[ix_nona]<-dat_mean[ix_nona]+weight*dat[ix_nona]
               }
               rm(ix_nona,ix_nonas)
             }
@@ -1966,13 +1966,15 @@ if (gridded_output)  {
           r<-subset(s,subset=1)
           r[]<-NA
           ix<-which(!is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
-          if (length(ix)>0) r[ix]<-dat_mean[ix]
+          if (length(ix)>0) r[ix]<-dat_mean[ix] / weight_sum
           rm(dat_mean,dat_cont,first,ix)
+          if (exists("weight_sum")) rm(weight_sum)
         }
       # use weights
       } else {
         print("Using weights")
         first<-T
+        weight_sum<-0
         for (t in t_ok) {
           dat<-weights[t]*getValues(subset(s,subset=t))
           if (first) {
@@ -1982,8 +1984,16 @@ if (gridded_output)  {
             dat_cont[!is.na(dat)]<-1
             first<-F
           } else {
-            if (argv$fun=="sum")  dat_res<-dat+dat_res
-            if (argv$fun=="mean") {
+            if (argv$fun=="sum")  {
+              weight_sum<-weight_sum+weight
+              dat_res<-dat+dat_res
+            } else if (argv$fun=="max") {
+              weight_sum<-weight_sum+weight
+              dat_res<-pmax(dat,dat_res,na.rm=T)
+            } else if (argv$fun=="min") {
+              weight_sum<-weight_sum+weight
+              dat_res<-pmin(dat,dat_res,na.rm=T)
+            } else if (argv$fun=="mean") {
               ix_nona<-which(!is.na(dat))
               ix_nonas<-which(!is.na(dat) & is.na(dat_cont))
               if (length(ix_nonas)>0) {
@@ -1991,19 +2001,18 @@ if (gridded_output)  {
                 dat_res[ix_nonas]<-0
               }
               if (length(ix_nona)>0) {
+                weight_sum<-weight_sum+weight
                 dat_cont[ix_nona]<-dat_cont[ix_nona]+1
-                dat_res[ix_nona]<-dat_res[ix_nona]+
-                        (dat[ix_nona]-dat_res[ix_nona])/
-                        dat_cont[ix_nona]
+                dat_res[ix_nona]<-dat_res[ix_nona]+weight*dat[ix_nona]
               }
               rm(ix_nona,ix_nonas)
             }
-            if (argv$fun=="max")  dat_res<-pmax(dat,dat_res,na.rm=T)
-            if (argv$fun=="min")  dat_res<-pmin(dat,dat_res,na.rm=T)
           }
         }
         r<-subset(s,subset=t_ok[1])
-        r[]<-dat_res
+        r[]<-NA
+        if ("weight_sum">0) r[]<- dat_res / weight_sum
+        rm(weight_sum)
       } # endif use weights
     } else {
       boom(paste("number of time steps available=",n," is less than required"))
