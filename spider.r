@@ -183,7 +183,7 @@ p <- add_argument(p, "--summ_stat",
                   help="summary step-by-step statistics",
                   flag=T)
 p<- add_argument(p, "--summ_stat_fun",
-                 help="function applied (list_values, wave_nrgx, standard, freqdist)",
+                 help="function applied (\"list_values\", \"wave_nrgx\", \"standard\", \"freqdist\", \"ellipsis\")",
                  type="character",
                  default="wave_nrgx")
 p<- add_argument(p, "--ffout_summ_stat",
@@ -824,9 +824,13 @@ if ( argv$time_aggregation |
 #
 if (argv$summ_stat & argv$summ_stat_fun=="wave_nrgx") 
   suppressPackageStartupMessages(library("waveslim"))
+if (argv$summ_stat & argv$summ_stat_fun=="ellipsis") 
+  {suppressPackageStartupMessages(library("cluster"))
+   suppressPackageStartupMessages(library("igraph"))}
 argv$summ_stat_condition_threshold<-as.numeric(gsub("_","-",argv$summ_stat_condition_threshold))
 argv$point_mask_x<-as.numeric(gsub("_","-",argv$point_mask_x))
 argv$point_mask_y<-as.numeric(gsub("_","-",argv$point_mask_y))
+#
 # convert character to numbers
 if (any(!is.na(argv$summ_stat_r))) {
   dots<-any(argv$summ_stat_r=="...")
@@ -1701,7 +1705,61 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
       data_string<-paste0(data_string,";",numtot)
       cat(file=argv$ffout_summ_stat,append=T,
           paste0(t_to_read,data_string,"\n"))
-    } #endif summ_stat_fun=="freqdist"
+    #endif summ_stat_fun=="freqdist"
+    #--------------------------------------------------------------------------
+    # argv$summ_stat_fun=="ellipsis"
+    } else if (argv$summ_stat_fun=="ellipsis") {
+      dat<-getValues(r)
+      ix<-score_fun(x=dat,
+                    lab="index_x",
+                    threshold=argv$summ_stat_r,
+                    type=argv$summ_stat_b) 
+      dat[]<-NA
+      dat[ix]<-1
+      r[]<-dat
+      r<-clump(r,directions=8,gaps=F)
+      clump_lab<-freq(r)
+      ix_clump_big<-which(!is.na(clump_lab[,1]) & clump_lab[,2]>100)
+      clump_lab_val<-clump_lab[ix_clump_big,1]
+      clump_lab_n<-clump_lab[ix_clump_big,2]
+      ix_r_clump_small<-which(!(getValues(r) %in% clump_lab_val))
+      r[ix_r_clump_small]<-NA
+      dat<-getValues(r)
+      xy<-xyFromCell(r,1:ncell(r))
+      x<-xy[,1]
+      y<-xy[,2]
+      n_clump<-length(clump_lab_val)
+      ell_x<-vector(mode="numeric",length=n_clump); ell_x[]<-NA
+      ell_y<-vector(mode="numeric",length=n_clump); ell_y[]<-NA
+      ell_smajor<-vector(mode="numeric",length=n_clump); ell_smajor[]<-NA
+      ell_sminor<-vector(mode="numeric",length=n_clump); ell_sminor[]<-NA
+      ell_smadir_eve<-vector(mode="numeric",length=n_clump); ell_smadir_eve[]<-NA
+#png(file=paste0("ellipsis_",t_to_read,".png"),width=800,height=800)
+#image(r)
+      ell_list<-list()
+      for (i in 1:n_clump) {
+        ixi<-which(dat==clump_lab_val[i])
+        xy<-cbind(x[ixi],y[ixi])
+        ell<-ellipsoidhull(xy)
+        ell_list[[i]]<-ell
+        ell_x[i]<-ell$loc[1]
+        ell_y[i]<-ell$loc[2]
+        eigenval<-eigen(ell$cov)$values
+        eigenvec<-eigen(ell$cov)$vectors
+        e <- sqrt(eigenval)
+        ell_smajor[i] <- sqrt(ell$d2) * e[1] /1000  # semi-major axis [Km]
+        ell_sminor[i] <- sqrt(ell$d2) * e[2] /1000  # semi-minor axis [Km]
+        # orientation of the ellipse: angle between the major axis and the y-axis
+        # dir=0 N-S orientation; dir=45 NE-SW; dir=90 E-W; dir=135 NW-SE; dir=180 N-S
+        ell_smadir_eve[i]<-atan2(eigenvec[1,1],eigenvec[2,1])
+        if (ell_smadir_eve[i]<0) ell_smadir_eve[i]<-ell_smadir_eve[i]+pi
+        ell_smadir_eve[i]<-ell_smadir_eve[i]/pi*180.
+#lines(predict(ell))
+      }
+#dev.off()
+#next
+    } 
+    #endif summ_stat_fun=="ellipsis"
   } # end if summary statistics
   #----------------------------------------------------------------------------
   # prepare for verification statistics 

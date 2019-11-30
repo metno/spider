@@ -19,7 +19,7 @@ score_fun<-function(i=NA,
 #  - as the vector x_ref
 # NOTES:
 #  - lab in "count_x","a","b","c","d","msess","bias","mae","rmse","mbias",
-#           "rmsf","seeps","corr"
+#           "rmsf","seeps","corr", "index_x"
 #  - NAs are allowed in the input datasets
 #  - scores "a"..."d", the order does not matter, simply count occurrences
 #  - for other scores:
@@ -59,7 +59,7 @@ score_fun<-function(i=NA,
     }
   }
   # count_x is the only score that do not use mat_ref
-  if (lab=="count_x") {
+  if (lab=="count_x" | lab=="index_x") {
     if (is.na(type)) return(NA)
     if (type=="below") {
       score<-which(mat[i,]<threshold)
@@ -78,7 +78,7 @@ score_fun<-function(i=NA,
     } else if (type=="above=") {
       score<-which(mat[i,]>=threshold) 
     }
-    score<-length(score)
+    if (lab=="count_x") score<-length(score)
   # use the reference data. not assume temporal allignment mat and mat_ref
   } else if (lab %in% c("a","b","c","d","ets")) {
     if (is.na(type)) return(NA)
