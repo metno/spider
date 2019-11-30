@@ -190,6 +190,10 @@ p<- add_argument(p, "--ffout_summ_stat",
                  help="full file name for the summary statistics",
                  type="character",
                  default="summstat.txt")
+p<- add_argument(p, "--ffout_summ_stat_proj4",
+                 help="summary statistics proj4 (used by \"list_values\")",
+                 type="character",
+                 default=NA)
 p<- add_argument(p, "--ffout_summ_stat_append",
                  help="append output",
                  flag=T)
@@ -1450,12 +1454,32 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
         cat(file=argv$ffout_summ_stat,append=F,
             paste0("time;label;x;y;value;\n"))
       }
+      if (any(is.na(argv$point_mask_x))) {
+        labels<-1:ncell(r)
+        xy<-xyFromCell(r,1:ncell(r))
+        x<-xy[,1]
+        y<-xy[,2]
+      } else {
+        labels<-argv$point_mask_labels
+        x<-round(argv$point_mask_x,6)
+        y<-round(argv$point_mask_y,6)
+      }
+      if ( !is.na(argv$ffout_summ_stat_proj4) & 
+           argv$ffout_summ_stat_proj4!=argv$ffin_proj4) {
+        coord.new<-attr(spTransform( 
+                        SpatialPoints(cbind(x,y),
+                                      proj4string=CRS(argv$ffin_proj4)) 
+                                                 ,CRS(argv$ffout_summ_stat_proj4)),
+                   "coords")
+        x<-coord.new[,1]
+        y<-coord.new[,2]
+      }
       cat(file=argv$ffout_summ_stat,append=T,
           paste0(t_to_read,";",
-                 argv$point_mask_labels,";",
-                 round(argv$point_mask_x,6),";",
-                 round(argv$point_mask_y,6),";",
-                 round(values,6),"\n"))
+                 labels,";",
+                 round(x,6),";",
+                 round(y,6),";",
+                 round(values,6),"\n",collapse=""))
     #--------------------------------------------------------------------------
     # argv$summ_stat_fun=="wave_nrgx"
     } else if (argv$summ_stat_fun=="wave_nrgx") {
