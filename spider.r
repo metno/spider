@@ -63,6 +63,10 @@ p <- add_argument(p, "--ffin_date.format",
                   help="format of the input date/time",
                   type="character",
                   default="%Y-%m-%dT%H")
+p <- add_argument(p, "--ffin_date.file",
+                  help="input date/time provided in a text file (rows with \"ffin_date.format\")",
+                  type="character",
+                  default=NA)
 #
 p <- add_argument(p, "--date_out",
                   help="timestamp for the output netcdf file",
@@ -262,6 +266,15 @@ p<- add_argument(p, "--fill_gaps",
 p<- add_argument(p, "--stop_if_two_gaps",
                  help="\"fill the gaps\" mode, stop if two consecutive gaps are found",
                  flag=T)
+p <- add_argument(p, "--r",
+                  help="thresholds, used for fun = \"freq\" or \"count\", either one value or two values",
+                  type="character",
+                  default=NA,
+                  nargs=Inf)
+p<- add_argument(p, "--b",
+                 help="type. used for summ_stat = \"freqdist\". One of 'below' (< x), 'below=' (<= x), '=within' (<= x <), 'within' (< x <), 'within=' (< x <=), '=within=' (<= x <=), 'above' (> x), or 'above=' (>= x). For threshold plots (ets, hit, within, etc) 'below/above' computes frequency below/above the threshold, and 'within' computes the frequency between consecutive thresholds",
+                 type="character",
+                 default="below")
 #..............................................................................
 p <- add_argument(p, "--master_trim",
                   help="should we apply \"trim\" function to the master?",
@@ -281,9 +294,13 @@ p<- add_argument(p, "--polygon_layer",
                  help="layer name in the input file with polygons (shapefile)",
                  type="character",
                  default=NA)
+p<- add_argument(p, "--polygon_data_field",
+                 help="data field name in the input file with polygons (shapefile)",
+                 type="character",
+                 default=NA)
 p<- add_argument(p, "--polygon_ids",
                  help="polygon IDs to use",
-                 type="numeric",
+                 type="character",
                  default=NA,
                  nargs=Inf)
 #..............................................................................
@@ -866,6 +883,13 @@ if (any(!is.na(argv$verif_r))) {
   }
 }
 
+if (any(!is.na(argv$r))) {
+  aux<-vector(mode="numeric",length=length(argv$r))
+  for (i in 1:length(argv$r)) aux[i]<-as.numeric(gsub("_","-",argv$r[i]))
+  argv$r<-aux
+  rm(aux)
+}
+
 #-----------------------------------------------------------------------------
 # Multi-cores run
 if (!is.na(argv$cores)) {
@@ -875,65 +899,72 @@ if (!is.na(argv$cores)) {
 }
 #------------------------------------------------------------------------------
 # Time sequence
-if (argv$date1=="none") {
-  if (!file.exists(argv$ffin_template))
-     boom(paste0("file not found",argv$ffin_template))
-  tseq<-as.POSIXlt(str2Rdate(nc4.getTime(argv$ffin_template),
-                   format="%Y%m%d%H%M"))
+if (!is.na(argv$ffin_date.file)) {
+  if (!file.exists(argv$ffin_date.file))
+     boom(paste0("file not found",argv$ffin_date.file))
+  tin<-read.table(file=argv$ffin_date.file,header=F,stringsAsFactors=F,strip.white=T)
+  tseq<-as.POSIXlt(str2Rdate(tin$V1,argv$ffin_date.format),tz="UTC")
 } else {
-  if (argv$date2=="none") {
-    if ( is.na(argv$time_n_prev) & 
-         is.na(argv$time_n_succ) ) boom(paste0("error in date definition"))
-    if (!is.na(argv$time_n_prev)) {
-      if (argv$time_unit %in% c("sec","secs","second","seconds")) {
-        aux<-rev(seq(strptime(argv$date1,format=argv$date.format),
-                     length=argv$time_n_prev,
-                     by=(-argv$time_step)))
-      } else {
-        aux<-rev(seq(strptime(argv$date1,format=argv$date.format),
-                     length=argv$time_n_prev,
-                     by=paste((-argv$time_step),argv$time_unit)))
-      }
-      argv$date2<-argv$date1
-      argv$date1_def<-format(aux[1],format=argv$date.format)
-      rm(aux)
-    }
-    if (!is.na(argv$time_n_succ)) {
-      aux<-rev(seq(strptime(argv$date1,format=argv$date.format),
-                            length=argv$time_n_succ,
-                            by=paste(argv$time_step,argv$time_unit)))
-      argv$date2<-format(aux[1],format=argv$date.format)
-      rm(aux)
-    }
+  if (argv$date1=="none") {
+    if (!file.exists(argv$ffin_template))
+       boom(paste0("file not found",argv$ffin_template))
+    tseq<-as.POSIXlt(str2Rdate(nc4.getTime(argv$ffin_template),
+                     format="%Y%m%d%H%M"),tz="UTC")
   } else {
-    argv$date1_def<-argv$date1
-  }
-  #
-  if (argv$date_out=="none") {
-    argv$date_out<-argv$date1
-    argv$date_out.format<-argv$date.format
-  }
-  tseq<-createTimeSeq(start_date=argv$date1_def,
-                      stop_date=argv$date2,
-                      format=argv$date.format,
-                      time_step=argv$time_step,
-                      unit=argv$time_unit,
-                      season=NULL,
-                      hourOFday.sel=NULL,
-                      dayOFmonth.sel=NULL,
-                      N.prev=NULL,
-                      N.succ=NULL,
-                      RdateOnlyOut=T,
-                      verbose=F)
-  if (!is.na(argv$ffin_ref_template)) {
-    if (argv$tseq_ref_hour_offset==0) {
-      tseq_ref<-tseq
+    if (argv$date2=="none") {
+      if ( is.na(argv$time_n_prev) & 
+           is.na(argv$time_n_succ) ) boom(paste0("error in date definition"))
+      if (!is.na(argv$time_n_prev)) {
+        if (argv$time_unit %in% c("sec","secs","second","seconds")) {
+          aux<-rev(seq(strptime(argv$date1,format=argv$date.format),
+                       length=argv$time_n_prev,
+                       by=(-argv$time_step)))
+        } else {
+          aux<-rev(seq(strptime(argv$date1,format=argv$date.format),
+                       length=argv$time_n_prev,
+                       by=paste((-argv$time_step),argv$time_unit)))
+        }
+        argv$date2<-argv$date1
+        argv$date1_def<-format(aux[1],format=argv$date.format)
+        rm(aux)
+      }
+      if (!is.na(argv$time_n_succ)) {
+        aux<-rev(seq(strptime(argv$date1,format=argv$date.format),
+                              length=argv$time_n_succ,
+                              by=paste(argv$time_step,argv$time_unit)))
+        argv$date2<-format(aux[1],format=argv$date.format)
+        rm(aux)
+      }
     } else {
-      tseq_ref<-as.POSIXlt(as.POSIXct(tseq,tz="GMT")+
-                           argv$tseq_ref_hour_offset*3600,tz="GMT")
+      argv$date1_def<-argv$date1
     }
-  }
-} # end if (argv$date1=="none")
+    #
+    if (argv$date_out=="none") {
+      argv$date_out<-argv$date1
+      argv$date_out.format<-argv$date.format
+    }
+    tseq<-createTimeSeq(start_date=argv$date1_def,
+                        stop_date=argv$date2,
+                        format=argv$date.format,
+                        time_step=argv$time_step,
+                        unit=argv$time_unit,
+                        season=NULL,
+                        hourOFday.sel=NULL,
+                        dayOFmonth.sel=NULL,
+                        N.prev=NULL,
+                        N.succ=NULL,
+                        RdateOnlyOut=T,
+                        verbose=F)
+    if (!is.na(argv$ffin_ref_template)) {
+      if (argv$tseq_ref_hour_offset==0) {
+        tseq_ref<-tseq
+      } else {
+        tseq_ref<-as.POSIXlt(as.POSIXct(tseq,tz="GMT")+
+                             argv$tseq_ref_hour_offset*3600,tz="GMT")
+      }
+    }
+  } # end if (argv$date1=="none")
+} # end if (!is.na(ffin_date.file))
 # consider only some months
 if (any(!is.na(argv$date_filter_by_month))) {
   if (length(ix<-which( as.integer(format(tseq,format="%m",tz="GMT")) %in% 
@@ -1259,7 +1290,13 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
            stringsAsFactors=F,verbose=F)))
     if (as.character(poly@proj4string)!=as.character(crs(r))) poly<-spTransform(poly,crs(r))
     if (any(!is.na(argv$polygon_ids))) {
-      if (length(ix<-which(poly@data$ID %in% argv$polygon_ids))>0) {
+      pix<-which(names(poly@data)==argv$polygon_data_field)
+      if (length(pix)==0) 
+        boom(paste("Error while reading shapefile",argv$ffin_polygon_shp,
+                   "layer",argv$polygon_layer,
+                   "data field",argv$polygon_data_field,
+                   ", please use one of",toString(names(poly@data))))
+      if (length(ix<-which(poly@data[,pix] %in% as.character(argv$polygon_ids)))>0) {
         poly<-poly[ix,]
       } else {
         print("warning: the shapefile doe not contain the dpscified IDs. Skip this timestep")
@@ -1736,12 +1773,12 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
       ell_smadir_eve<-vector(mode="numeric",length=n_clump); ell_smadir_eve[]<-NA
 #png(file=paste0("ellipsis_",t_to_read,".png"),width=800,height=800)
 #image(r)
-      ell_list<-list()
+      ell_list_t<-list()
       for (i in 1:n_clump) {
         ixi<-which(dat==clump_lab_val[i])
         xy<-cbind(x[ixi],y[ixi])
         ell<-ellipsoidhull(xy)
-        ell_list[[i]]<-ell
+        ell_list_t[[i]]<-ell
         ell_x[i]<-ell$loc[1]
         ell_y[i]<-ell$loc[2]
         eigenval<-eigen(ell$cov)$values
@@ -1756,6 +1793,8 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
         ell_smadir_eve[i]<-ell_smadir_eve[i]/pi*180.
 #lines(predict(ell))
       }
+      if (!exists("ell_list")) ell_list<-list()
+      ell_list[[t]]<-ell_list_t
 #dev.off()
 #next
     } 
@@ -1968,6 +2007,12 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   first<-F
 } # MAIN LOOP @@END@@
 #------------------------------------------------------------------------------
+# RData output file
+if (argv$summ_stat_fun=="ellipsis") {
+  save(file=argv$ffout_summ_stat,
+       ell_list,tseq,t_ok,n)
+}
+#------------------------------------------------------------------------------
 # Aggregate gridpoint-by-gridpoint over time
 if (gridded_output)  {
   #----------------------------------------------------------------------------
@@ -2012,11 +2057,48 @@ if (gridded_output)  {
       # apply function
       # case of all weights = 1
       if (!any(weights!=1)) {
-        if (argv$fun=="sum")  r<-sum(s,na.rm=T)
-        if (argv$fun=="mean") r<-mean(s,na.rm=T)
-        if (argv$fun=="max")  r<-max(s,na.rm=T)
-        if (argv$fun=="min")  r<-min(s,na.rm=T)
-        if (argv$fun=="radar_mean")  {
+        if (argv$fun=="sum")  { r<-sum(s,na.rm=T) } 
+        else if (argv$fun=="mean") { r<-mean(s,na.rm=T) }
+        else if (argv$fun=="max")  { r<-max(s,na.rm=T) }
+        else if (argv$fun=="min")  { r<-min(s,na.rm=T) }
+        else if (argv$fun=="count" | argv$fun=="freq")  {
+          if (length(argv$r)>1) { 
+            threshold<-argv$r[1]
+            threshold1<-argv$r[2] 
+          } else { 
+            threshold<-argv$r 
+            threshold1<-NA
+          }
+          type<-argv$b
+          ix<-which(!is.na(getValues(subset(s,subset=1))))
+          npoints<-length(ix)
+          mat<-array(data=NA,dim=c(npoints,nlayers(s))) 
+          for (l in 1:nlayers(s)) mat[,l]<-getValues(subset(s,subset=l))[ix]
+          if (!is.na(argv$cores)) {
+            dat<-mcmapply(score_fun,
+                          1:npoints,
+                          mc.cores=argv$cores,
+                          SIMPLIFY=T, 
+                          lab="count_x",
+                          threshold=threshold,
+                          threshold1=threshold1,
+                          type=type)
+          # no-multicores
+          } else {
+            dat<-mapply(score_fun,
+                        1:npoints,
+                        SIMPLIFY=T,
+                        lab="count_x",
+                        threshold=threshold,
+                        threshold1=threshold1,
+                        type=type)
+          }
+          r<-subset(s,subset=1)
+          r[]<-NA
+          if (argv$fun=="count") {r[ix]<-dat} else {r[ix]<-dat/nlayers(s)}
+          rm(mat,dat,ix)
+        }
+        else if (argv$fun=="radar_mean")  {
           first<-T
           weight_sum<-0
           for (t in 1:n) {
