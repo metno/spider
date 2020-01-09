@@ -167,10 +167,46 @@ p <- add_argument(p, "--gridded_dqc.min",
                   help="minimum allowed value",
                   type="numeric",
                   default=-10000)
+p <- add_argument(p, "--gridded_dqc.min_pad",
+                  help="substitute values smaller than min with this value",
+                  type="character",
+                  default=NA)
 p <- add_argument(p, "--gridded_dqc.max",
                   help="maximum allowed value",
                   type="numeric",
                   default=10000)
+p <- add_argument(p, "--gridded_dqc.max_pad",
+                  help="substitute values greater than max with this value",
+                  type="character",
+                  default=NA)
+p <- add_argument(p, "--gridded_dqc.clump_r",
+                  help="remove patches of connected cells that are too small. Set thresholds defining the patches.",
+                  type="character",
+                  default=NA,
+                  nargs=Inf)
+p <- add_argument(p, "--gridded_dqc.clump_n",
+                  help="remove patches of connected cells that are too small. Set minimum number of cells defining an acceptable patch.",
+                  type="numeric",
+                  default=NA,
+                  nargs=Inf)
+p <- add_argument(p, "--gridded_dqc.clump_pad",
+                  help="remove patches of connected cells that are too small. Set pad values.",
+                  type="character",
+                  default=NA,
+                  nargs=Inf)
+p <- add_argument(p, "--gridded_dqc.outlier_aggfact",
+                  help="check for outliers, aggregation factor (unit: number of cells)",
+                  type="numeric",
+                  default=5)
+p <- add_argument(p, "--gridded_dqc.outlier_reflen",
+                  help="check for outliers, reference length scale (unit: grid coord unit)",
+                  type="numeric",
+                  default=25000)
+p <- add_argument(p, "--gridded_dqc.outlier_pad",
+                  help="remove patches of connected cells that are too small. Set pad values.",
+                  type="character",
+                  default=NA)
+
 #..............................................................................
 p <- add_argument(p, "--time_aggregation",
                   help="aggregate data over time dimension (default=T if all others=F)",
@@ -868,7 +904,8 @@ if (argv$summ_stat & argv$summ_stat_fun=="wave_nrgx")
 if (argv$summ_stat & argv$summ_stat_fun=="ellipsis") 
   {suppressPackageStartupMessages(library("cluster"))
    suppressPackageStartupMessages(library("igraph"))}
-argv$summ_stat_condition_threshold<-as.numeric(gsub("_","-",argv$summ_stat_condition_threshold))
+argv$summ_stat_condition_threshold<-as.numeric(gsub("_","-",
+                                      argv$summ_stat_condition_threshold))
 argv$point_mask_x<-as.numeric(gsub("_","-",argv$point_mask_x))
 argv$point_mask_y<-as.numeric(gsub("_","-",argv$point_mask_y))
 #
@@ -914,14 +951,46 @@ if (any(!is.na(argv$r))) {
   rm(aux)
 }
 
+if (any(!is.na(argv$gridded_dqc.clump_r))) {
+  aux<-vector(mode="numeric",length=length(argv$gridded_dqc.clump_r))
+  for (i in 1:length(argv$gridded_dqc.clump_r)) 
+    aux[i]<-as.numeric(gsub("_","-",argv$gridded_dqc.clump_r[i]))
+  argv$gridded_dqc.clump_r<-aux
+  rm(aux)
+  if (length(argv$gridded_dqc.clump_r)!=length(argv$gridded_dqc.clump_n)) 
+    boom(paste0("gridded_dqc clum check. number of thresholds \"r\" is ",
+                length(argv$gridded_dqc.clump_r),
+                " while number of thresholds \"n\" is ",
+                length(argv$gridded_dqc.clump_n)))
+  if (length(argv$gridded_dqc.clump_r)!=length(argv$gridded_dqc.clump_pad)) 
+    boom(paste0("gridded_dqc clum check. number of thresholds \"r\" is ",
+                length(argv$gridded_dqc.clump_r),
+                " while number of thresholds \"pad\" is ",
+                length(argv$gridded_dqc.clump_pad)))
+  aux<-vector(mode="numeric",length=length(argv$gridded_dqc.clump_pad))
+  for (i in 1:length(argv$gridded_dqc.clump_pad)) 
+    aux[i]<-as.numeric(gsub("_","-",argv$gridded_dqc.clump_pad[i]))
+  argv$gridded_dqc.clump_pad<-aux
+  rm(aux)
+}
+
 if (!is.na(argv$list_values_min)) 
   argv$list_values_min<-as.numeric(gsub("_","-",argv$list_values_min))
 if (!is.na(argv$list_values_max)) 
   argv$list_values_max<-as.numeric(gsub("_","-",argv$list_values_max))
 if (!is.na(argv$list_values_min_replace)) 
-  argv$list_values_min_replace<-as.numeric(gsub("_","-",argv$list_values_min_replace))
+  argv$list_values_min_replace<-as.numeric(gsub("_","-",
+                                argv$list_values_min_replace))
 if (!is.na(argv$list_values_max_replace)) 
-  argv$list_values_max_replace<-as.numeric(gsub("_","-",argv$list_values_max_replace))
+  argv$list_values_max_replace<-as.numeric(gsub("_","-",
+                                argv$list_values_max_replace))
+if (!is.na(argv$gridded_dqc.min_pad)) 
+  argv$gridded_dqc.min_pad<-as.numeric(gsub("_","-",argv$gridded_dqc.min_pad))
+if (!is.na(argv$gridded_dqc.max_pad)) 
+  argv$gridded_dqc.max_pad<-as.numeric(gsub("_","-",argv$gridded_dqc.max_pad))
+if (!is.na(argv$gridded_dqc.outlier_pad)) 
+  argv$gridded_dqc.outlier_pad<-as.numeric(gsub("_","-",
+                                argv$gridded_dqc.outlier_pad))
 #-----------------------------------------------------------------------------
 # Multi-cores run
 if (!is.na(argv$cores)) {
@@ -1401,93 +1470,113 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   # filter out unplausible values, otherwise writing the outpur might crash
   if (!is.na(argv$gridded_dqc.min) & !is.na(argv$gridded_dqc.max)) {
     rval<-getValues(r)
-    r[which(rval<argv$gridded_dqc.min | rval>argv$gridded_dqc.max)]<-NA
+    r[which(rval<argv$gridded_dqc.min)]<-argv$gridded_dqc.min_pad
+    r[which(rval>argv$gridded_dqc.max)]<-argv$gridded_dqc.max_pad
     rm(rval)
   }
   if (argv$gridded_dqc) {
-    suppressPackageStartupMessages(library("igraph"))
-    rval<-getValues(r)
-    # a. remove unplausible values
-    r[which(rval<argv$gridded_dqc.min | rval>argv$gridded_dqc.max)]<-NA
-    # b. remove patches of connected cells that are too small
-    #  check for small and isolated clumps (patches) of connected cells with 
-    #  precipitation greater than a predefined threshold
-    #   threshold 0 mm/h. remove all the clumps made of less than 100 cells
-    #   threshold 1 mm/h. remove all the clumps made of less than 50 cells
-    dqc.clump.thr<-c(0,1)
-    dqc.clump.n<-c(100,50)
-    for (i in 1:length(dqc.clump.thr)) {
-      raux<-r
-      if (any(rval<=dqc.clump.thr[i])) 
-        raux[which(rval<=dqc.clump.thr[i])]<-NA
-      rclump<-clump(raux)
-      fr<-freq(rclump)
-      ix<-which(!is.na(fr[,2]) & fr[,2]<=dqc.clump.n[i])
-      if (length(ix)>0) {
-        rval[getValues(rclump) %in% fr[ix,1]]<-NA
-        r[]<-rval
+    if (!any(is.na(argv$gridded_dqc.clump_r)) & 
+        !(any(is.na(argv$gridded_dqc.clump_n)))) {
+      rval<-getValues(r)
+      suppressPackageStartupMessages(library("igraph"))
+      # b. remove patches of connected cells that are too small
+      #  check for small and isolated clumps (patches) of connected cells with 
+      #  precipitation greater than a predefined threshold
+      #   threshold 0 mm/h. remove all the clumps made of less than 100 cells
+      #   threshold 1 mm/h. remove all the clumps made of less than 50 cells
+      for (i in 1:length(argv$gridded_dqc.clump_r)) {
+        raux<-r
+        if (any(rval<=argv$gridded_dqc.clump_r[i])) 
+          raux[which(rval<=argv$gridded_dqc.clump_r[i])]<-NA
+        rclump<-clump(raux)
+        fr<-freq(rclump)
+        ix<-which( !is.na(fr[,2]) & 
+                   fr[,2]<=argv$gridded_dqc.clump_n[i] )
+        if (length(ix)>0) {
+          rval[getValues(rclump) %in% fr[ix,1]]<-argv$gridded_dqc.clump_pad[i]
+          r[]<-rval
+        }
+        rm(raux,fr,ix,rclump)
       }
-      rm(raux,fr,ix,rclump)
     }
-    # c. remove outliers. Check for outliers in square boxes of 51km by 51km
-    t0a<-Sys.time()
-    raux<-r
-    daux<-boxcox(x=rval,lambda=0.5)
-    raux[]<-daux
-    # compute mean and sd
-    raux_agg<-aggregate(raux,fact=5,fun=mean,na.rm=T)
-    daux_agg<-getValues(raux_agg)
-    ix_aux<-which(!is.na(daux_agg))
-    xyaux<-xyFromCell(raux_agg,ix_aux)
-    xrad_aux<-xyaux[,1]
-    yrad_aux<-xyaux[,2]
-    vrad_aux<-daux_agg[ix_aux]
-    get_rad_stat<-function(i,dh_ref=25000) { 
-      deltax<-abs(xrad_aux[i]-xrad_aux)
-      deltay<-abs(yrad_aux[i]-yrad_aux)
-      ix<-which( deltax<dh_ref & deltay<dh_ref )
-      dist<-deltax; dist[]<-NA
-      dist[ix]<-sqrt(deltax[ix]*deltax[ix]+deltay[ix]*deltay[ix])
-      ix<-which( !is.na(dist) & dist<dh_ref )
-      return(c(mean(vrad_aux[ix]),sd(vrad_aux[ix])))
-    }
-    if (!is.na(argv$cores)) {
-      arr<-mcmapply(get_rad_stat,
+    if (!is.na(argv$gridded_dqc.outlier_aggfact)) {
+      # c. remove outliers. Check for outliers in square boxes
+      t0a<-Sys.time()
+      raux<-r
+      daux<-boxcox(x=rval,lambda=0.5)
+      raux[]<-daux
+      # compute mean and sd on a coarser grid
+      raux_agg<-aggregate(raux,
+                          fact=argv$gridded_dqc.outlier_aggfact,
+                          fun=mean,
+                          na.rm=T)
+      daux_agg<-getValues(raux_agg)
+      ix_aux<-which(!is.na(daux_agg))
+      xyaux<-xyFromCell(raux_agg,ix_aux)
+      xrad_aux<-xyaux[,1]
+      yrad_aux<-xyaux[,2]
+      vrad_aux<-daux_agg[ix_aux]
+      get_rad_stat<-function(i,dh_ref=25000) { 
+        deltax<-abs(xrad_aux[i]-xrad_aux)
+        if (length(ix<-which( deltax<dh_ref ))==0) return(NA,NA)
+        deltay<-abs(yrad_aux[i]-yrad_aux[ix])
+        if (length(iy<-which( deltay<dh_ref ))==0) return(NA,NA)
+        ix<-ix[iy]
+#        dist<-deltax; dist[]<-NA
+#        dist[ix]<-sqrt(deltax[ix]*deltax[ix]+deltay[ix]*deltay[ix])
+#        ix<-which(dist<dh_ref)
+        return(c(mean(vrad_aux[ix]),sd(vrad_aux[ix])))
+      }
+      if (!is.na(argv$cores)) {
+        arr<-mcmapply(get_rad_stat,
+                      1:length(ix_aux),
+                      mc.cores=argv$cores,
+                      SIMPLIFY=T,
+                      dh_ref=argv$gridded_dqc.outlier_reflen)
+      # no-multicores
+      } else {
+        arr<-mapply(get_rad_stat,
                     1:length(ix_aux),
-                    mc.cores=argv$cores,
-                    SIMPLIFY=T)
-    # no-multicores
-    } else {
-      arr<-mapply(get_rad_stat,
-                  1:length(ix_aux),
-                  SIMPLIFY=T)
+                    SIMPLIFY=T,
+                    dh_ref=argv$gridded_dqc.outlier_reflen)
+      }
+      # disaggregate mean and sd on the original grid
+      raux_agg[]<-NA
+      raux_agg[ix_aux]<-arr[1,] # mean
+      raux<-disaggregate(raux_agg,
+                         fact=argv$gridded_dqc.outlier_aggfact,
+                         method="bilinear",
+                         na.rm=T)
+      if (ncell(raux)>ncell(r)) {
+        raux<-crop(raux,r)
+      } else if (ncell(raux)<ncell(r)) {
+        raux<-extend(raux,r)
+      }
+      avg<-getValues(raux)
+      raux_agg[]<-NA
+      raux_agg[ix_aux]<-arr[2,] # sd
+      raux<-disaggregate(raux_agg,
+                         fact=argv$gridded_dqc.outlier_aggfact,
+                         method="bilinear",
+                         na.rm=T)
+      if (ncell(raux)>ncell(r)) {
+        raux<-crop(raux,r)
+      } else if (ncell(raux)<ncell(r)) {
+        raux<-extend(raux,r)
+      }
+      stdev<-getValues(raux)
+      # check for outliers
+      ix<-which(stdev>0 & !is.na(daux) & !is.na(avg) & !is.na(stdev))
+      rm(arr,raux_agg,ix_aux,xrad_aux,yrad_aux,vrad_aux,daux_agg,xyaux)
+      # outliers are defined as in Lanzante,1997: abs(value-mean)/st.dev > 5
+      suspect<-which( ( abs(daux[ix]-avg[ix]) / stdev[ix] ) > 5 ) 
+      if (length(suspect)>0) rval[ix[suspect]]<-argv$gridded_dqc.outlier_pad
+      r[]<-rval
+      rm(raux,daux,avg,stdev,ix,suspect,rval)
+      t1a<-Sys.time()
+      print(paste(" remove outliers - time",round(t1a-t0a,1),
+                                            attr(t1a-t0a,"unit")))
     }
-    raux_agg[]<-NA; raux_agg[ix_aux]<-arr[1,]
-    raux<-disaggregate(raux_agg,fact=5)
-    if (ncell(raux)>ncell(r)) {
-      raux<-crop(raux,r)
-    } else if (ncell(raux)<ncell(r)) {
-      raux<-extend(raux,r)
-    }
-    avg<-getValues(raux)
-    raux_agg[]<-NA; raux_agg[ix_aux]<-arr[2,]
-    raux<-disaggregate(raux_agg,fact=5,method="bilinear",na.rm=T)
-    if (ncell(raux)>ncell(r)) {
-      raux<-crop(raux,r)
-    } else if (ncell(raux)<ncell(r)) {
-      raux<-extend(raux,r)
-    }
-    stdev<-getValues(raux)
-    ix<-which(stdev>0 & !is.na(daux) & !is.na(avg) & !is.na(stdev))
-    rm(arr,raux_agg,ix_aux,xrad_aux,yrad_aux,vrad_aux,daux_agg,xyaux)
-    # outliers are defined as in Lanzante,1997: abs(value-mean)/st.dev > 5
-    suspect<-which((abs(daux[ix]-avg[ix])/stdev[ix])>5) 
-    if (length(suspect)>0) rval[ix[suspect]]<-NA
-    r[]<-rval
-    rm(raux,daux,avg,stdev,ix,suspect,rval)
-    t1a<-Sys.time()
-    print(paste(" remove outliers - time",round(t1a-t0a,1),
-                                          attr(t1a-t0a,"unit")))
   }
   #----------------------------------------------------------------------------
   # convert from equivalent_reflectivity_factor to rain rate (mm/h) 
