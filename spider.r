@@ -209,6 +209,30 @@ p<- add_argument(p, "--summ_stat_condition_ncells",
                  help="apply statistics on a selection of cases, where the field has at least \"ncells\" (or a fraction \"fcells\" of not NAs values) with a value higher than \"threshold\"",
                  type="numeric",
                  default=NA)
+p<- add_argument(p, "--list_values_coord_rounddig",
+                 help="rounding digits for summ_stat_fun = list_values",
+                 type="numeric",
+                 default=6)
+p<- add_argument(p, "--list_values_rounddig",
+                 help="rounding digits for summ_stat_fun = list_values",
+                 type="numeric",
+                 default=6)
+p<- add_argument(p, "--list_values_min",
+                 help="minimum allowed value",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--list_values_min_replace",
+                 help="values smaller than min are replaced with this value",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--list_values_max",
+                 help="maximum allowed value",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--list_values_max_replace",
+                 help="values greater than max are replaced with this value",
+                 type="character",
+                 default=NA)
 p<- add_argument(p, "--summ_stat_condition_fcells",
                  help="apply statistics on a selection of cases, where the field has at least \"ncells\" (or a fraction \"fcells\" of not NAs values) with a value higher than \"threshold\"",
                  type="numeric",
@@ -890,6 +914,14 @@ if (any(!is.na(argv$r))) {
   rm(aux)
 }
 
+if (!is.na(argv$list_values_min)) 
+  argv$list_values_min<-as.numeric(gsub("_","-",argv$list_values_min))
+if (!is.na(argv$list_values_max)) 
+  argv$list_values_max<-as.numeric(gsub("_","-",argv$list_values_max))
+if (!is.na(argv$list_values_min_replace)) 
+  argv$list_values_min_replace<-as.numeric(gsub("_","-",argv$list_values_min_replace))
+if (!is.na(argv$list_values_max_replace)) 
+  argv$list_values_max_replace<-as.numeric(gsub("_","-",argv$list_values_max_replace))
 #-----------------------------------------------------------------------------
 # Multi-cores run
 if (!is.na(argv$cores)) {
@@ -1493,7 +1525,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
       if (!file.exists(argv$ffout_summ_stat) | 
           (!argv$ffout_summ_stat_append & first)) {
         cat(file=argv$ffout_summ_stat,append=F,
-            paste0("time;label;x;y;value;\n"))
+            paste0("time;label;x;y;value\n"))
       }
       if (any(is.na(argv$point_mask_x))) {
         labels<-1:ncell(r)
@@ -1515,12 +1547,16 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
         x<-coord.new[,1]
         y<-coord.new[,2]
       }
+      if (!is.na(argv$list_values_min)) 
+        values[which(values<argv$list_values_min)]<-argv$list_values_min_replace
+      if (!is.na(argv$list_values_max)) 
+        values[which(values>argv$list_values_max)]<-argv$list_values_max_replace
       cat(file=argv$ffout_summ_stat,append=T,
           paste0(t_to_read,";",
                  labels,";",
-                 round(x,6),";",
-                 round(y,6),";",
-                 round(values,6),"\n",collapse=""))
+                 round(x,argv$list_values_coord_rounddig),";",
+                 round(y,argv$list_values_coord_rounddig),";",
+                 round(values,argv$list_values_rounddig),"\n",collapse=""))
     #--------------------------------------------------------------------------
     # argv$summ_stat_fun=="wave_nrgx"
     } else if (argv$summ_stat_fun=="wave_nrgx") {
