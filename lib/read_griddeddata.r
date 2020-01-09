@@ -95,17 +95,19 @@ read_griddeddata<-function(mode="data",var=NA) { #data,master,data_dem,master_de
   # time dimension present
   } else {
     # read input file time steps
-    if (!is.null( attr(tsteps_in<-try(nc4.getTime(ff)),"class") )) {
+    if (!is.null( attr(tsteps_in<-try(nc4.getTime(ff,format="%Y%m%d%H%M%S")),"class") )) {
       print(paste("warning: not able to read time dimension from file ",ff))
       return(NULL)
     }
     # special case when the user ask to read the first timestep for each file
-    if (argv$one_timestep_for_file) t_to_read<-nc4.getTime(ff)[1]
+    if (argv$one_timestep_for_file) t_to_read<-nc4.getTime(ff,format="%Y%m%d%H%M%S")[1]
     # data, check time to read is available
     if (mode=="data" | mode=="ref") {
-      ff_t<-format(t_to_read,format="%Y%m%d%H%M",tz="GMT")
+      ff_t<-format(t_to_read,format="%Y%m%d%H%M%S",tz="GMT")
       if (!(ff_t %in% tsteps_in)) {
         print(paste("warning: time step to read",ff_t,"not in input file",ff))
+        print("available time steps are:")
+        print(tsteps_in)
         return(NULL)
       }
     # master grid, set time to read as the first time step
@@ -125,7 +127,7 @@ read_griddeddata<-function(mode="data",var=NA) { #data,master,data_dem,master_de
                        proj4=ff_proj4,
                        nc.proj4=list(var=ff_proj4_var,
                                      att=ff_proj4_att),
-                       selection=list(t=ff_t,e=ff_e)))
+                       selection=list(t=ff_t,e=ff_e,t_format="%Y%m%d%H%M%S")))
   if (!is.null(raux)) raux<-raux$stack
   if (mode=="data" | mode=="ref") {
     if (!is.na(argv$correction_factor)) raux<-raux*argv$correction_factor

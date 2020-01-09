@@ -1039,7 +1039,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
                as.numeric(
     as.POSIXct(tseq[t],format=argv$ffin_date.format,tz="GMT")) 
     + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
-              "%Y%m%d%H%M")
+              "%Y%m%d%H%M%S")
   if (argv$debug) print(paste("time_to_read time file",t_to_read,tseq[t],ffin))
   r<-read_griddeddata()
   # case of problems while reading the input file (e.g., missing timestep)
@@ -1065,7 +1065,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
                    as.numeric(
         as.POSIXct(tseq[t],format=argv$ffin_date.format,tz="GMT")) 
         + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
-                  "%Y%m%d%H%M")
+                  "%Y%m%d%H%M%S")
       if (argv$debug) print(paste("time_to_read time file",t_to_read,tseq[t],ffin))
       r<-read_griddeddata()
     }
@@ -1106,7 +1106,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
                  as.numeric(
       as.POSIXct(tseq[t],format=argv$ffin_date.format,tz="GMT")) 
       + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
-                "%Y%m%d%H%M")
+                "%Y%m%d%H%M%S")
     if (argv$debug) print(paste("time_to_read time file",t_to_read,tseq[t],ffin_ref))
     r_ref<-read_griddeddata(mode="ref")
     # case of problems while reading the input file (e.g., missing timestep)
