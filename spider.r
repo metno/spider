@@ -313,9 +313,13 @@ p<- add_argument(p, "--fun",
                  type="character",
                  default="none")
 p<- add_argument(p, "--fun_weights",
-                 help="weights used in the aggregation. If we call the weights specified by the user with w1, w2, ..., wN, then the result= w1_norm * field_1 + w2_norm * field_2 + ... + wN_norm * field_N. In the program the weights are normalized such that their sum is equal to 1, in other words w1_norm= w1/sum(w1,w2,...,wN), w2_norm= w2/sum(w1,w2,...,wN) and so on. NOTE: for the aggregation function \"radar_mean\" the weights are set by default to \"0.5,1,...,0.5\"",
+                 help="weights used in the aggregation. If we call the weights specified by the user with w1, w2, ..., wN, then the result= w1_norm * field_1 + w2_norm * field_2 + ... + wN_norm * field_N. In the program the weights are normalized such that their sum is equal to 1, in other words w1_norm= w1/sum(w1,w2,...,wN), w2_norm= w2/sum(w1,w2,...,wN) and so on. NOTE: for the aggregation function \"radar_mean\" the weights are set by default to \"0.5,1,...,0.5\" and a rescaling factor \"radar_mean_rescale\"is used.",
                  type="character",
                  default="1,1,...,1")
+p<- add_argument(p, "--radar_mean_rescale",
+                 help="if \"fun\" is \"radar_mean\", then rescale",
+                 type="numeric",
+                 default=1)
 p<- add_argument(p, "--frac",
                  help="fraction of available data",
                  type="numeric",
@@ -2233,8 +2237,10 @@ if (gridded_output)  {
         else if (argv$fun=="radar_mean")  {
           first<-T
           for (t in 1:n) {
-            weight<-ifelse(format(tseq[t_ok[t]],format="%M%S",tz="GMT")=="0000",
-                           0.5,1)
+#            works only for hourly aggregation
+#            weight<-ifelse(format(tseq[t_ok[t]],format="%M%S",tz="GMT")=="0000",
+#                           0.5,1)
+            weight<-ifelse((t_ok[t]==1 | t_ok[t]==n_tseq), 0.5, 1)
             dat<-getValues(subset(s,subset=t))
             ix_nona<-which(!is.na(dat))
             if (first) {
@@ -2247,12 +2253,28 @@ if (gridded_output)  {
             dat_cont[ix_nona]<-dat_cont[ix_nona]+1
             dat_mean[ix_nona]<-dat_mean[ix_nona]+weight*dat[ix_nona]
             weight_sum[ix_nona]<-weight_sum[ix_nona]+weight
+            if (argv$debug) {
+              if (!exists("ix_deb")) ix_deb<-ix_nona[which(dat[ix_nona]>0)][1]
+              print(paste("t i w dat_cont dat dat_mean w_sum :",
+                           t,ix_deb,weight,
+                           dat_cont[ix_deb],
+                           round(dat[ix_deb],4),
+                           round(dat_mean[ix_deb],4),
+                           weight_sum[ix_deb]))
+            }
             rm(ix_nona,dat,weight)
           }
           r<-subset(s,subset=1)
           r[]<-NA
           ix<-which(dat_cont>0 & (dat_cont/n_tseq)>=argv$frac)
-          if (length(ix)>0) r[ix]<-dat_mean[ix] / weight_sum[ix]
+          if (length(ix)>0) r[ix]<-argv$radar_mean_rescale * dat_mean[ix] / weight_sum[ix]
+          if (argv$debug) {
+            print(paste("t i dat_mean w_sum mean:",
+                         t,ix_deb,
+                         round(dat_mean[ix_deb],4),
+                         weight_sum[ix_deb],
+                         round(dat_mean[ix_deb]/weight_sum[ix_deb],4)))
+          }
           rm(ndat,dat_mean,dat_cont,first,ix,weight_sum)
         }
       # use weights
