@@ -1077,6 +1077,11 @@ if (any(!is.na(argv$date_filter_by_month))) {
   }
 }
 n_tseq<-length(tseq)
+if (argv$debug) {
+  print("time sequence")
+  print(tseq)
+  print(paste("number of time steps =",n_tseq))
+}
 #------------------------------------------------------------------------------
 # -.- Main loop overt time -.-
 #  Read Input files / elaboration
@@ -1466,24 +1471,20 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     }
   } 
   #----------------------------------------------------------------------------
-  # data quality control
-  # filter out unplausible values, otherwise writing the outpur might crash
-  if (!is.na(argv$gridded_dqc.min) & !is.na(argv$gridded_dqc.max)) {
-    rval<-getValues(r)
-    r[which(rval<argv$gridded_dqc.min)]<-argv$gridded_dqc.min_pad
-    r[which(rval>argv$gridded_dqc.max)]<-argv$gridded_dqc.max_pad
-    rm(rval)
-  }
+  # data quality control 
   if (argv$gridded_dqc) {
+    # check for unplausible values
+    if (!is.na(argv$gridded_dqc.min) & !is.na(argv$gridded_dqc.max)) {
+      rval<-getValues(r)
+      r[which(rval<argv$gridded_dqc.min)]<-argv$gridded_dqc.min_pad
+      r[which(rval>argv$gridded_dqc.max)]<-argv$gridded_dqc.max_pad
+      rm(rval)
+    }
+    # remove small patches of connected cells
     if (!any(is.na(argv$gridded_dqc.clump_r)) & 
         !(any(is.na(argv$gridded_dqc.clump_n)))) {
       rval<-getValues(r)
       suppressPackageStartupMessages(library("igraph"))
-      # b. remove patches of connected cells that are too small
-      #  check for small and isolated clumps (patches) of connected cells with 
-      #  precipitation greater than a predefined threshold
-      #   threshold 0 mm/h. remove all the clumps made of less than 100 cells
-      #   threshold 1 mm/h. remove all the clumps made of less than 50 cells
       for (i in 1:length(argv$gridded_dqc.clump_r)) {
         raux<-r
         if (any(rval<=argv$gridded_dqc.clump_r[i])) 
@@ -2131,6 +2132,12 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   if (exists("r_ref")) rm(r_ref)
   first<-F
 } # MAIN LOOP @@END@@
+#
+if (argv$debug) {
+  print("time steps \"ok\":")
+  print(t_ok)
+  print(paste("number of time steps \"ok\" =",n))
+}
 #------------------------------------------------------------------------------
 # RData output file
 if (argv$summ_stat_fun=="ellipsis") {
@@ -2225,83 +2232,68 @@ if (gridded_output)  {
         }
         else if (argv$fun=="radar_mean")  {
           first<-T
-          weight_sum<-0
           for (t in 1:n) {
             weight<-ifelse(format(tseq[t_ok[t]],format="%M%S",tz="GMT")=="0000",
                            0.5,1)
             dat<-getValues(subset(s,subset=t))
+            ix_nona<-which(!is.na(dat))
             if (first) {
-              dat_mean<-dat
-              dat_cont<-dat
-              dat_cont[]<-NA 
-              dat_cont[!is.na(dat)]<-1
+              ndat<-length(dat)
+              dat_mean<-rep(0,length=ndat)
+              dat_cont<-rep(0,length=ndat)
+              weight_sum<-rep(0,length=ndat)
               first<-F
-            } else {
-              ix_nona<-which(!is.na(dat))
-              ix_nonas<-which(!is.na(dat) & is.na(dat_cont))
-              if (length(ix_nonas)>0) {
-                dat_cont[ix_nonas]<-0
-                dat_mean[ix_nonas]<-0
-              }
-              if (length(ix_nona)>0) {
-                weight_sum<-weight_sum+weight
-                dat_cont[ix_nona]<-dat_cont[ix_nona]+1
-                dat_mean[ix_nona]<-dat_mean[ix_nona]+weight*dat[ix_nona]
-              }
-              rm(ix_nona,ix_nonas)
             }
-            rm(dat,weight)
+            dat_cont[ix_nona]<-dat_cont[ix_nona]+1
+            dat_mean[ix_nona]<-dat_mean[ix_nona]+weight*dat[ix_nona]
+            weight_sum[ix_nona]<-weight_sum[ix_nona]+weight
+            rm(ix_nona,dat,weight)
           }
           r<-subset(s,subset=1)
           r[]<-NA
-          ix<-which(!is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
-          if (length(ix)>0) r[ix]<-dat_mean[ix] / weight_sum
-          rm(dat_mean,dat_cont,first,ix)
-          if (exists("weight_sum")) rm(weight_sum)
+          ix<-which(dat_cont>0 & (dat_cont/n_tseq)>=argv$frac)
+          if (length(ix)>0) r[ix]<-dat_mean[ix] / weight_sum[ix]
+          rm(ndat,dat_mean,dat_cont,first,ix,weight_sum)
         }
       # use weights
       } else {
         print("Using weights")
         first<-T
-        weight_sum<-0
         for (t in t_ok) {
           dat<-weights[t]*getValues(subset(s,subset=t))
           if (first) {
-            dat_res<-dat
-            dat_cont<-dat
-            dat_cont[]<-NA 
-            dat_cont[!is.na(dat)]<-1
+            ndat<-length(dat)
+            dat_res<-rep(0,length=ndat)
+            dat_cont<-rep(0,length=ndat)
+            weight_sum<-rep(0,length=ndat)
             first<-F
-          } else {
-            if (argv$fun=="sum")  {
-              weight_sum<-weight_sum+weight
-              dat_res<-dat+dat_res
-            } else if (argv$fun=="max") {
-              weight_sum<-weight_sum+weight
-              dat_res<-pmax(dat,dat_res,na.rm=T)
-            } else if (argv$fun=="min") {
-              weight_sum<-weight_sum+weight
-              dat_res<-pmin(dat,dat_res,na.rm=T)
-            } else if (argv$fun=="mean") {
-              ix_nona<-which(!is.na(dat))
-              ix_nonas<-which(!is.na(dat) & is.na(dat_cont))
-              if (length(ix_nonas)>0) {
-                dat_cont[ix_nonas]<-0
-                dat_res[ix_nonas]<-0
-              }
-              if (length(ix_nona)>0) {
-                weight_sum<-weight_sum+weight
-                dat_cont[ix_nona]<-dat_cont[ix_nona]+1
-                dat_res[ix_nona]<-dat_res[ix_nona]+weight*dat[ix_nona]
-              }
-              rm(ix_nona,ix_nonas)
-            }
           }
+          ix_nona<-which(!is.na(dat))
+          dat_cont[ix_nona]<-dat_cont[ix_nona]+1
+          weight_sum[ix_nona]<-weight_sum[ix_nona]+weights[t]
+          aux<-weights[t]*dat[ix_nona]
+          if (argv$fun=="sum")  {
+            dat_res[ix_nona]<-dat_res[ix_nona]+aux
+          } else if (argv$fun=="max") {
+            dat_res[ix_nona]<-pmax(dat_res[ix_nona],aux,na.rm=T)
+          } else if (argv$fun=="min") {
+            dat_res[ix_nona]<-pmin(dat_res[ix_nona],aux,na.rm=T)
+          } else if (argv$fun=="mean") {
+            dat_res[ix_nona]<-dat_res[ix_nona]+aux
+          }
+          rm(ix_nona,aux)
         }
         r<-subset(s,subset=t_ok[1])
         r[]<-NA
-        if ("weight_sum">0) r[]<- dat_res / weight_sum
-        rm(weight_sum)
+        ix<-which(dat_cont>0 & (dat_cont/n_tseq)>=argv$frac)
+        if (length(ix)>0) {
+          if (argv$fun=="mean") {
+            r[ix]<- dat_res[ix] / weight_sum[ix]
+          } else {
+            r[ix]<-dat_res[ix]
+          }
+        }
+        rm(ndat,dat_res,dat_cont,first,ix,weight_sum)
       } # endif use weights
     } else {
       boom(paste("number of time steps available=",n," is less than required"))
