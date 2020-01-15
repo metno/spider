@@ -312,6 +312,14 @@ p<- add_argument(p, "--fun",
                  help="aggregation function",
                  type="character",
                  default="none")
+p<- add_argument(p, "--space_fun",
+                 help="space aggregation function",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--time_fun",
+                 help="time aggregation function",
+                 type="character",
+                 default=NA)
 p<- add_argument(p, "--fun_weights",
                  help="weights used in the aggregation. If we call the weights specified by the user with w1, w2, ..., wN, then the result= w1_norm * field_1 + w2_norm * field_2 + ... + wN_norm * field_N. In the program the weights are normalized such that their sum is equal to 1, in other words w1_norm= w1/sum(w1,w2,...,wN), w2_norm= w2/sum(w1,w2,...,wN) and so on. NOTE: for the aggregation function \"radar_mean\" the weights are set by default to \"0.5,1,...,0.5\" and a rescaling factor \"radar_mean_rescale\"is used.",
                  type="character",
@@ -536,10 +544,10 @@ p <- add_argument(p, "--ffindem_e",
 p<- add_argument(p, "--get_master_from_input_grid",
                  help="master grid is derived from input grid",
                  flag=T)
-p<- add_argument(p, "--get_master_from_input_grid",
-                 help="master grid is derived from input grid",
+p<- add_argument(p, "--master_from_input_aggfact",
+                 help="aggregation factor to get the master grid",
                  type="numeric",
-                 default=NA)
+                 default=5)
 p<- add_argument(p, "--ffmaster",
                  help="path to + name (template) of the input observation files",
                  type="character",
@@ -892,6 +900,7 @@ rm(file)
 #------------------------------------------------------------------------------
 # default is time_aggregation
 if ( !argv$time_aggregation & 
+     !argv$time_aggregation_online & 
      !argv$time_cat & 
      !argv$upscale & 
      !argv$downscale & 
@@ -903,6 +912,7 @@ if ( !argv$time_aggregation &
 #
 gridded_output<-F
 if ( argv$time_aggregation | 
+     argv$time_aggregation_online | 
      argv$time_cat | 
      argv$upscale | 
      argv$downscale | 
@@ -1002,6 +1012,9 @@ if (!is.na(argv$gridded_dqc.max_pad))
 if (!is.na(argv$gridded_dqc.outlier_pad)) 
   argv$gridded_dqc.outlier_pad<-as.numeric(gsub("_","-",
                                 argv$gridded_dqc.outlier_pad))
+#
+if (is.na(argv$space_fun)) argv$space_fun<-argv$fun
+if (is.na(argv$time_fun)) argv$time_fun<-argv$fun
 #-----------------------------------------------------------------------------
 # Multi-cores run
 if (!is.na(argv$cores)) {
@@ -1230,6 +1243,16 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     }
   }
   #----------------------------------------------------------------------------
+  # master grid
+  if ( argv$get_master_from_input_grid) {
+    if (argv$master_from_input_aggfact>1) {
+      rmaster<-aggregate(r,fact=argv$master_from_input_aggfact)
+    } else {
+      rmaster<-r
+    }
+    argv$ffmaster_proj4<-argv$ffin_proj4
+  }
+  #----------------------------------------------------------------------------
   # Upscale to coarser grid
   if (argv$upscale) {
     if (!exists("rmaster")) {
@@ -1245,11 +1268,11 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
                                  proj4string=CRS(argv$ffin_proj4)) 
                                             ,CRS(argv$ffmaster_proj4))
     }
-    if (argv$fun=="mean") {
+    if (argv$space_fun=="mean") {
       r1<-rasterize(x=coord.new, y=rmaster, field=values[ix], fun=mean)
-    } else if (argv$fun=="max") {
+    } else if (argv$space_fun=="max") {
       r1<-rasterize(x=coord.new, y=rmaster, field=values[ix], fun=max)
-    } else if (argv$fun=="min") {
+    } else if (argv$space_fun=="min") {
       r1<-rasterize(x=coord.new, y=rmaster, field=values[ix], fun=min)
     }
     if (argv$master_mask) r1<-mask(r1,mask=rmaster)
@@ -1268,12 +1291,12 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
       rmaster<-read_griddeddata("master")
       if (is.null(rmaster)) boom("ERROR problem reading master grid")
     }
-    if (!(argv$fun %in% c("ngb","bilinear"))) 
+    if (!(argv$space_fun %in% c("ngb","bilinear"))) 
       boom("--fun must be either \"ngb\" or \"bilinear\"")
     if (argv$ffin_proj4==argv$ffmaster_proj4) {
-      r1<-resample(r, rmaster, method=argv$fun)
+      r1<-resample(r, rmaster, method=argv$space_fun)
     } else {
-      r1<-projectRaster(r, rmaster, method=argv$fun)
+      r1<-projectRaster(r, rmaster, method=argv$space_fun)
     }
     if (argv$master_mask) r1<-mask(r1,mask=rmaster)
     r<-r1
@@ -2093,7 +2116,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     if (!exists("s"))  {
       s<-r
     } else {
-      if (argv$fun=="sum")  {
+      if (argv$time_fun=="sum")  {
         sval<-getValues(s); rval<-getValues(r)
         ix_aux<-which(!is.na(sval) & !is.na(rval) & is.finite(sval) & is.finite(rval))
         if (length(ix_aux)>0) s[ix_aux]<-sval[ix_aux]+rval[ix_aux]
@@ -2201,11 +2224,11 @@ if (gridded_output)  {
       # apply function
       # case of all weights = 1
       if (!any(weights!=1)) {
-        if (argv$fun=="sum")  { r<-sum(s,na.rm=T) } 
-        else if (argv$fun=="mean") { r<-mean(s,na.rm=T) }
-        else if (argv$fun=="max")  { r<-max(s,na.rm=T) }
-        else if (argv$fun=="min")  { r<-min(s,na.rm=T) }
-        else if (argv$fun=="count" | argv$fun=="freq")  {
+        if (argv$time_fun=="sum")  { r<-sum(s,na.rm=T) } 
+        else if (argv$time_fun=="mean") { r<-mean(s,na.rm=T) }
+        else if (argv$time_fun=="max")  { r<-max(s,na.rm=T) }
+        else if (argv$time_fun=="min")  { r<-min(s,na.rm=T) }
+        else if (argv$time_fun=="count" | argv$time_fun=="freq")  {
           if (length(argv$r)>1) { 
             threshold<-argv$r[1]
             threshold1<-argv$r[2] 
@@ -2239,10 +2262,10 @@ if (gridded_output)  {
           }
           r<-subset(s,subset=1)
           r[]<-NA
-          if (argv$fun=="count") {r[ix]<-dat} else {r[ix]<-dat/nlayers(s)}
+          if (argv$time_fun=="count") {r[ix]<-dat} else {r[ix]<-dat/nlayers(s)}
           rm(mat,dat,ix)
         }
-        else if (argv$fun=="radar_mean")  {
+        else if (argv$time_fun=="radar_mean")  {
           first<-T
           for (t in 1:n) {
 #            works only for hourly aggregation
@@ -2302,13 +2325,13 @@ if (gridded_output)  {
           dat_cont[ix_nona]<-dat_cont[ix_nona]+1
           weight_sum[ix_nona]<-weight_sum[ix_nona]+weights[t]
           aux<-weights[t]*dat[ix_nona]
-          if (argv$fun=="sum")  {
+          if (argv$time_fun=="sum")  {
             dat_res[ix_nona]<-dat_res[ix_nona]+aux
-          } else if (argv$fun=="max") {
+          } else if (argv$time_fun=="max") {
             dat_res[ix_nona]<-pmax(dat_res[ix_nona],aux,na.rm=T)
-          } else if (argv$fun=="min") {
+          } else if (argv$time_fun=="min") {
             dat_res[ix_nona]<-pmin(dat_res[ix_nona],aux,na.rm=T)
-          } else if (argv$fun=="mean") {
+          } else if (argv$time_fun=="mean") {
             dat_res[ix_nona]<-dat_res[ix_nona]+aux
           }
           rm(ix_nona,aux)
@@ -2317,7 +2340,7 @@ if (gridded_output)  {
         r[]<-NA
         ix<-which(dat_cont>0 & (dat_cont/n_tseq)>=argv$frac)
         if (length(ix)>0) {
-          if (argv$fun=="mean") {
+          if (argv$time_fun=="mean") {
             r[ix]<- dat_res[ix] / weight_sum[ix]
           } else {
             r[ix]<-dat_res[ix]
