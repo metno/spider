@@ -533,6 +533,13 @@ p <- add_argument(p, "--ffindem_e",
                   type="numeric",
                   default=NA)
 # master grid
+p<- add_argument(p, "--get_master_from_input_grid",
+                 help="master grid is derived from input grid",
+                 flag=T)
+p<- add_argument(p, "--get_master_from_input_grid",
+                 help="master grid is derived from input grid",
+                 type="numeric",
+                 default=NA)
 p<- add_argument(p, "--ffmaster",
                  help="path to + name (template) of the input observation files",
                  type="character",
