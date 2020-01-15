@@ -1106,6 +1106,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
                     month_string=argv$month_string,
                     day_string=argv$day_string,
                     hour_string=argv$hour_string,
+                    min_string=argv$min_string,
                     sec_string=argv$sec_string,
                     format=argv$ffin_date.format)
   if (!file.exists(ffin)) {
