@@ -451,7 +451,10 @@ p <- add_argument(p, "--verif_contab_type",
                   help="verification, contingency table for binary events (see \"--verif_b\"). Special labels: \"wet\" (event=yes if above= threshold), \"dry\" (below threshold), \"light\" (threshold =within light_threshold, where light_threshold is the value that includes the lowest 2/3 of the wet-precipitation values), \"heavy\" (above light_threshold) ",
                   type="character",
                   default="error")
-
+p <- add_argument(p, "--which_quantile",
+                  help="if verif_metric is quantile, then this specifies which quantile (0-1)",
+                  type="numeric",
+                  default=0.5)
 #..............................................................................
 # IO
 # input file(s)
@@ -1966,16 +1969,23 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   if (argv$verif) {
     if (gridded_output) {
       # scores that require to store the whole dataset in memory
-      if (argv$verif_metric %in% c("corr","msess","ets","a","b","c","d","seeps","roblinreg")) {
+      if (argv$verif_metric %in% c("corr","msess","ets","a","b","c","d",
+                                   "seeps","roblinreg","quantile")) {
         if (!exists("mat")) {
-          ix_ver<-which(!is.na(getValues(r)) & !is.na(getValues(r_ref)))
+          if (!is.na(argv$ffin_ref_template)) {
+            ix_ver<-which(!is.na(getValues(r)) & !is.na(getValues(r_ref)))
+          } else {
+            ix_ver<-which(!is.na(getValues(r)))
+          }
           mat<-getValues(r)[ix_ver]
-          mat_ref<-getValues(r_ref)[ix_ver]
-          npoints<-length(mat_ref)
+          if (!is.na(argv$ffin_ref_template))
+            mat_ref<-getValues(r_ref)[ix_ver]
+          npoints<-length(mat)
           if (!exists("rmaster")) {rmaster<-r; rmaster[]<-NA}
         } else {
           mat<-cbind(mat,getValues(r)[ix_ver])
-          mat_ref<-cbind(mat_ref,getValues(r_ref)[ix_ver])
+          if (!is.na(argv$ffin_ref_template))
+            mat_ref<-cbind(mat_ref,getValues(r_ref)[ix_ver])
         }
       # scores that are computed online
       } else {
@@ -2355,7 +2365,8 @@ if (gridded_output)  {
   #----------------------------------------------------------------------------
   # verification
   if (argv$verif) {
-    if (argv$verif_metric %in% c("corr","msess","ets","a","b","c","d","seeps","roblinreg")) {
+    if (argv$verif_metric %in% c("corr","msess","ets","a","b","c","d",
+                                 "seeps","roblinreg","quantile")) {
       if (argv$verif_metric=="corr") {
         threshold<-NA
         threshold1<-NA
@@ -2372,6 +2383,10 @@ if (gridded_output)  {
         threshold<-argv$verif_roblinreg_threshold
         threshold1<-argv$verif_roblinreg_threshold
         type<-argv$verif_roblinreg_type
+      } else if (argv$verif_metric=="quantile") {
+        threshold<-argv$which_quantile
+        threshold1<-NA
+        type<-NA
       } else if (argv$verif_metric %in% c("a","b","c","d","ets")) {
         threshold<-argv$verif_contab_threshold
         threshold1<-argv$verif_contab_threshold1
@@ -2396,7 +2411,8 @@ if (gridded_output)  {
                          threshold1=threshold1,
                          type=type)
       }
-      rm(mat,mat_ref)
+      if (exists("mat")) rm(mat)
+      if (exists("mat_ref")) rm(mat_ref)
       if (exists("mat_ref_mean")) rm(mat_ref_mean)
       dat_cont<-dat_mean
       dat_cont[]<-n

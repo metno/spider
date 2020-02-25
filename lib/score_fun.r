@@ -58,7 +58,7 @@ score_fun<-function(i=NA,
       if (!any(!is.na(mat_ref))) return(NA)
     }
   }
-  # count_x is the only score that do not use mat_ref
+  # count_x do not use mat_ref
   if (lab=="count_x" | lab=="index_x") {
     if (is.na(type)) return(NA)
     if (type=="below") {
@@ -79,6 +79,9 @@ score_fun<-function(i=NA,
       score<-which(mat[i,]>=threshold) 
     }
     if (lab=="count_x") score<-length(score)
+  # quantile do not use mat_ref
+  } else if (lab=="quantile") {
+    score <- quantile( mat[i,], probs= threshold, na.rm=T )
   # use the reference data. not assume temporal allignment mat and mat_ref
   } else if (lab %in% c("a","b","c","d","ets")) {
     if (is.na(type)) return(NA)
