@@ -128,8 +128,18 @@ if (argv$summ_stat & argv$summ_stat_fun=="ellipsis")
    suppressPackageStartupMessages(library("igraph"))}
 argv$summ_stat_condition_threshold<-as.numeric(gsub("_","-",
                                       argv$summ_stat_condition_threshold))
-argv$point_mask_x<-as.numeric(gsub("_","-",argv$point_mask_x))
-argv$point_mask_y<-as.numeric(gsub("_","-",argv$point_mask_y))
+if ( !is.na( argv$ffin_point_mask)) {
+  argv$point_mask_x <- as.numeric( gsub( "_", "-", argv$point_mask_x))
+  argv$point_mask_y <- as.numeric( gsub( "_", "-", argv$point_mask_y))
+} else {
+  tab <- read.table( file= argv$ffin_point_mask, header=T, sep=";",
+                     stringsAsFactors=F, strip.white=T)
+  argv$point_mask_x <- tab$x
+  argv$point_mask_y <- tab$y
+  argv$point_mask_label <- tab$label
+  rm( tab)
+}
+ 
 #------------------------------------------------------------------------------
 # -.- Main loop overt time -.-
 #  Read Input files / elaboration

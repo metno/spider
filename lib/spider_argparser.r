@@ -378,6 +378,10 @@ p<- add_argument(p, "--point_mask_method",
                  help="interpolation method (simple or bilinear)",
                  type="character",
                  default="simple")
+p<- add_argument(p, "--ffin_point_mask",
+                 help="file with list of points (header label, x, y)",
+                 type="character",
+                 default=NA)
 #..............................................................................
 p <- add_argument(p, "--verif",
                   help="verification against a reference dataset",
