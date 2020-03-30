@@ -128,7 +128,7 @@ if (argv$summ_stat & argv$summ_stat_fun=="ellipsis")
    suppressPackageStartupMessages(library("igraph"))}
 argv$summ_stat_condition_threshold<-as.numeric(gsub("_","-",
                                       argv$summ_stat_condition_threshold))
-if ( !is.na( argv$ffin_point_mask)) {
+if ( is.na( argv$ffin_point_mask)) {
   argv$point_mask_x <- as.numeric( gsub( "_", "-", argv$point_mask_x))
   argv$point_mask_y <- as.numeric( gsub( "_", "-", argv$point_mask_y))
 } else {
@@ -136,10 +136,9 @@ if ( !is.na( argv$ffin_point_mask)) {
                      stringsAsFactors=F, strip.white=T)
   argv$point_mask_x <- tab$x
   argv$point_mask_y <- tab$y
-  argv$point_mask_label <- tab$label
+  argv$point_mask_labels <- tab$label
   rm( tab)
 }
- 
 #------------------------------------------------------------------------------
 # -.- Main loop overt time -.-
 #  Read Input files / elaboration
@@ -493,7 +492,12 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
       print("warning: something is wrong with the list of points")
       print(argv$point_mask_x)
       print(argv$point_mask_y)
-      print(argv$point_mask_label)
+      print(argv$point_mask_labels)
+      print(any(is.na(argv$point_mask_x)))
+      print(any(is.na(argv$point_mask_y)))
+      print(length(argv$point_mask_x))
+      print(length(argv$point_mask_y))
+      print(length(argv$point_mask_labels))
       next
     }
     if (argv$point_mask_proj4!=as.character(crs(r))) { 
