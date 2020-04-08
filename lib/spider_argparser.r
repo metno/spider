@@ -31,6 +31,10 @@ p <- add_argument(p, "--date_out.format",
                   help="format of the date/time",
                   type="character",
                   default="%Y-%m-%dT%H")
+p <- add_argument(p, "--time_bnds_string",
+                  help="time bounds with respect to date_out (e.g., \"-1 day\" \"-1 min\"). The end of the aggregation period is assumed to be date_out.",
+                  type="character",
+                  default="none")
 #..............................................................................
 p <- add_argument(p, "--time_step",
                   help="time step",
@@ -675,39 +679,43 @@ p<- add_argument(p, "--ffout_gridtype",
                  type="character",
                  default="none")
 p<- add_argument(p, "--ffout_varname",
-                 help="output varname",
+                 help="output varname(s)",
                  type="character",
                  default="none")
 p<- add_argument(p, "--ffout_varlongname",
-                 help="output longvarname",
+                 help="attribute of each variable with the long-varname(s)",
                  type="character",
                  default="none")
 p<- add_argument(p, "--ffout_varstandardname",
-                 help="output standardvarname",
+                 help="attribute of each variable with the standard varname(s)",
                  type="character",
                  default="none")
 p<- add_argument(p, "--ffout_varversion",
-                 help="output var version",
+                 help="attribute of each variable with the var version(s)",
                  type="character",
                  default="")
 p<- add_argument(p, "--ffout_varunit",
-                 help="output var version",
+                 help="attribute of each variable with the var unit(s)",
                  type="character",
                  default="")
+p <- add_argument(p, "--ffout_cell_methods",
+                  help="attribute of each variable with the aggregation methods (e.g. ''time: sum'')",
+                  type="character",
+                  default="none")
 p<- add_argument(p, "--ffout_times_unit",
                  help="output var version",
                  type="character",
                  default="H")
 p<- add_argument(p, "--ffout_reference",
-                 help="output reference",
+                 help="global attribute with dataset reference",
                  type="character",
                  default="")
 p<- add_argument(p, "--ffout_proj4",
-                 help="output proj4",
+                 help="output ''proj4'' strings",
                  type="character",
                  default="")
 p <- add_argument(p, "--ffout_lonlat",
-                  help="logical lon lat in the output",
+                  help="logical, lon lat in the output",
                   flag=T)
 p <- add_argument(p, "--ffout_diground",
                   help="rounding digits",
