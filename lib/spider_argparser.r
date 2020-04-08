@@ -701,7 +701,8 @@ p<- add_argument(p, "--ffout_varunit",
 p <- add_argument(p, "--ffout_cell_methods",
                   help="attribute of each variable with the aggregation methods (e.g. ''time: sum'')",
                   type="character",
-                  default="none")
+                  default=NA,
+                  nargs=Inf)
 p<- add_argument(p, "--ffout_times_unit",
                  help="output var version",
                  type="character",
