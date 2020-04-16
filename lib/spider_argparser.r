@@ -884,7 +884,7 @@ if (!is.na(argv$config_file)) {
   }
 }
 #
-# convert character to numbers
+# convert character to numbers OR replace _ with - in strings
 if (any(!is.na(argv$summ_stat_r))) {
   dots<-any(argv$summ_stat_r=="...")
   if ( any(argv$summ_stat_r=="...") ) {
@@ -900,6 +900,10 @@ if (any(!is.na(argv$summ_stat_r))) {
     argv$summ_stat_r<-aux
     rm(aux)
   }
+}
+
+if (any(!is.na(argv$time_bnds_string))) {
+  argv$time_bnds_string<-gsub("_","-",argv$time_bnds_string)
 }
 
 if (any(!is.na(argv$verif_r))) {
