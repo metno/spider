@@ -1270,7 +1270,7 @@ if (gridded_output)  {
       # case of all weights = 1
       if (!any(weights!=1)) {
         #---------------------------------------------------------------------
-        if (argv$time_fun=="sum")  { r<-sum(s,na.rm=T) } 
+        if (argv$time_fun=="sum")  { r<-sum(s) } 
         else if (argv$time_fun=="mean") { r<-mean(s,na.rm=T) }
         else if (argv$time_fun=="max")  { r<-max(s,na.rm=T) }
         else if (argv$time_fun=="min")  { r<-min(s,na.rm=T) }
