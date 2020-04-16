@@ -1528,9 +1528,9 @@ if (gridded_output)  {
   r.list[[1]] <- grid
   rm( grid, r)
   time_bnds <- array( format( rev( seq(
-                strptime( date_out, "%Y%m%d%H%M"),
+                strptime( date_out, "%Y%m%d%H%M", tz="UTC"),
                           length=2, by=argv$time_bnds_string)),
-                format="%Y%m%d%H%M", tz="GMT"), dim=c(1,2))
+                format="%Y%m%d%H%M", tz="UTC"), dim=c(1,2))
   out <- write_dotnc(grid.list = r.list,
                      times     = date_out,
                      file.name = argv$ffout,
