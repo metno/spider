@@ -1,5 +1,15 @@
 #+
-read_griddeddata<-function(mode="data",var=NA) { #data,master,data_dem,master_dem
+read_griddeddata<-function( mode="data",
+                            var=NA,
+                            argv=NA,
+                            ffin=NA,
+                            t_to_read=NA,
+                            ffin_ref=NA) { #data,master,data_dem,master_dem
+#------------------------------------------------------------------------------
+  if ( is.na(argv))
+    if ("argv" %in% ls(envir = .GlobalEnv)) 
+      get("argv", envir = .GlobalEnv)
+  #
   if (mode=="data") {
     ff<-ffin
     ff_tpos<-argv$ffin_tpos
