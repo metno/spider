@@ -12,18 +12,18 @@
 # 21.01.2019 - Cristian Lussana. Original code.
 # -----------------------------------------------------------------------------
 #
-rm(list=ls())
+rm( list = ls())
 #
 # -----------------------------------------------------------------------------
 # Libraries
-suppressPackageStartupMessages(library("argparser"))
-suppressPackageStartupMessages(library("sp"))
-suppressPackageStartupMessages(library("raster"))
-suppressPackageStartupMessages(library("rgdal"))
-suppressPackageStartupMessages(library("ncdf4"))
-suppressPackageStartupMessages(library("dotnc"))
+suppressPackageStartupMessages( library( "argparser"))
+suppressPackageStartupMessages( library( "sp"))
+suppressPackageStartupMessages( library( "raster"))
+suppressPackageStartupMessages( library( "rgdal"))
+suppressPackageStartupMessages( library( "ncdf4"))
+suppressPackageStartupMessages( library( "dotnc"))
 #options(warn = 2, scipen = 999)
-options(scipen = 999)
+options( scipen = 999)
 #
 # -----------------------------------------------------------------------------
 # Constants
@@ -101,25 +101,25 @@ rm( res)
 #------------------------------------------------------------------------------
 # Initialization
 # default is time_aggregation
-if ( !argv$time_aggregation & 
+if ( !argv$time_aggregation        & 
      !argv$time_aggregation_online & 
-     !argv$time_cat & 
-     !argv$upscale & 
-     !argv$downscale & 
-     !argv$latte &
-     !argv$summ_stat & 
-     !argv$pam & 
+     !argv$time_cat                & 
+     !argv$upscale                 & 
+     !argv$downscale               &  
+     !argv$latte                   &
+     !argv$summ_stat               & 
+     !argv$pam                     & 
      !argv$verif ) 
   argv$time_aggregation<-T
 #
 # decide if gridded output is required
 gridded_output <- F
-if ( argv$time_aggregation | 
+if ( argv$time_aggregation        | 
      argv$time_aggregation_online | 
-     argv$time_cat | 
-     argv$upscale | 
-     argv$downscale | 
-     argv$latte | 
+     argv$time_cat                | 
+     argv$upscale                 | 
+     argv$downscale               | 
+     argv$latte                   | 
     (argv$verif & argv$ffout!=ffout_default) ) 
   gridded_output<-T
 #
@@ -182,19 +182,19 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   }
   #----------------------------------------------------------------------------
   # Upscale to coarser grid
-  if (argv$upscale) {
+  if ( argv$upscale) {
     r <- spider_upscale()
     if ( is.null(r)) next
   }
   #----------------------------------------------------------------------------
   # Downscale to finer grid
-  if (argv$downscale) {
+  if ( argv$downscale) {
     r <- spider_downscale()
     if ( is.null(r)) next
   }
   #----------------------------------------------------------------------------
   # Interpolation over master grid based on a non-linear vertical profile
-  if (argv$latte) { # LATTE - interpoLATion verTical profilE
+  if ( argv$latte) { # LATTE - interpoLATion verTical profilE
     if ( !exists("values_ma")) {
       if ( !any( !is.na( values_ma <- getValues(rmaster)))) {
         print(paste("warning: all NAs for master grid file",argv$ffmaster))
@@ -380,172 +380,55 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   } # end if summary statistics
   #----------------------------------------------------------------------------
   # prepare for verification statistics 
-  if (argv$verif) {
-    if (gridded_output) {
-      # scores that require to store the whole dataset in memory
-      if (argv$verif_metric %in% c("corr","msess","ets","a","b","c","d",
-                                   "seeps","roblinreg","quantile")) {
-        if (!exists("mat")) {
-          if (!is.na(argv$ffin_ref_template)) {
-            ix_ver<-which(!is.na(getValues(r)) & !is.na(getValues(r_ref)))
-          } else {
-            ix_ver<-which(!is.na(getValues(r)))
-          }
-          mat<-getValues(r)[ix_ver]
-          if (!is.na(argv$ffin_ref_template))
-            mat_ref<-getValues(r_ref)[ix_ver]
-          npoints<-length(mat)
-          if (!exists("rmaster")) {rmaster<-r; rmaster[]<-NA}
-        } else {
-          mat<-cbind(mat,getValues(r)[ix_ver])
-          if (!is.na(argv$ffin_ref_template))
-            mat_ref<-cbind(mat_ref,getValues(r_ref)[ix_ver])
-        }
+  if ( argv$verif) {
+    if ( gridded_output) {
+      if ( !exists( "rmaster")) { rmaster<-r; rmaster[]<-NA}
+      res <- spider_verif_grid_prepare()
+      if ( is.null( res)) next
       # scores that are computed online
+      #  dat_... dimension is the number of cells of raster "r"
+      if ( res$online) {
+        dat_mean <- res$dat_mean_up
+        dat_cont <- res$dat_cont_up
+        if ( !exists( ix_mat)) ix_dat <- 1:length(ncell(r))
+        print( paste("verif & gridded output: number of cells",res$n)) 
+      # scores that require to store the whole dataset in memory
+      #  mat... matrix (number of cells, subset not NAs) x (number of times)
       } else {
-        if ( argv$verif_metric %in% c("mbias","rmsf") )
-          r<-r/r_ref
-        if ( argv$verif_metric %in% c("bias","mae","rmse") )
-          r<-r-r_ref
-        if (!exists("ix_ver")) ix_ver<-which(!is.na(getValues(r)))
-        dat<-getValues(r)[ix_ver]
-        if ( argv$verif_metric=="mae" ) 
-          dat<-abs(dat)
-        if ( argv$verif_metric %in% c("rmse","rmsf") ) 
-          dat<-dat**2
-        if (!exists("dat_mean")) {
-          if (!exists("rmaster")) {rmaster<-r; rmaster[]<-NA}
-          dat_mean<-dat
-          dat_cont<-dat
-          dat_cont[]<-NA 
-          dat_cont[!is.na(dat)]<-1
+        if ( !exists("mat")) {
+          mat    <- res$mat_col
+          ix_dat <- res$ix
+          if ( !is.na( argv$ffin_ref_template)) 
+            mat_ref <- res$mat_ref_col
         } else {
-          ix_nona<-which(!is.na(dat))
-          ix_nonas<-which(!is.na(dat) & is.na(dat_cont))
-          if (length(ix_nonas)>0) {
-            dat_cont[ix_nonas]<-0
-            dat_mean[ix_nonas]<-0
+          if ( any( !(res$ix %in% ix_dat))) {
+            print("WARNING: verif & gridded output, wrong indexes: statistics is supposed to use always the same cells")
+            next
           }
-          if (length(ix_nona)>0) {
-            dat_cont[ix_nona]<-dat_cont[ix_nona]+1
-            dat_mean[ix_nona]<-dat_mean[ix_nona]+
-                    (dat[ix_nona]-dat_mean[ix_nona])/
-                    dat_cont[ix_nona]
-          }
-          rm(ix_nona,ix_nonas)
+          mat <- cbind( mat, res$mat_col)
+          if ( !is.na( argv$ffin_ref_template)) 
+            mat_ref <- cbind(  mat_ref, res$mat_ref_col)
         }
-        rm(dat)
       }
+      rm( res)
     } # end if gridded output is TRUE
       # compute verif statistics on a step-by-step basis
       else {
-      # first time in, define variables
-      # NOTE: case of "within", num is a vector with dimension nr-1
-      #       otherwise, num is a vector with dimension nr
-      if (first) {
-        header_string<-integer(0)
-        nr<-length(argv$verif_r)
-        if (nr>0) {
-          for (i in 1:nr) {
-            if (argv$verif_b=="=within" | argv$verif_b=="within" |
-                argv$verif_b=="within=" | argv$verif_b=="=within=") {
-              if (i<nr) header_string<-paste0(header_string,
-                                              paste0(";thr_",argv$verif_b,"_",
-                                                     argv$verif_r[i],"_",
-                                                     argv$verif_r[(i+1)]))
-            } else {
-              header_string<-paste0(header_string,
-                                    paste0(";thr_",argv$verif_b,"_",
-                                           argv$verif_r[i]))
-            }
-          }
-          header_string<-paste0(header_string,";numtot")
-          if (argv$verif_b=="=within" | argv$verif_b=="within" |
-              argv$verif_b=="within=" | argv$verif_b=="=within=") {
-            score<-vector(mode="numeric",length=(nr-1))
-          } else {
-            score<-vector(mode="numeric",length=nr)
-          }
-          score[]<-NA
-        # no thresolds
-        } else {
-          header_string<-paste0(";score;numtot")
-          score<-NA
-        }
-      }
-      # if required, write the file header
-      if (!file.exists(argv$ffout_verif) | 
-           (!argv$ffout_verif_append & first)) {
-         cat(file=argv$ffout_verif,append=F,
-             paste0("time",header_string,"\n"))
-      }
-      # compute score
-      val<-getValues(r)
-      ref<-getValues(r_ref)
-      numtot<-length(aux<-which(!is.na(val) & !is.na(ref)))
-      val<-val[ix]
-      ref<-ref[ix]; rm(ix)
-      # use thresholds if needed
-      if (nr>0) {
-        score[]<-NA
-        for (i in 1:nr) {
-          if ( argv$verif_b %in% c("within","=within","within=","=within=") ) {
-            if (i<nr) score[i]<-score_fun(x=val,
-                                          x_ref=ref,
-                                          lab=argv$verif_metric,
-                                          threshold=argv$verif_r[i],
-                                          threshold1=argv$verif_r[(i+1)],
-                                          type=argv$verif_b)
-          } else { 
-            score[i]<-score_fun(x=val,
-                                x_ref=ref,
-                                lab=argv$verif_metric,
-                                threshold=argv$verif_r[i],
-                                type=argv$verif_b)
-          }
-        }
-      } else {
-        score<-score_fun(x=val,
-                         x_ref=ref,
-                         lab=argv$verif_metric)
-      } # end compute score
-      rm(val,ref)
-      # output
-      if (nr>0) {
-        data_string<-integer(0)
-        for (i in 1:nr) {
-          if ( argv$verif_b %in% c("within","=within","within=","=within=") ) {
-            if (i<nr) data_string<-paste0(data_string,";",score[i])
-          } else {
-            data_string<-paste0(data_string,";",score[i])
-          }
-        }
-        data_string<-paste0(data_string,";",numtot)
-      } else {
-        data_string<-paste0(score,";",numtot)
-      }
-      cat(file=argv$ffout_verif,append=T,
-          paste0(t_to_read,";",data_string))
+      res <- spider_verif_online( first = first, 
+                                  time  = t_to_read_ffin)
     } # end if gridded_output yes/no
   } # end if verif
   #----------------------------------------------------------------------------
   # store in a raster stack 
-  if (gridded_output & !argv$verif & !argv$time_aggregation_online)  {
-    if (!exists("s"))  {
-      s <- r
+  if ( gridded_output & !argv$verif) {
+    if ( !exists( "s")) {
+      s <- r 
+    # online time aggregation
+    } else if ( argv$time_aggregation_online) {
+      if ( argv$time_fun == "sum")  s <- spider_timeaggOnline_sum()
+    # save r in a rasterStack
     } else {
       s <- stack( s, r)
-    }
-  } else if (gridded_output & !argv$verif & argv$time_aggregation_online) {
-    if (!exists("s"))  {
-      s <- r
-    } else {
-      if (argv$time_fun=="sum")  {
-        sval <- getValues(s); rval <- getValues(r)
-        ix_aux <- which(!is.na(sval) & !is.na(rval) & is.finite(sval) & is.finite(rval))
-        if ( length( ix_aux)>0) s[ix_aux] <- sval[ix_aux] + rval[ix_aux]
-        rm( sval, rval, ix_aux)
-      }
     }
   }
   #----------------------------------------------------------------------------
@@ -553,11 +436,12 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   if (argv$pam) aux <- spider_pam( time=tseq[t])
   #----------------------------------------------------------------------------
   # update counters of valid timesteps
-  n<-n+1
-  t_ok[n]<-t
-  rm(r,values)
-  if (exists("r_ref")) rm(r_ref)
-  first<-F
+  if (exists("values")) rm(values)
+  if (exists("r"))      rm(r)
+  if (exists("r_ref"))  rm(r_ref)
+  n       <- n+1
+  t_ok[n] <- t
+  first   <- F
 } # MAIN LOOP @@END@@
 #
 if (argv$debug) {
@@ -575,30 +459,32 @@ if (gridded_output)  {
   #----------------------------------------------------------------------------
   # fill the gaps
   if (argv$fill_gaps) {
-    imiss<-which(!(1:n_tseq %in% t_ok))
-    nmiss<-length(imiss)
-    if (nmiss>0) {
-      if (any(diff(imiss)==1) & argv$stop_if_two_gaps) 
-        boom(paste("ERROR two consecutive gaps found"))
-      r<-raster(s,layer=1)
+    imiss <- which(!(1:n_tseq %in% t_ok))
+    nmiss <- length(imiss)
+    if ( nmiss > 0) {
+      if ( any( diff( imiss)==1) & argv$stop_if_two_gaps) 
+        boom( paste( "ERROR two consecutive gaps found"))
+      r <- raster( s, layer=1)
       for (i in imiss) {
-        r[]<-NA
-        iprev<-ifelse(i==1,2,(i-1))
-        inext<-ifelse(i==n_tseq,(n_tseq-1),(i+1))
-        r[]<-(getValues(raster(s,layer=iprev))+getValues(raster(s,layer=inext)))/2
-        if (!any(!is.na(getValues(r))) & argv$stop_if_two_gaps )
-          boom(paste("ERROR two consecutive gaps found"))
-        s<-stack(s,r)
-        n<-n+1
-        t_ok[n]<-i
+        r[] <- NA
+        iprev <- ifelse(      i==1,          2, (i-1))
+        inext <- ifelse( i==n_tseq, (n_tseq-1), (i+1))
+        r[]  <- ( getValues( raster( s, layer=iprev)) + 
+                  getValues( raster( s, layer=inext))) / 2
+        if ( !any( !is.na(getValues( r))) & argv$stop_if_two_gaps )
+          boom( paste( "ERROR two consecutive gaps found"))
+        s <- stack( s, r)
+        n <- n + 1
+        t_ok[n] <- i
       }
     }
-    if (exists("r")) rm(r,i,iprev,inext)
-    rm(imiss,nmiss)
+    if ( exists( "r")) rm( r, i, iprev, inext)
+    rm( imiss, nmiss)
   } # end fill the gaps
   #----------------------------------------------------------------------------
   # time aggregation
-  if (argv$time_aggregation & !argv$time_aggregation_online) {
+  if (  argv$time_aggregation & 
+       !argv$time_aggregation_online) {
     if ((n/n_tseq)>=argv$frac) {
       # set weights
       weights_aux<-suppressWarnings(
@@ -633,28 +519,28 @@ if (gridded_output)  {
           mat<-array(data=NA,dim=c(npoints,nlayers(s))) 
           for (l in 1:nlayers(s)) mat[,l]<-getValues(subset(s,subset=l))[ix]
           if (!is.na(argv$cores)) {
-            dat<-mcmapply(score_fun,
-                          1:npoints,
-                          mc.cores=argv$cores,
-                          SIMPLIFY=T, 
-                          lab="count_x",
-                          threshold=threshold,
-                          threshold1=threshold1,
-                          type=type)
+            dat <- mcmapply( score_fun,
+                             1:npoints,
+                             mc.cores   = argv$cores,
+                             SIMPLIFY   = T, 
+                             lab        = "count_x",
+                             threshold  = threshold,
+                             threshold1 = threshold1,
+                             type       = type)
           # no-multicores
           } else {
-            dat<-mapply(score_fun,
-                        1:npoints,
-                        SIMPLIFY=T,
-                        lab="count_x",
-                        threshold=threshold,
-                        threshold1=threshold1,
-                        type=type)
+            dat <- mapply( score_fun,
+                           1:npoints,
+                           SIMPLIFY   = T,
+                           lab        = "count_x",
+                           threshold  = threshold,
+                           threshold1 = threshold1,
+                           type       = type)
           }
-          r<-subset(s,subset=1)
-          r[]<-NA
-          if (argv$time_fun=="count") {r[ix]<-dat} else {r[ix]<-dat/nlayers(s)}
-          rm(mat,dat,ix)
+          r <- subset(s,subset=1)
+          r[] <- NA
+          if ( argv$time_fun=="count") {r[ix]<-dat} else {r[ix]<-dat/nlayers(s)}
+          rm( mat, dat, ix)
         }
         #---------------------------------------------------------------------
         else if (argv$time_fun=="radar_mean")  {
@@ -782,66 +668,66 @@ if (gridded_output)  {
     if (argv$verif_metric %in% c("corr","msess","ets","a","b","c","d",
                                  "seeps","roblinreg","quantile")) {
       if (argv$verif_metric=="corr") {
-        threshold<-NA
-        threshold1<-NA
-        type<-argv$verif_corr_method
+        threshold  <- NA
+        threshold1 <- NA
+        type       <- argv$verif_corr_method
       } else if (argv$verif_metric=="msess") {
-        threshold<-NA
-        threshold1<-NA
-        type<-NA
+        threshold  <- NA
+        threshold1 <- NA
+        type       <- NA
       } else if (argv$verif_metric=="seeps") {
-        threshold<-argv$verif_seeps_threshold
-        threshold1<-argv$verif_seeps_threshold
-        type<-argv$verif_seeps_type
+        threshold  <- argv$verif_seeps_threshold
+        threshold1 <- argv$verif_seeps_threshold
+        type       <- argv$verif_seeps_type
       } else if (argv$verif_metric=="roblinreg") {
-        threshold<-argv$verif_roblinreg_threshold
-        threshold1<-argv$verif_roblinreg_threshold
-        type<-argv$verif_roblinreg_type
+        threshold  <- argv$verif_roblinreg_threshold
+        threshold1 <- argv$verif_roblinreg_threshold
+        type       <- argv$verif_roblinreg_type
       } else if (argv$verif_metric=="quantile") {
-        threshold<-argv$which_quantile
-        threshold1<-NA
-        type<-NA
+        threshold  <- argv$which_quantile
+        threshold1 <- NA
+        type       <- NA
       } else if (argv$verif_metric %in% c("a","b","c","d","ets")) {
-        threshold<-argv$verif_contab_threshold
-        threshold1<-argv$verif_contab_threshold1
-        type<-argv$verif_contab_type
+        threshold  <- argv$verif_contab_threshold
+        threshold1 <- argv$verif_contab_threshold1
+        type       <- argv$verif_contab_type
       }
-      if (!is.na(argv$cores)) {
-        dat_mean<-mcmapply(score_fun,
-                           1:npoints,
-                           mc.cores=argv$cores,
-                           SIMPLIFY=T, 
-                           lab=argv$verif_metric,
-                           threshold=threshold,
-                           threshold1=threshold1,
-                           type=type)
+      npoints <- dim(mat)[1]
+      if ( !is.na( argv$cores)) {
+        dat_mean <- mcmapply( score_fun,
+                              1:npoints,
+                              mc.cores   = argv$cores,
+                              SIMPLIFY   = T, 
+                              lab        = argv$verif_metric,
+                              threshold  = threshold,
+                              threshold1 = threshold1,
+                              type       = type)
       # no-multicores
       } else {
-        dat_mean<-mapply(score_fun,
-                         1:npoints,
-                         SIMPLIFY=T,
-                         lab=argv$verif_metric,
-                         threshold=threshold,
-                         threshold1=threshold1,
-                         type=type)
+        dat_mean <- mapply( score_fun,
+                            1:npoints,
+                            SIMPLIFY   = T,
+                            lab        = argv$verif_metric,
+                            threshold  = threshold,
+                            threshold1 = threshold1,
+                            type       = type)
       }
       if (exists("mat")) rm(mat)
       if (exists("mat_ref")) rm(mat_ref)
-      if (exists("mat_ref_mean")) rm(mat_ref_mean)
-      dat_cont<-dat_mean
-      dat_cont[]<-n
+      dat_cont   <- dat_mean
+      dat_cont[] <- n
     } else if (argv$verif_metric %in% c("rmse","rmsf")) {
-      dat_mean<-sqrt(dat_mean)
+      dat_mean <- sqrt(dat_mean)
     }
     # define r again
-    r<-rmaster
-    rm(rmaster)
-    ix<-which(!is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
-    if (length(ix)>0) r[ix_ver[ix]]<-dat_mean[ix]
-    if (exists("dat_mean")) rm(dat_mean)
-    if (exists("dat_cont")) rm(dat_cont)
-    if (exists("ix_ver")) rm(ix_ver)
-    if (exists("ix")) rm(ix)
+    r <- rmaster
+    rm( rmaster)
+    ix <- which( !is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
+    if ( length(ix)>0) r[ix_dat[ix]] <- dat_mean[ix]
+    if ( exists( "dat_mean")) rm(dat_mean)
+    if ( exists( "dat_cont")) rm(dat_cont)
+    if ( exists( "ix_dat"))   rm(ix_dat)
+    if ( exists( "ix"))       rm(ix)
   }
   #-----------------------------------------------------------------------------
   # Gridded output
