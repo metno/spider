@@ -242,7 +242,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     yo_spint   <- values[ix_in]
     fg_min     <- min( yo_spint) - as.numeric( diff( range( yo_spint)))
     fg_max     <- max( yo_spint) + as.numeric( diff( range( yo_spint)))
-    cat("who ordered latte?...")
+    cat("(LATTE) interpoLATion using verTical profilEs begins ...")
     if (!is.na(argv$cores)) {
       arr <- mcmapply( oi_var_gridpoint_by_gridpoint,
                        1:nmaster,
@@ -268,7 +268,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
                        fg_max                  = fg_max,
                        return_fg_only          = T)
     }
-    cat("there you are!\n")
+    cat(paste("done!",round(Sys.time()-t0,1), attr(Sys.time()-t0,"unit"),"\n"))
     if ( any( is.na( arr))) 
       print(paste0("@@ warning: problems in regridding over ",
                    length( which( is.na( arr))),
@@ -276,6 +276,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     # save results in r
     r<-rmaster; r[]<-NA
     r[ix_ma]<-arr
+save.image("tmp.rdata")
     if ( !any( !is.na( values <- getValues(r)))) {
       print("warning: all NAs after latte")
       next
@@ -436,7 +437,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   if (argv$pam) aux <- spider_pam( time=tseq[t])
   #----------------------------------------------------------------------------
   # update counters of valid timesteps
-  if (exists("values")) rm(values)
+#  if (exists("values")) rm(values)
   if (exists("r"))      rm(r)
   if (exists("r_ref"))  rm(r_ref)
   n       <- n+1

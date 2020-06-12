@@ -3,9 +3,9 @@ spider_readEmAll <- function( argv=NA,
                               time=NA,
                               time_ref=NA) {
 #------------------------------------------------------------------------------
-  if ( class(argv)=="logical")
+  if ( class(argv)=="logical") 
     if ("argv" %in% ls(envir = .GlobalEnv)) 
-      get("argv", envir = .GlobalEnv)
+      argv <- get("argv", envir = .GlobalEnv)
   #
   ffin <- replaceDate( string       = argv$ffin_template,
                        date.str     = format( time,
