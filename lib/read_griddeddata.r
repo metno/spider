@@ -10,7 +10,7 @@ read_griddeddata<-function( mode="data",
     if ("argv" %in% ls(envir = .GlobalEnv)) 
       argv <- get("argv", envir = .GlobalEnv)
   #
-  if (mode=="data") {
+  if (mode == "data") {
     ff           <- ffin
     ff_tpos      <- argv$ffin_tpos
     ff_epos      <- argv$ffin_epos
@@ -22,7 +22,7 @@ read_griddeddata<-function( mode="data",
     ff_proj4     <- argv$ffin_proj4
     ff_proj4_var <- argv$ffin_proj4_var
     ff_proj4_att <- argv$ffin_proj4_att
-  } else if (mode=="ref") {
+  } else if (mode == "ref") {
     ff           <- ffin_ref
     ff_tpos      <- argv$ffin_ref_tpos
     ff_epos      <- argv$ffin_ref_epos
@@ -34,7 +34,7 @@ read_griddeddata<-function( mode="data",
     ff_proj4     <- argv$ffin_ref_proj4
     ff_proj4_var <- argv$ffin_ref_proj4_var
     ff_proj4_att <- argv$ffin_ref_proj4_att
-  } else if (mode=="data_dem") {
+  } else if (mode == "data_dem") {
     ff           <- argv$ffindem
     ff_tpos      <- argv$ffindem_tpos
     ff_epos      <- argv$ffindem_epos
@@ -46,7 +46,7 @@ read_griddeddata<-function( mode="data",
     ff_proj4     <- argv$ffin_proj4
     ff_proj4_var <- argv$ffin_proj4_var
     ff_proj4_att <- argv$ffin_proj4_att
-  } else if (mode=="master") {
+  } else if (mode == "master") {
     ff           <- argv$ffmaster
     ff_tpos      <- argv$ffmaster_tpos
     ff_epos      <- argv$ffmaster_epos
@@ -58,7 +58,7 @@ read_griddeddata<-function( mode="data",
     ff_proj4     <- argv$ffmaster_proj4
     ff_proj4_var <- argv$ffmaster_proj4_var
     ff_proj4_att <- argv$ffmaster_proj4_att
-  } else if (mode=="master_dem") {
+  } else if (mode == "master_dem") {
     if (is.na(argv$ffmasterdem)) {
       ff         <- argv$ffmaster
       ff_tpos    <- argv$ffmaster_tpos
@@ -75,7 +75,7 @@ read_griddeddata<-function( mode="data",
         ff_dimnames <- argv$ffmasterdem_dimnames
       }
     } else {
-      ff<-argv$ffmasterdem
+      ff          <- argv$ffmasterdem
       ff_tpos     <- argv$ffmasterdem_tpos
       ff_epos     <- argv$ffmasterdem_epos
       ff_e        <- argv$ffmasterdem_e

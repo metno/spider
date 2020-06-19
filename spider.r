@@ -23,7 +23,7 @@ suppressPackageStartupMessages( library( "rgdal"))
 suppressPackageStartupMessages( library( "ncdf4"))
 suppressPackageStartupMessages( library( "dotnc"))
 #options(warn = 2, scipen = 999)
-options( scipen = 999)
+options( scipen = 999999999)
 #
 # -----------------------------------------------------------------------------
 # Constants
@@ -177,8 +177,11 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   #----------------------------------------------------------------------------
   # crop
   if ( !any( is.na( argv$crop))) {
-    r <- spider_crop()
-    if ( is.null(r)) next
+    res <- spider_crop()
+    if ( is.null( res)) next
+    r     <- res$r
+    r_dem <- res$r_dem
+    rm( res)
   }
   #----------------------------------------------------------------------------
   # Upscale to coarser grid
@@ -195,91 +198,100 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   #----------------------------------------------------------------------------
   # Interpolation over master grid based on a non-linear vertical profile
   if ( argv$latte) { # LATTE - interpoLATion verTical profilE
-    if ( !exists("values_ma")) {
-      if ( !any( !is.na( values_ma <- getValues(rmaster)))) {
-        print(paste("warning: all NAs for master grid file",argv$ffmaster))
-        next
-      }
-      if ( !any( !is.na( values_ma_dem <- getValues(rmaster_dem)))) {
-        print(paste("warning: all NAs for master dem file",argv$ffmasterdem))
-        next
-      }
-      if (!any(!is.na(values_dem<-getValues(r_dem)))) {
-        print(paste("warning: all NAs for dem file",argv$ffindem))
-        next
-      }
-      # ix_ma, indexes to points that unmasked and not NAs
-      if ( length( ix_ma <- which( !is.na(values_ma) & !is.na(values_ma_dem)))==0) 
-        boom("all NAs for intersection of master & master_dem")
-      xy_ma   <- xyFromCell(rmaster,ix_ma) #dim nmaster 2
-      nmaster <- length(ix_ma)
-      xgrid_spint <- xy_ma[,1]
-      ygrid_spint <- xy_ma[,2]
-      zgrid_spint <- values_ma_dem[ix_ma]
-      yo_to_check <- rep(NA,nmaster)
-    }
-    values <- getValues(r)
-    if ( length( ix_in <- which( !is.na(values) & !is.na(values_dem)))==0) {
-        print("all NAs for intersection of data & data_dem")
-        next
-    }
-    if (argv$ffin_proj4==argv$ffmaster_proj4) {
-      coord.new<-xyFromCell(r,ix_in) #nobs 2
+    if ( argv$latte_express) {
+      res <- latte_express( box_o_nearest_halfwidth = argv$latte_halfbox, 
+                            pmax                    = argv$latte_pmax,
+                            fg_gamma                = argv$latte_gamma)
+q()
     } else {
-      cat("coordinate conversion...")
-      coord.new<-spTransform( 
-                  SpatialPoints(xyFromCell(r,ix_in),
-                                 proj4string=CRS(argv$ffin_proj4)) 
-                                            ,CRS(argv$ffmaster_proj4))
-      coord.new<-attr(coord.new,"coords") #nobs 2
-      cat("ok!\n")
-    }
-    # 
-    nobs       <- length(ix_in)
-    xobs_spint <- coord.new[,1]
-    yobs_spint <- coord.new[,2]
-    zobs_spint <- values_dem[ix_in]
-    yo_spint   <- values[ix_in]
-    fg_min     <- min( yo_spint) - as.numeric( diff( range( yo_spint)))
-    fg_max     <- max( yo_spint) + as.numeric( diff( range( yo_spint)))
-    cat("(LATTE) interpoLATion using verTical profilEs begins ...")
-    if (!is.na(argv$cores)) {
-      arr <- mcmapply( oi_var_gridpoint_by_gridpoint,
-                       1:nmaster,
-                       mc.cores                = argv$cores,
-                       SIMPLIFY                = T,
-                       box_o_nearest_halfwidth = argv$latte_halfbox,
-                       pmax                    = argv$latte_pmax,
-                       fg                      = argv$latte_fglab,
-                       fg_gamma                = argv$latte_gamma,
-                       fg_min                  = fg_min,
-                       fg_max                  = fg_max,
-                       return_fg_only          = T)
-    # no-multicores
-    } else {
-      arr <- mapply(   oi_var_gridpoint_by_gridpoint,
-                       1:nmaster,
-                       SIMPLIFY                = T,
-                       box_o_nearest_halfwidth = argv$latte_halfbox,
-                       pmax                    = argv$latte_pmax,
-                       fg                      = argv$latte_fglab,
-                       fg_gamma                = argv$latte_gamma,
-                       fg_min                  = fg_min,
-                       fg_max                  = fg_max,
-                       return_fg_only          = T)
-    }
-    cat(paste("done!",round(Sys.time()-t0,1), attr(Sys.time()-t0,"unit"),"\n"))
-    if ( any( is.na( arr))) 
-      print(paste0("@@ warning: problems in regridding over ",
-                   length( which( is.na( arr))),
-                   " points"))
-    # save results in r
-    r<-rmaster; r[]<-NA
-    r[ix_ma]<-arr
-save.image("tmp.rdata")
-    if ( !any( !is.na( values <- getValues(r)))) {
-      print("warning: all NAs after latte")
-      next
+      if ( !exists("values_ma")) {
+        if ( !any( !is.na( values_ma <- getValues(rmaster)))) {
+          print(paste("warning: all NAs for master grid file",argv$ffmaster))
+          next
+        }
+        if ( !any( !is.na( values_ma_dem <- getValues(rmaster_dem)))) {
+          print(paste("warning: all NAs for master dem file",argv$ffmasterdem))
+          next
+        }
+        if (!any(!is.na(values_dem<-getValues(r_dem)))) {
+          print(paste("warning: all NAs for dem file",argv$ffindem))
+          next
+        }
+        # ix_ma, indexes to points that unmasked and not NAs
+        if ( length( ix_ma <- which( !is.na(values_ma) & !is.na(values_ma_dem)))==0) 
+          boom("all NAs for intersection of master & master_dem")
+        xy_ma   <- xyFromCell(rmaster,ix_ma) #dim nmaster 2
+        nmaster <- length(ix_ma)
+        xgrid_spint <- xy_ma[,1]
+        ygrid_spint <- xy_ma[,2]
+        zgrid_spint <- values_ma_dem[ix_ma]
+        yo_to_check <- rep(NA,nmaster)
+      }
+      values <- getValues(r)
+      if ( length( ix_in <- which( !is.na(values) & !is.na(values_dem)))==0) {
+          print("all NAs for intersection of data & data_dem")
+          next
+      }
+      if (argv$ffin_proj4==argv$ffmaster_proj4) {
+        coord.new<-xyFromCell(r,ix_in) #nobs 2
+      } else {
+        cat("coordinate conversion...")
+        coord.new<-spTransform( 
+                    SpatialPoints(xyFromCell(r,ix_in),
+                                   proj4string=CRS(argv$ffin_proj4)) 
+                                              ,CRS(argv$ffmaster_proj4))
+        coord.new<-attr(coord.new,"coords") #nobs 2
+        cat("ok!\n")
+      }
+      # 
+      nobs       <- length(ix_in)
+      xobs_spint <- coord.new[,1]
+      yobs_spint <- coord.new[,2]
+      zobs_spint <- values_dem[ix_in]
+      yo_spint   <- values[ix_in]
+      fg_min     <- min( yo_spint) - as.numeric( diff( range( yo_spint)))
+      fg_max     <- max( yo_spint) + as.numeric( diff( range( yo_spint)))
+      cat("(LATTE) interpoLATion using verTical profilEs, start ...")
+  print(nobs)
+  print(nmaster)
+      if (!is.na(argv$cores)) {
+        arr <- mcmapply( oi_var_gridpoint_by_gridpoint,
+                         1:nmaster,
+                         mc.cores                = argv$cores,
+                         SIMPLIFY                = T,
+                         box_o_nearest_halfwidth = argv$latte_halfbox,
+                         pmax                    = argv$latte_pmax,
+                         fg                      = argv$latte_fglab,
+                         fg_gamma                = argv$latte_gamma,
+                         fg_min                  = fg_min,
+                         fg_max                  = fg_max,
+                         return_fg_only          = T)
+      # no-multicores
+      } else {
+        arr <- mapply(   oi_var_gridpoint_by_gridpoint,
+                         1:nmaster,
+                         SIMPLIFY                = T,
+                         box_o_nearest_halfwidth = argv$latte_halfbox,
+                         pmax                    = argv$latte_pmax,
+                         fg                      = argv$latte_fglab,
+                         fg_gamma                = argv$latte_gamma,
+                         fg_min                  = fg_min,
+                         fg_max                  = fg_max,
+                         return_fg_only          = T)
+      }
+      cat(paste("done!",round(Sys.time()-t0,1), attr(Sys.time()-t0,"unit"),"\n"))
+      if ( any( is.na( arr))) 
+        print(paste0("@@ warning: problems in regridding over ",
+                     length( which( is.na( arr))),
+                     " points"))
+      # save results in r
+      r<-rmaster; r[]<-NA
+      arr1<-arr; arr<-ix_ma; arr[]<-NA; arr[1:length(arr1)]<-arr1; rm(arr1)
+      r[ix_ma]<-arr
+      if ( !any( !is.na( values <- getValues(r)))) {
+        print("warning: all NAs after latte")
+        next
+      }
     }
   }
   #----------------------------------------------------------------------------

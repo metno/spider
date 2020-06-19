@@ -108,6 +108,9 @@ p <- add_argument(p, "--downscale",
 p <- add_argument(p, "--latte",
                   help="interpoLATion verTical profilE. Interpolation over master grid based on a non-linear vertical profile",
                   flag=T)
+p <- add_argument(p, "--latte_express",
+                  help="interpoLATion verTical profilE. Fast algorithm with shortcuts. Gain speed, loose optimal conditions. Interpolation over master grid based on a non-linear vertical profile",
+                  flag=T)
 p <- add_argument(p, "--cores",
                   help="set the number of cores for parallel runs. Rpackage \"parallel\" required. 0 stands for \"use detectCores\". Default do not use it.",
                   type="numeric",
