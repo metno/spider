@@ -56,7 +56,7 @@ rip <- function( str=NA, code=NA, t0=NA) {
   }
   if ( !is.na(t0)) {
     t1 <- Sys.time()
-    cat( paste( "total time=", round(t1-t0,1), attr(t1-t0,"unit")))
+    cat( paste( "total time=", round(t1-t0,1), attr(t1-t0,"unit")," "))
   }
   if ( !is.na(str)) cat( str)
   cat("\n")
@@ -107,6 +107,7 @@ if ( !argv$time_aggregation        &
      !argv$upscale                 & 
      !argv$downscale               &  
      !argv$latte                   &
+     !argv$latte_express           &
      !argv$summ_stat               & 
      !argv$pam                     & 
      !argv$verif ) 
@@ -119,6 +120,7 @@ if ( argv$time_aggregation        |
      argv$time_cat                | 
      argv$upscale                 | 
      argv$downscale               | 
+     argv$latte_express           |
      argv$latte                   | 
     (argv$verif & argv$ffout!=ffout_default) ) 
   gridded_output<-T
@@ -197,107 +199,37 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   }
   #----------------------------------------------------------------------------
   # Interpolation over master grid based on a non-linear vertical profile
-  if ( argv$latte) { # LATTE - interpoLATion verTical profilE
+  if ( argv$latte | 
+       argv$latte_express) {# LATTE-interpoLATion verTical profilE
     if ( argv$latte_express) {
       res <- latte_express( box_o_nearest_halfwidth = argv$latte_halfbox, 
-                            pmax                    = argv$latte_pmax,
-                            fg_gamma                = argv$latte_gamma)
-q()
+                            pmax            = argv$latte_pmax,
+                            gamma           = argv$latte_gamma,
+                            agg_fact        = argv$latte_agg_fact, 
+                            weight_dh_scale = argv$latte_weight_dh_scale)
     } else {
-      if ( !exists("values_ma")) {
-        if ( !any( !is.na( values_ma <- getValues(rmaster)))) {
-          print(paste("warning: all NAs for master grid file",argv$ffmaster))
-          next
-        }
-        if ( !any( !is.na( values_ma_dem <- getValues(rmaster_dem)))) {
-          print(paste("warning: all NAs for master dem file",argv$ffmasterdem))
-          next
-        }
-        if (!any(!is.na(values_dem<-getValues(r_dem)))) {
-          print(paste("warning: all NAs for dem file",argv$ffindem))
-          next
-        }
-        # ix_ma, indexes to points that unmasked and not NAs
-        if ( length( ix_ma <- which( !is.na(values_ma) & !is.na(values_ma_dem)))==0) 
-          boom("all NAs for intersection of master & master_dem")
-        xy_ma   <- xyFromCell(rmaster,ix_ma) #dim nmaster 2
-        nmaster <- length(ix_ma)
-        xgrid_spint <- xy_ma[,1]
-        ygrid_spint <- xy_ma[,2]
-        zgrid_spint <- values_ma_dem[ix_ma]
-        yo_to_check <- rep(NA,nmaster)
-      }
-      values <- getValues(r)
-      if ( length( ix_in <- which( !is.na(values) & !is.na(values_dem)))==0) {
-          print("all NAs for intersection of data & data_dem")
-          next
-      }
-      if (argv$ffin_proj4==argv$ffmaster_proj4) {
-        coord.new<-xyFromCell(r,ix_in) #nobs 2
-      } else {
-        cat("coordinate conversion...")
-        coord.new<-spTransform( 
-                    SpatialPoints(xyFromCell(r,ix_in),
-                                   proj4string=CRS(argv$ffin_proj4)) 
-                                              ,CRS(argv$ffmaster_proj4))
-        coord.new<-attr(coord.new,"coords") #nobs 2
-        cat("ok!\n")
-      }
-      # 
-      nobs       <- length(ix_in)
-      xobs_spint <- coord.new[,1]
-      yobs_spint <- coord.new[,2]
-      zobs_spint <- values_dem[ix_in]
-      yo_spint   <- values[ix_in]
-      fg_min     <- min( yo_spint) - as.numeric( diff( range( yo_spint)))
-      fg_max     <- max( yo_spint) + as.numeric( diff( range( yo_spint)))
-      cat("(LATTE) interpoLATion using verTical profilEs, start ...")
-  print(nobs)
-  print(nmaster)
-      if (!is.na(argv$cores)) {
-        arr <- mcmapply( oi_var_gridpoint_by_gridpoint,
-                         1:nmaster,
-                         mc.cores                = argv$cores,
-                         SIMPLIFY                = T,
-                         box_o_nearest_halfwidth = argv$latte_halfbox,
-                         pmax                    = argv$latte_pmax,
-                         fg                      = argv$latte_fglab,
-                         fg_gamma                = argv$latte_gamma,
-                         fg_min                  = fg_min,
-                         fg_max                  = fg_max,
-                         return_fg_only          = T)
-      # no-multicores
-      } else {
-        arr <- mapply(   oi_var_gridpoint_by_gridpoint,
-                         1:nmaster,
-                         SIMPLIFY                = T,
-                         box_o_nearest_halfwidth = argv$latte_halfbox,
-                         pmax                    = argv$latte_pmax,
-                         fg                      = argv$latte_fglab,
-                         fg_gamma                = argv$latte_gamma,
-                         fg_min                  = fg_min,
-                         fg_max                  = fg_max,
-                         return_fg_only          = T)
-      }
-      cat(paste("done!",round(Sys.time()-t0,1), attr(Sys.time()-t0,"unit"),"\n"))
-      if ( any( is.na( arr))) 
-        print(paste0("@@ warning: problems in regridding over ",
-                     length( which( is.na( arr))),
-                     " points"))
-      # save results in r
-      r<-rmaster; r[]<-NA
-      arr1<-arr; arr<-ix_ma; arr[]<-NA; arr[1:length(arr1)]<-arr1; rm(arr1)
-      r[ix_ma]<-arr
-      if ( !any( !is.na( values <- getValues(r)))) {
-        print("warning: all NAs after latte")
-        next
-      }
+      res <- latte()
+    }
+    if ( any( is.na( res))) 
+      print(paste0("@@ warning: problems in regridding over ",
+                   length( which( is.na( res))),
+                   " points"))
+    # save results in r
+    r  <- rmaster; r[]<-NA
+    ix <- which( !is.na( getValues(rmaster)) & 
+                 !is.na( getValues(rmaster_dem)))
+#    res1<-res; res<-ix_ma; res[]<-NA; res[1:length(res1)]<-res1; rm(res1)
+    r[ix]<-res
+    if ( !any( !is.na( values <- getValues(r)))) {
+      print("warning: all NAs after latte")
+      next
     }
   }
   #----------------------------------------------------------------------------
   # Use the mask(s) if needed
   # special case of downscaling
-  if (argv$master_mask & !argv$latte & !argv$downscale & !argv$upscale) {
+  if ( argv$master_mask & 
+       !argv$latte & !argv$latte_express & !argv$downscale & !argv$upscale) {
     r <- spider_downscale() # mask is rmaster, so this is a downscaling for us
     if ( is.null(r)) next
     if ( !any( !is.na( values <- getValues(r)))) {

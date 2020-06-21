@@ -5,7 +5,7 @@ opt_vertprof_basic <- function( par,
                                 obs,
                                 sd = NA) {
 #------------------------------------------------------------------------------
-  if any( is.na(sd)) { sd<-vert_coord; sd[]<-1}
+  if ( any( is.na(sd))) { sd<-vert_coord; sd[]<-1}
   pred <- tvertprof_basic( z     = vert_coord, 
                            t0    = par[1],
                            gamma = gamma)
@@ -18,7 +18,7 @@ opt_vertprof_Frei_2014 <- function( par,
                                     obs,
                                     sd = NA) {
 #------------------------------------------------------------------------------
-  if any( is.na(sd)) { sd<-vert_coord; sd[]<-1}
+  if ( any( is.na(sd))) { sd<-vert_coord; sd[]<-1}
   pred <- tvertprof_Frei_2014( z     = vert_coord,
                                t0    = par[1],
                                gamma = par[2],

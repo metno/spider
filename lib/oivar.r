@@ -19,7 +19,18 @@ oi_var_gridpoint_by_gridpoint<-function(i,
                                         o_errvar_min=0.001,
                                         o_errvar_max=4,
                                         xa_errvar_min=0.001,
-                                        xa_errvar_max=4) {
+                                        xa_errvar_max=4,
+                                        xgrid_spint=NA,
+                                        ygrid_spint=NA,
+                                        zgrid_spint=NA,
+                                        xobs_spint=NA,
+                                        yobs_spint=NA,
+                                        zobs_spint=NA,
+                                        yo_spint=NA,
+                                        yb_spint=NA,
+                                        xb_spint=NA,
+                                        eps2_spint=NA
+                                        ) {
 # global variables: xgrid_spint, ygrid_spint, zgrid_spint, lafgrid_spint,
 #                   xobs_spint, yobs_spint, zobs_spint, lafobs_spint,
 #                   yo_spint, yb_spint, xb_spint, eps2_spint
@@ -78,7 +89,7 @@ oi_var_gridpoint_by_gridpoint<-function(i,
   deltax <- abs( xgrid_spint[i] - xobs_spint)
   av     <- NA
   if ( y_elab) {
-    res  <- ifelse( exists( "yb_spint"), yb_spint[i], NA)
+    res  <- ifelse( !any(is.na(yb_spint)), yb_spint[i], NA)
     idiv <- 0
     xidi <- 1/(1+eps2_spint[i])
     if ( loocv) deltax[i] <- box_o_nearest_halfwidth + 1
@@ -92,7 +103,7 @@ oi_var_gridpoint_by_gridpoint<-function(i,
         else { return(c(res,NA,NA,xidi,idiv,av,dh))}
     }
   } else {
-    res  <- ifelse( exists( "xb_spint"), xb_spint[i], NA)
+    res  <- ifelse( !any(is.na(xb_spint)), xb_spint[i], NA)
     idiv <- NA
     xidi <- 0
     if ( !any( flagx <- ( deltax < box_o_nearest_halfwidth))) {
@@ -277,11 +288,11 @@ oi_var_gridpoint_by_gridpoint<-function(i,
       S<-S*exp(-0.5*abs(outer(zobs_spint[ixa],zobs_spint[ixa],FUN="-"))/dz2) 
       rloc<-rloc*exp(-0.5*deltaz[ixa]/dz2)
     }
-    if (!is.na(lafmin)) {
-      S<-S*(1-(1-lafmin)*
-         abs(outer(lafobs_spint[ixa],lafobs_spint[ixa],FUN="-")))
-      rloc<-rloc*(1-(1-lafmin)*deltalaf[ixa])
-    }
+#    if (!is.na(lafmin)) {
+#      S<-S*(1-(1-lafmin)*
+#         abs(outer(lafobs_spint[ixa],lafobs_spint[ixa],FUN="-")))
+#      rloc<-rloc*(1-(1-lafmin)*deltalaf[ixa])
+#    }
   }
   # innovation
   di<-yo_spint[ixa]-yb_spint_i

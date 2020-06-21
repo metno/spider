@@ -128,9 +128,17 @@ p <- add_argument(p, "--latte_fglab",
                   type="character",
                   default="Frei")
 p <- add_argument(p, "--latte_gamma",
-                  help="lapse rate value",
+                  help="lapse rate value. Units degC/m",
                   type="numeric",
                   default=-0.0065)
+p <- add_argument(p, "--latte_agg_fact",
+                  help="aggregation factor (original to aggregated grid). Used in latte_express. Units number of grid points",
+                  type="numeric",
+                  default=50)
+p <- add_argument(p, "--latte_weight_dh_scale",
+                  help="horizontal length scale used in the blending of sub-regional verical profiles to weight them. Used in latte_express. same units as master CRS.",
+                  type="numeric",
+                  default=25000)
 #..............................................................................
 p <- add_argument(p, "--metno_radar_dqc",
                   help="data quality control over metno radar data",

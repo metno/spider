@@ -18,7 +18,7 @@ latte_express_step1 <- function( i,
                                  vmax=NA) {
 #------------------------------------------------------------------------------
 # select the p_i observations nearest to the i-th gridpoint
-  if (i%%1000==0) print(paste(i,Sys.time()-t0))
+#  if (i%%1000==0) print(paste(i,Sys.time()-t0))
   deltax <- abs( xag_tar[i] - xor_tar)
   if ( !any( flagx <- ( deltax < box_o_nearest_halfwidth))) return( rep( NA, 5)) 
   deltay <- abs( yag_tar[i]-yor_tar[flagx])
@@ -69,48 +69,48 @@ latte_express_step1 <- function( i,
                       sd = sd,
                       vert_coord = zor_tar[ixa],
                       obs        = vor_tar[ixa])
-  res <- c( lopt$minimum, opt$par, range(zor_tar[ixa]), range(vor_tar[ixa]))
+#  res <- c( lopt$minimum, opt$par, range(zor_tar[ixa]), range(vor_tar[ixa]))
 # plot for debug
-yb_frei <- tvertprof_Frei_2014( z    = zor_tar[ixa],
-                     t0    = opt$par[1],
-                     gamma = opt$par[2],
-                     a     = opt$par[3],
-                     h0    = opt$par[4],
-                     h1i   = opt$par[5])
-xr<-range(c(vor_tar[ixa],yb_frei,yb_lin))
-yr<-range(zor_tar[ixa])
-if ( (i %%1) ==0) {
-png(file=paste0("bkg/fig_",formatC(i,width=7,flag="0",format="d"),".png"),width=600,height=800)
-par(mar=c(4,5,3,1),cex.axis=1.5)
-plot(vor_tar[ixa], zor_tar[ixa],cex=2,xlim=xr,ylim=c(0,1550),
-     xlab="Temperature (degC)",ylab="Elevation (m amsl)",main="",pch=21,bg="gray")
-points(yb_lin,  zor_tar[ixa],pch=21,bg="gold",cex=2)
-points(yb_frei, zor_tar[ixa],pch=21,bg="red",cex=3 )
-abline(h=seq(0,3000,by=50),lwd=1,lty=2,col="gray")
-abline(h=seq(0,3000,by=100),lwd=1,lty=2,col="gray")
-abline(h=c(0,1000,2000),lwd=3,col="gray")
-ts<--50:50
-for (t0 in seq(-50,50,by=1)) {
-  lines(ts,1/gamma*(ts-t0),lty=2,lwd=2,col="gray")
-}
-par(new=T)
-plot(sd,zor_tar[ixa],xlim=c(0,max(sd)),ylim=c(0,1550),axes=F)
-axis(3)
-dev.off()
-png(file=paste0("map/fig_",formatC(i,width=7,flag="0",format="d"),".png"),width=600,height=800)
-par(mar=c(1,1,1,1))
-plot(xag_tar, yag_tar,cex=.1,
-     xlab="",ylab="",main="",col="gray",axes=F)
-points(xor_tar, yor_tar,cex=.1,col="lightgray")
-rect( min(xor_tar[ixa]), min(yor_tar[ixa]),
-      max(xor_tar[ixa]), max(yor_tar[ixa]),lwd=2 )
-points(xag_tar[i], yag_tar[i],pch=21,bg="red",cex=.5 )
-box()
-dev.off()
-print(i)
-}
-
-
+#yb_frei <- tvertprof_Frei_2014( z    = zor_tar[ixa],
+#                     t0    = opt$par[1],
+#                     gamma = opt$par[2],
+#                     a     = opt$par[3],
+#                     h0    = opt$par[4],
+#                     h1i   = opt$par[5])
+#xr<-range(c(vor_tar[ixa],yb_frei,yb_lin))
+#yr<-range(zor_tar[ixa])
+#if ( (i %%1) ==0) {
+#png(file=paste0("bkg/fig_",formatC(i,width=7,flag="0",format="d"),".png"),width=600,height=800)
+#par(mar=c(4,5,3,1),cex.axis=1.5)
+#plot(vor_tar[ixa], zor_tar[ixa],cex=2,xlim=xr,ylim=c(0,1550),
+#     xlab="Temperature (degC)",ylab="Elevation (m amsl)",main="",pch=21,bg="gray")
+#points(yb_lin,  zor_tar[ixa],pch=21,bg="gold",cex=2)
+#points(yb_frei, zor_tar[ixa],pch=21,bg="red",cex=3 )
+#abline(h=seq(0,3000,by=50),lwd=1,lty=2,col="gray")
+#abline(h=seq(0,3000,by=100),lwd=1,lty=2,col="gray")
+#abline(h=c(0,1000,2000),lwd=3,col="gray")
+#ts<--50:50
+#for (t0 in seq(-50,50,by=1)) {
+#  lines(ts,1/gamma*(ts-t0),lty=2,lwd=2,col="gray")
+#}
+#par(new=T)
+#plot(sd,zor_tar[ixa],xlim=c(0,max(sd)),ylim=c(0,1550),axes=F)
+#axis(3)
+#dev.off()
+#png(file=paste0("map/fig_",formatC(i,width=7,flag="0",format="d"),".png"),width=600,height=800)
+#par(mar=c(1,1,1,1))
+#plot(xag_tar, yag_tar,cex=.1,
+#     xlab="",ylab="",main="",col="gray",axes=F)
+#points(xor_tar, yor_tar,cex=.1,col="lightgray")
+#rect( min(xor_tar[ixa]), min(yor_tar[ixa]),
+#      max(xor_tar[ixa]), max(yor_tar[ixa]),lwd=2 )
+#points(xag_tar[i], yag_tar[i],pch=21,bg="red",cex=.5 )
+#box()
+#dev.off()
+#print(i)
+#}
+#
+#
   res <- opt$par
   return( res)
 }
