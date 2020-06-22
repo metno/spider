@@ -1,7 +1,7 @@
 #+
 argparser<-function() {
 #------------------------------------------------------------------------------
-p <- arg_parser("ffmrr")
+p <- arg_parser("spider")
 #..............................................................................
 p <- add_argument(p, "date1",
                   help="period start date (if \"none\" then date1 and date2 are derived from file)",
