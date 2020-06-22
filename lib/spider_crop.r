@@ -5,7 +5,7 @@ spider_crop <- function() {
     r <- crop( r,
                extent( argv$crop[1], argv$crop[2], 
                        argv$crop[3], argv$crop[4]))
-    if ( !is.na( "r_dem")) 
+    if ( class( r_dem) != "logical") 
       r_dem <- crop( r_dem,
                      extent( argv$crop[1], argv$crop[2], 
                              argv$crop[3], argv$crop[4]))
@@ -21,7 +21,7 @@ spider_crop <- function() {
     r <- crop( r,
                extent( bbox[1,1], bbox[1,2],
                        bbox[2,1], bbox[2,2]))
-    if ( !is.na( "r_dem")) 
+    if ( class( r_dem) != "logical") 
       r_dem <- crop( r_dem,
                      extent( bbox[1,1], bbox[1,2],
                              bbox[2,1], bbox[2,2]))
