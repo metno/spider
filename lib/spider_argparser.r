@@ -35,6 +35,11 @@ p <- add_argument(p, "--time_bnds_string",
                   help="time bounds with respect to date_out (e.g., \"-1 day\" \"-1 min\"). The end of the aggregation period is assumed to be date_out.",
                   type="character",
                   default="none")
+p <- add_argument(p, "--time_bnds_string_as_two_dates",
+                  help="time bounds as two dates (format %Y%m%d%H%M)",
+                  type="character",
+                  default=NA,
+                  nargs=Inf)
 #..............................................................................
 p <- add_argument(p, "--time_step",
                   help="time step",

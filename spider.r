@@ -703,10 +703,17 @@ if (gridded_output)  {
   }
   r.list[[1]] <- grid
   rm( grid, r)
-  time_bnds <- array( format( rev( seq(
-                strptime( date_out, "%Y%m%d%H%M", tz="UTC"),
-                          length=2, by=argv$time_bnds_string)),
-                format="%Y%m%d%H%M", tz="UTC"), dim=c(1,2))
+  if ( any( is.na( argv$time_bnds_string_as_two_dates))) {
+    time_bnds <- array( format( rev( seq(
+                  strptime( date_out, "%Y%m%d%H%M", tz="UTC"),
+                            length=2, by=argv$time_bnds_string)),
+                  format="%Y%m%d%H%M", tz="UTC"), dim=c(1,2))
+  } else {
+    time_bnds <- array( format( 
+       strptime( argv$time_bnds_string_as_two_dates, "%Y%m%d%H%M", tz="UTC"),
+                 format="%Y%m%d%H%M", tz="UTC"), dim=c(1,2))
+
+  }
   out <- write_dotnc(grid.list = r.list,
                      times     = date_out,
                      file.name = argv$ffout,
