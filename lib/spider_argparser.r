@@ -863,6 +863,31 @@ p<- add_argument(p, "--pam_leg_height",
                  type="character",
                  default="standard")
 #..............................................................................
+p <- add_argument(p, "--gridclimind",
+                  help="gridded climate indices",
+                  flag=T)
+p<- add_argument(p, "--gridclimind_index",
+                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\"",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--prcptot_r",
+                 help="threshold for total precipitation",
+                 type="numeric",
+                 default=NA)
+p<- add_argument(p, "--prcptot_b",
+                 help="type one of 'below' (< x), 'below=' (<= x), 'above' (> x), or 'above=' (>= x).",
+                 type="character",
+                 default="above=")
+p<- add_argument(p, "--degday_r",
+                 help="threshold for degree days sum",
+                 type="numeric",
+                 default=NA)
+p<- add_argument(p, "--degday_b",
+                 help="type one of 'below' (< x), 'below=' (<= x), 'above' (> x), or 'above=' (>= x).",
+                 type="character",
+                 default="above")
+
+#..............................................................................
 p <- add_argument(p, "--verbose",
                   help="verbose mode",
                   flag=T)

@@ -109,6 +109,7 @@ if ( !argv$time_aggregation        &
      !argv$latte                   &
      !argv$latte_express           &
      !argv$summ_stat               & 
+     !argv$gridclimind             & 
      !argv$pam                     & 
      !argv$verif ) 
   argv$time_aggregation<-T
@@ -121,6 +122,7 @@ if ( argv$time_aggregation        |
      argv$upscale                 | 
      argv$downscale               | 
      argv$latte_express           |
+     argv$gridclimind             | 
      argv$latte                   | 
     (argv$verif & argv$ffout!=ffout_default) ) 
   gridded_output<-T
@@ -172,7 +174,12 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   # reference dataset
   r_ref   <- res$r_ref
   # master
-  if ( !exists( "rmaster"))         rmaster <- res$rmaster
+  if ( !exists( "rmaster"))  
+    if ( class( res$rmaster) == "logical") { 
+      rmaster <- r
+    } else { 
+      rmaster <- res$rmaster
+    }
   if ( !exists( "rmaster_dem")) rmaster_dem <- res$rmaster_dem
   if ( !exists( "r_dem"))             r_dem <- res$r_dem
   rm( res) 
@@ -335,7 +342,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
       if ( res$online) {
         dat_mean <- res$dat_mean_up
         dat_cont <- res$dat_cont_up
-        if ( !exists( ix_mat)) ix_dat <- 1:length(ncell(r))
+        if ( !exists( "ix_dat")) ix_dat <- 1:ncell(r)
         print( paste("verif & gridded output: number of cells",res$n)) 
       # scores that require to store the whole dataset in memory
       #  mat... matrix (number of cells, subset not NAs) x (number of times)
@@ -364,8 +371,41 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     } # end if gridded_output yes/no
   } # end if verif
   #----------------------------------------------------------------------------
+  # prepare for gridded climate indices 
+  if ( argv$gridclimind) {
+    if ( !exists( "rmaster")) { rmaster<-r; rmaster[]<-NA}
+    res <- spider_gridclimind_prepare()
+    if ( is.null( res)) next
+    # scores that are computed online
+    #  dat_... dimension is the number of cells of raster "r"
+    if ( res$online) {
+      dat_aggr <- res$dat_aggr_up
+      dat_cont <- res$dat_cont_up
+      if ( !exists( "ix_dat")) ix_dat <- 1:ncell(r)
+      print( paste("gridclimind & gridded output: number of cells",res$n)) 
+    # scores that require to store the whole dataset in memory
+    #  mat... matrix (number of cells, subset not NAs) x (number of times)
+    } else {
+      if ( !exists("mat")) {
+        mat    <- res$mat_col
+        ix_dat <- res$ix
+        if ( !is.na( argv$ffin_ref_template)) 
+          mat_ref <- res$mat_ref_col
+      } else {
+        if ( any( !(res$ix %in% ix_dat))) {
+          print("WARNING: verif & gridded output, wrong indexes: statistics is supposed to use always the same cells")
+          next
+        }
+        mat <- cbind( mat, res$mat_col)
+        if ( !is.na( argv$ffin_ref_template)) 
+          mat_ref <- cbind(  mat_ref, res$mat_ref_col)
+      }
+    }
+    rm( res)
+  } # end if verif
+  #----------------------------------------------------------------------------
   # store in a raster stack 
-  if ( gridded_output & !argv$verif) {
+  if ( gridded_output & !argv$verif & !argv$gridclimind) {
     if ( !exists( "s")) {
       s <- r 
     # online time aggregation
@@ -667,9 +707,25 @@ if (gridded_output)  {
     # define r again
     r <- rmaster
     rm( rmaster)
+    r[]<-NA
     ix <- which( !is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
     if ( length(ix)>0) r[ix_dat[ix]] <- dat_mean[ix]
     if ( exists( "dat_mean")) rm(dat_mean)
+    if ( exists( "dat_cont")) rm(dat_cont)
+    if ( exists( "ix_dat"))   rm(ix_dat)
+    if ( exists( "ix"))       rm(ix)
+  }
+  #----------------------------------------------------------------------------
+  # gridded climate indices 
+  if ( argv$gridclimind) {
+    # currently, gridded climate indices are compute online
+    # define r again
+    r <- rmaster
+    rm( rmaster)
+    r[] <- NA
+    ix <- which( !is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
+    if ( length(ix)>0) r[ix_dat[ix]] <- dat_aggr[ix]
+    if ( exists( "dat_aggr")) rm(dat_aggr)
     if ( exists( "dat_cont")) rm(dat_cont)
     if ( exists( "ix_dat"))   rm(ix_dat)
     if ( exists( "ix"))       rm(ix)

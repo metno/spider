@@ -2,7 +2,7 @@
 spider_downscale <- function() {
 #------------------------------------------------------------------------------
   if ( !( argv$space_fun %in% c( "ngb", "bilinear"))) 
-    boom( "--fun must be either \"ngb\" or \"bilinear\"")
+    boom( "spider_downscale: --fun must be either \"ngb\" or \"bilinear\"")
   if ( compareCRS( crs(r), crs(rmaster))) {
     if ( rasters_match(r, rmaster)) {
       r1 <- r

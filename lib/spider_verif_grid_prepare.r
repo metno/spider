@@ -7,19 +7,27 @@ spider_verif_grid_prepare <- function( argv   = NULL,
 #------------------------------------------------------------------------------
   if ( is.null(argv))
     if ( "argv" %in% ls(envir = .GlobalEnv)) 
-      get( "argv", envir = .GlobalEnv)
+      argv <- get( "argv", envir = .GlobalEnv)
   if ( is.null(r))
     if ( "r" %in% ls(envir = .GlobalEnv)) 
-      get( "r", envir = .GlobalEnv)
+      r <- get( "r", envir = .GlobalEnv)
   if ( is.null(r_ref))
     if ( "r_ref" %in% ls(envir = .GlobalEnv)) 
-      get( "r_ref", envir = .GlobalEnv)
+      r_ref <- get( "r_ref", envir = .GlobalEnv)
   if ( is.null(dat_mean))
-    if ( "dat_mean" %in% ls(envir = .GlobalEnv)) 
-      get( "dat_mean", envir = .GlobalEnv)
+    if ( "dat_mean" %in% ls(envir = .GlobalEnv)) { 
+      dat_mean <- get( "dat_mean", envir = .GlobalEnv)
+    } else {
+      dat_mean   <- vector( length=ncell(r), mode="numeric")
+      dat_mean[] <- NA
+    }
   if ( is.null(dat_cont))
-    if ( "dat_cont" %in% ls(envir = .GlobalEnv)) 
-      get( "dat_cont", envir = .GlobalEnv)
+    if ( "dat_cont" %in% ls(envir = .GlobalEnv)) {
+      dat_cont <- get( "dat_cont", envir = .GlobalEnv)
+    } else {
+      dat_cont   <- vector( length=ncell(r), mode="numeric")
+      dat_cont[] <- NA
+    }
   #
   vr   <- getValues(r)
   nvr   <- length(vr)
