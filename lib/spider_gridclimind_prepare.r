@@ -29,24 +29,37 @@ spider_gridclimind_prepare <- function( argv   = NULL,
       dat_cont[] <- NA
     }
   #
+  n <- ncell(r)
+  # vr: values of r (n-vector)
   vr   <- getValues(r)
-  nvr   <- length(vr)
-  init <- vector( mode="numeric", length=nvr); init[] <- NA
+  init <- vector( mode="numeric", length=n); init[] <- NA
   flag <- !is.na( vr) & !is.nan( vr) & is.finite( vr)
   vref <- NULL
   if ( !is.na(argv$ffin_ref_template)) {
     vref <- getValues(r_ref)
     flag <- flag & !is.na( vref) & !is.nan( vref) & is.finite( vref)
   }
+  # ix: pointer to elements of r that are not NAs and finite (m-vector)
   if ( length( ix <- which( flag)) == 0) return(NULL)
-  vr   <- vr[ix]
+  m  <- length( ix)
+  vr <- vr[ix]
   if ( !is.na(argv$ffin_ref_template)) vref <- vref[ix]
+  # NOTE: vr and vref are now m-vectors
+  #
   # scores that require to store the whole dataset in memory
   if ( argv$gridclimind_index %in% c("quantile")) {
     return( list( online=F, ix=ix, n=length(ix),
                   mat_col=vr, mat_ref_col=vref ))
+  #
   # scores that are computed online
   } else {
+    # dat / dat_cont / dat_aggr: n-vectors
+    dat_cont[ix] <- dat_cont[ix] + 1
+    dat <- vector( mode="numeric", length=n); dat[] <- NA
+    dat[ix] <- 0
+    # compute score for one timestep: begin
+    # ixb: pointer to elements of r (m-vec) that satisfy the specified condition
+    # %%%%%%%%%% degree_days_sum %%%%%%%%%%%%%%%%%%%%%%%
     if ( argv$gridclimind_index == "degree_days_sum" ) {
       if ( is.na(argv$degday_r)) {
         ixb <- 1:length(vr)
@@ -56,9 +69,8 @@ spider_gridclimind_prepare <- function( argv   = NULL,
         else if ( argv$degday_b == "above")  { ixb <- which( vr >  argv$degday_r) }
         else if ( argv$degday_b == "above=") { ixb <- which( vr >= argv$degday_r) }
       }
-      vr_aux <- vr; vr_aux[] <- 0
-      if ( length(ixb) > 0) vr_aux[ixb] <- vr[ixb] - argv$degday_r 
-      vr <- vr_aux
+      if ( length(ixb) > 0) dat[ixb] <- vr[ixb] - argv$degday_r 
+    # %%%%%%%%%% degree_days %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     } else if ( argv$gridclimind_index == "degree_days" ) {
       if ( is.na(argv$degday_r)) {
         ixb <- 1:length(vr)
@@ -68,9 +80,8 @@ spider_gridclimind_prepare <- function( argv   = NULL,
         else if ( argv$degday_b == "above")  { ixb <- which( vr >  argv$degday_r) }
         else if ( argv$degday_b == "above=") { ixb <- which( vr >= argv$degday_r) }
       }
-      vr_aux <- vr; vr_aux[] <- 0
-      if ( length(ixb) > 0) vr_aux[ixb] <- 1 
-      vr <- vr_aux
+      if ( length(ixb) > 0) dat[ixb] <- 1 
+    # %%%%%%%%%% prcptot %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     } else if ( argv$gridclimind_index == "prcptot" ) {
       if ( is.na(argv$prcptot_r)) {
         ixb <- 1:length(vr)
@@ -80,25 +91,30 @@ spider_gridclimind_prepare <- function( argv   = NULL,
         else if ( argv$prcptot_b == "above")  { ixb <- which( vr >  argv$prcptot_r) }
         else if ( argv$prcptot_b == "above=") { ixb <- which( vr >= argv$prcptot_r) }
       }
-      vr_aux <- vr; vr_aux[] <- 0
-      if ( length(ixb) > 0) vr_aux[ixb] <- vr[ixb]
-      vr <- vr_aux
+      if ( length(ixb) > 0) dat[ixb] <- vr[ixb]
     }
-    if ( length( ix1 <- which( !is.na( vr) & !is.nan( vr) & is.finite( vr) )) == 0) return(NULL)   
-    dat <- vr[ix1]
-    ix  <- ix[ix1]
-    dat_cont[ix] <- dat_cont[ix] + 1
-    if ( any( is.na( dat_cont[ix]))) {
-      ix1 <- is.na( dat_cont[ix])
-      dat_cont[ix][ix1] <- 1
-      dat_aggr[ix][ix1] <- dat[ix1]
-    }
+    # compute score for one timestep: end
+    # update online score: begin
+    # -- online sum
     if ( argv$gridclimind_index %in% c( "degree_days_sum", "degree_days",
                                         "prcptot") ) {
-      dat_aggr[ix] <- dat_aggr[ix] + dat
+      if ( length( iy <- !is.na( dat_cont[ix])) > 0) 
+        dat_aggr[ix][iy] <- dat_aggr[ix][iy] + dat[ix][iy]
+      if ( length( iy <-  is.na( dat_cont[ix])) > 0) {
+        dat_cont[ix][iy] <- 1 
+        dat_aggr[ix][iy] <- dat[ix][iy]
+      }
+    # -- online mean
+    } else if (argv$gridclimind_index %in% c( "mean") ) {
+      if ( length( iy <- !is.na( dat_cont[ix])) > 0) {
+        dat_cont[ix][iy] <- 1
+        dat_aggr[ix][iy] <- dat[iy] 
+      }
+      dat_aggr[ix] <- dat_aggr[ix] + ( dat[ix] - dat_aggr[ix]) / dat_cont[ix]
     } else {
-      dat_aggr[ix] <- dat_aggr[ix] + ( dat - dat_aggr[ix]) / dat_cont[ix]
+      return( NULL)
     }
+    # update online score: end
     return( list( online=T, ix=ix, n=length(ix),
                   dat_aggr_up=dat_aggr, 
                   dat_cont_up=dat_cont ))
