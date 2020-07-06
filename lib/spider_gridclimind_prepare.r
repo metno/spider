@@ -69,7 +69,7 @@ spider_gridclimind_prepare <- function( argv   = NULL,
         else if ( argv$degday_b == "above")  { ixb <- which( vr >  argv$degday_r) }
         else if ( argv$degday_b == "above=") { ixb <- which( vr >= argv$degday_r) }
       }
-      if ( length(ixb) > 0) dat[ixb] <- vr[ixb] - argv$degday_r 
+      if ( length(ixb) > 0) dat[ix][ixb] <- vr[ixb] - argv$degday_r 
     # %%%%%%%%%% degree_days %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     } else if ( argv$gridclimind_index == "degree_days" ) {
       if ( is.na(argv$degday_r)) {
@@ -80,7 +80,7 @@ spider_gridclimind_prepare <- function( argv   = NULL,
         else if ( argv$degday_b == "above")  { ixb <- which( vr >  argv$degday_r) }
         else if ( argv$degday_b == "above=") { ixb <- which( vr >= argv$degday_r) }
       }
-      if ( length(ixb) > 0) dat[ixb] <- 1 
+      if ( length(ixb) > 0) dat[ix][ixb] <- rep( 1, length(ixb))
     # %%%%%%%%%% prcptot %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     } else if ( argv$gridclimind_index == "prcptot" ) {
       if ( is.na(argv$prcptot_r)) {
@@ -91,7 +91,7 @@ spider_gridclimind_prepare <- function( argv   = NULL,
         else if ( argv$prcptot_b == "above")  { ixb <- which( vr >  argv$prcptot_r) }
         else if ( argv$prcptot_b == "above=") { ixb <- which( vr >= argv$prcptot_r) }
       }
-      if ( length(ixb) > 0) dat[ixb] <- vr[ixb]
+      if ( length(ixb) > 0) dat[ix][ixb] <- vr[ixb]
     }
     # compute score for one timestep: end
     # update online score: begin
@@ -108,7 +108,7 @@ spider_gridclimind_prepare <- function( argv   = NULL,
     } else if (argv$gridclimind_index %in% c( "mean") ) {
       if ( length( iy <- !is.na( dat_cont[ix])) > 0) {
         dat_cont[ix][iy] <- 1
-        dat_aggr[ix][iy] <- dat[iy] 
+        dat_aggr[ix][iy] <- dat[ix][iy] 
       }
       dat_aggr[ix] <- dat_aggr[ix] + ( dat[ix] - dat_aggr[ix]) / dat_cont[ix]
     } else {
