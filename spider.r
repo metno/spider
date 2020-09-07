@@ -402,7 +402,40 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
       }
     }
     rm( res)
-  } # end if verif
+  } # end if gridclimind
+  #----------------------------------------------------------------------------
+  # prepare for temporal trend 
+  if ( argv$temporal_trend) {
+    if ( !exists( "rmaster")) { rmaster<-r; rmaster[]<-NA}
+    res <- spider_temporal_trend_prepare()
+    if ( is.null( res)) next
+    # scores that are computed online
+    #  dat_... dimension is the number of cells of raster "r"
+    if ( res$online) {
+      dat_aggr <- res$dat_aggr_up
+      dat_cont <- res$dat_cont_up
+      if ( !exists( "ix_dat")) ix_dat <- 1:ncell(r)
+      print( paste("gridclimind & gridded output: number of cells",res$n)) 
+    # scores that require to store the whole dataset in memory
+    #  mat... matrix (number of cells, subset not NAs) x (number of times)
+    } else {
+      if ( !exists("mat")) {
+        mat    <- res$mat_col
+        ix_dat <- res$ix
+        if ( !is.na( argv$ffin_ref_template)) 
+          mat_ref <- res$mat_ref_col
+      } else {
+        if ( any( !(res$ix %in% ix_dat))) {
+          print("WARNING: verif & gridded output, wrong indexes: statistics is supposed to use always the same cells")
+          next
+        }
+        mat <- cbind( mat, res$mat_col)
+        if ( !is.na( argv$ffin_ref_template)) 
+          mat_ref <- cbind(  mat_ref, res$mat_ref_col)
+      }
+    }
+    rm( res)
+  } # end if temporal trend
   #----------------------------------------------------------------------------
   # store in a raster stack 
   if ( gridded_output & !argv$verif & !argv$gridclimind) {
@@ -726,6 +759,44 @@ if (gridded_output)  {
     ix <- which( !is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
     if ( length(ix)>0) r[ix_dat[ix]] <- dat_aggr[ix]
     if ( exists( "dat_aggr")) rm(dat_aggr)
+    if ( exists( "dat_cont")) rm(dat_cont)
+    if ( exists( "ix_dat"))   rm(ix_dat)
+    if ( exists( "ix"))       rm(ix)
+  }
+  #----------------------------------------------------------------------------
+  # temporal trends 
+  if (argv$temporal_trend) {
+    if ( argv$temporal_trend_elab %in% c( "Theil_Sen_regression", 
+                                          "Mann_Kendall_trend_test")) {
+      npoints <- dim(mat)[1]
+      if ( !is.na( argv$cores)) {
+        dat <- mcmapply( temporal_trends_fun,
+                         1:npoints,
+                         mc.cores   = argv$cores,
+                         SIMPLIFY   = T, 
+                         lab        = argv$temporal_trend_elab)
+      # no-multicores
+      } else {
+        dat <- mapply( temporal_trends_fun,
+                       1:npoints,
+                       SIMPLIFY   = T, 
+                       lab        = argv$temporal_trend_elab)
+      }
+      if (exists("mat")) rm(mat)
+      if (exists("mat_ref")) rm(mat_ref)
+ ######################################################
+      dat_cont   <- dat_mean
+      dat_cont[] <- n
+    } else if (argv$verif_metric %in% c("rmse","rmsf")) {
+      dat_mean <- sqrt(dat_mean)
+    }
+    # define r again
+    r <- rmaster
+    rm( rmaster)
+    r[]<-NA
+    ix <- which( !is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
+    if ( length(ix)>0) r[ix_dat[ix]] <- dat_mean[ix]
+    if ( exists( "dat_mean")) rm(dat_mean)
     if ( exists( "dat_cont")) rm(dat_cont)
     if ( exists( "ix_dat"))   rm(ix_dat)
     if ( exists( "ix"))       rm(ix)
