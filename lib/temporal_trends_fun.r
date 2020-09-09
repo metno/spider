@@ -4,6 +4,9 @@ temporal_trends_fun <- function( i     = NA,
                                  x_ref = NA,
                                  lab   = "Theil_Sen_regression") {
 #------------------------------------------------------------------------------
+# Estimate temporal trends extracted from gridded datasets and assess the statistical significance of the trends.
+# Trends are computed separately for each grid point. The method implemented is the Theil-Sen (median-slope) regression as described by Wilks (2019) p. 283.
+# Are the trends significant with respect to the hypothesis of no trend in the data? We face the problem of multiplicity for independent tests (Wilks, 2019). Answer to this question is obtained by applying Mann-Kendall trend test (Wilks, 2019, p. 178) to the timeseries at each grid point. Then, the problem of multiplicity for independent tests is solved as described by Wilks (2019) p. 195. A Benjamini-Hochberg meta-test is performed with a predefined global test level (or critical false discovery rate).
 #------------------------------------------------------------------------------
   # transform x and x_ref into 1D mat and mat_ref
   if (is.na(i)) {
@@ -31,7 +34,7 @@ temporal_trends_fun <- function( i     = NA,
       a <- median( residuals)
       res <- c( a, b)
     }
-  } ( lab == "Mann_Kendall_trend_test") {
+  } else if ( lab == "Mann_Kendall_trend_test") {
     # REF: Wilks (2019) p. 178
     # S, test statistic
     aux <- outer( data, data, FUN="-")
@@ -52,12 +55,12 @@ temporal_trends_fun <- function( i     = NA,
       val <- mapply( minus,
                      1:ng,
                      SIMPLIFY = T, 
-                     x = data, y = uni)
+                     MoreArgs = list( x = data, y = uni))
       varS <- varS - sum( val)
     }
     # standard Gaussian value
     z <- ( S - sign(S)) / sqrt( varS)
-    # two-sided p-value
+    # two-sided p-value (not adjusted for multiplicity testing)
     p <- 2 * pnorm( -abs(z), mean=0, sd=1)
     #
     res <- c( z, p)

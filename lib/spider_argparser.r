@@ -888,14 +888,14 @@ p<- add_argument(p, "--degday_b",
                  default="above")
 #..............................................................................
 p <- add_argument(p, "--temporal_trend",
-                  help="trend through time",
+                  help="trend through time. NOTE: the output nc-file has preset varname, varlongname, varstandardname, varversion, diground.",
                   flag=T)
 p<- add_argument(p, "--temporal_trend_elab",
                  help="trend through time elaboration, one of: \"Theil_Sen_regression\", \"Mann_Kendall_trend_test\"",
                  type="character",
                  default=NA)
 p<- add_argument(p, "--temporal_trend_FDR",
-                 help="false discovery rate for the Benjamini‐Hochberg meta test of the p-values used to assess field significance",
+                 help="false discovery rate for the Benjamini‐Hochberg meta-test of the p-values used to assess statistical significance",
                  type="numeric",
                  default=0.05)
 #..............................................................................

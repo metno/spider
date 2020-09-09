@@ -47,7 +47,8 @@ spider_temporal_trend_prepare <- function( argv   = NULL,
   # NOTE: vr and vref are now m-vectors
   #
   # scores that require to store the whole dataset in memory
-  if ( argv$temporal_trend_elab %in% c("Theil_Sen_regression")) {
+  if ( argv$temporal_trend_elab %in% c( "Theil_Sen_regression",
+                                        "Mann_Kendall_trend_test")) {
     return( list( online=F, ix=ix, n=length(ix),
                   mat_col=vr, mat_ref_col=vref ))
   #

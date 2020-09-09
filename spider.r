@@ -159,7 +159,7 @@ t_ok<-vector()
 n<-0
 first<-T
 for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
-  if (argv$verbose & t%%100==0) 
+#  if (argv$verbose & t%%100==0) 
     print( paste( "timestep", t, "/", n_tseq,
                   "elapsed time", round(Sys.time()-t0,2), 
                   attr(Sys.time()-t0,"unit")))
@@ -747,7 +747,7 @@ if (gridded_output)  {
     if ( exists( "dat_cont")) rm(dat_cont)
     if ( exists( "ix_dat"))   rm(ix_dat)
     if ( exists( "ix"))       rm(ix)
-  }
+  } # end verification
   #----------------------------------------------------------------------------
   # gridded climate indices 
   if ( argv$gridclimind) {
@@ -762,7 +762,7 @@ if (gridded_output)  {
     if ( exists( "dat_cont")) rm(dat_cont)
     if ( exists( "ix_dat"))   rm(ix_dat)
     if ( exists( "ix"))       rm(ix)
-  }
+  } # end gridclimind
   #----------------------------------------------------------------------------
   # temporal trends 
   if (argv$temporal_trend) {
@@ -770,42 +770,92 @@ if (gridded_output)  {
                                           "Mann_Kendall_trend_test")) {
       npoints <- dim(mat)[1]
       if ( !is.na( argv$cores)) {
-        dat <- mcmapply( temporal_trends_fun,
+        res <- mcmapply( temporal_trends_fun,
                          1:npoints,
                          mc.cores   = argv$cores,
                          SIMPLIFY   = T, 
-                         lab        = argv$temporal_trend_elab)
+                         MoreArgs   = list( lab = argv$temporal_trend_elab))
       # no-multicores
       } else {
-        dat <- mapply( temporal_trends_fun,
+        res <- mapply( temporal_trends_fun,
                        1:npoints,
                        SIMPLIFY   = T, 
-                       lab        = argv$temporal_trend_elab)
+                       MoreArgs   = list( lab = argv$temporal_trend_elab))
       }
       if (exists("mat")) rm(mat)
       if (exists("mat_ref")) rm(mat_ref)
- ######################################################
-      dat_cont   <- dat_mean
-      dat_cont[] <- n
-    } else if (argv$verif_metric %in% c("rmse","rmsf")) {
-      dat_mean <- sqrt(dat_mean)
+      dat_cont <- res[3,]
+      if ( argv$temporal_trend_elab == "Mann_Kendall_trend_test") {
+        # Benjamini‐Hochberg meta test of the p-values used to assess statistical significance
+        # REF: Wilks (2019) p. 195
+        # Hypothesis testing (problem of test multiplicity, assessing statistical significance). Simplyfing a bit: H0(j)=no-trend at the j-th point; return TRUE(1) if H0(j) can be rejected with the preset global false discovery rate; return FALSE(0) if H0(j) cannot be rejected. The threshold used to assess significance varies from point to point. Results of individual tests are regarded as significant if the corresponding H0 is TRUE(1).
+        p_values <- res[2,]
+        trend_significance <- p_values; trend_significance[] <- NA
+        p_values_adj       <- p_values; p_values_adj[]       <- NA
+        if ( (np <- length( ixp <- which( !is.na( p_values)))) > 0) {
+          p_values_adj[ixp] <- p.adjust( p_values[ixp], method="BH")
+          trend_significance[ixp] <- p_values_adj[ixp] <= argv$temporal_trend_FDR
+        }
+      }
     }
-    # define r again
+    # prepare for output
     r <- rmaster
     rm( rmaster)
     r[]<-NA
-    ix <- which( !is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
-    if ( length(ix)>0) r[ix_dat[ix]] <- dat_mean[ix]
-    if ( exists( "dat_mean")) rm(dat_mean)
+    ix <- which( !is.na( dat_cont) & ( dat_cont / n_tseq) >= argv$frac)
+    if ( length(ix)>0) {
+      r1 <- r
+      r1[ix_dat[ix]] <- res[1,ix]; r <- r1; r1[] <- NA
+      if ( argv$temporal_trend_elab == "Mann_Kendall_trend_test") {
+        r1[ix_dat[ix]] <- p_values_adj[ix]; r <- stack( r, r1); r1[] <- NA
+      } else {
+        r1[ix_dat[ix]] <- res[2,ix]; r <- stack( r, r1); r1[] <- NA
+      }
+      r1[ix_dat[ix]] <- res[3,ix]; r <- stack( r, r1); r1[] <- NA
+      if ( argv$temporal_trend_elab == "Mann_Kendall_trend_test") {
+        r1[ix_dat[ix]] <- as.numeric(trend_significance[ix]); r <- stack( r, r1)
+      }
+    } else {
+      r1 <- r
+      r <- stack( r, r1); r <- stack( r, r1); r <- stack( r, r1)
+      if ( argv$temporal_trend_elab == "Mann_Kendall_trend_test")
+        r <- stack( r, r1)
+    }
+    rm( r1)
+    if ( exists( "res"))      rm(res)
     if ( exists( "dat_cont")) rm(dat_cont)
     if ( exists( "ix_dat"))   rm(ix_dat)
     if ( exists( "ix"))       rm(ix)
-  }
+    if ( exists( "p_values_adj")) rm(p_values_adj)
+    if ( exists( "p_values"))     rm(p_values)
+    if ( exists( "trend_significance")) rm(trend_significance)
+  } # end temporal_trend
   #-----------------------------------------------------------------------------
-  # Gridded output
+  # Gridded output (not in a function to save memory)
   # adjust
   if ( !exists("r")) r <- s
   if (  exists("s")) rm(s)
+  if (argv$temporal_trend) {
+    if ( argv$temporal_trend_elab == "Theil_Sen_regression") {
+      argv$ffout_varname         <- c( "a", "b", "n")
+      argv$ffout_varlongname     <- c( "estimate of the intercept of the temporal trend using Theil-Sen regression",
+                                       "estimate of the slope of the temporal trend using Theil-Sen regression",
+                                       "number of points used in the elaboration")
+      argv$ffout_varstandardname <- c( "intercept", "slope", "counter")
+      argv$ffout_varversion      <- c( "1.0", "1.0", "1.0")
+      argv$ffout_diground        <- 4
+    } else if ( argv$temporal_trend_elab ==  "Mann_Kendall_trend_test") {
+      argv$ffout_varname         <- c( "z", "p_value", "n", "trend")
+      argv$ffout_varlongname     <- c( "standard Gaussian value Mann-Kendall trend test",
+                                       "p-value Mann-Kendall trend test adjusted using Benjamini‐Hochberg method",
+                                       "number of points used in the elaboration",
+                                       paste0("trend significance with FDR=",
+                                              round( argv$temporal_trend_FDR,3)))
+      argv$ffout_varstandardname <- c( "standard_Gaussian_value", "p_value", "counter","hypothesis_testing")
+      argv$ffout_varversion      <- c( "1.0", "1.0", "1.0", "1.0")
+      argv$ffout_diground        <- 6
+    }
+  }
   # write
   xy <- xyFromCell( r, 1:ncell(r))
   x  <- sort( unique( xy[,1]))
@@ -816,10 +866,16 @@ if (gridded_output)  {
     for (i in 1:nlayers(r)) 
       grid[,,i] <- matrix( data=subset( r, subset=i), 
                            ncol=length(y), nrow=length(x))
-    if ( any(is.na(tseq_out))) {
-      date_out <- format( tseq[t_ok], "%Y%m%d%H%M", tz="UTC")
+    if (argv$temporal_trend) {
+      date_out <- format( strptime( date_out,
+                                    date_out.format,tz="UTC"),
+                                    "%Y%m%d%H%M", tz="UTC")
     } else {
-      date_out <- format( tseq_out[2:n_tseq_out], "%Y%m%d%H%M", tz="UTC")
+      if ( any(is.na(tseq_out))) {
+        date_out <- format( tseq[t_ok], "%Y%m%d%H%M", tz="UTC")
+      } else {
+        date_out <- format( tseq_out[2:n_tseq_out], "%Y%m%d%H%M", tz="UTC")
+      }
     }
   } else {
     grid     <- array(  data=NA, dim=c(length(x), length(y)))
@@ -828,7 +884,11 @@ if (gridded_output)  {
                                   date_out.format,tz="UTC"),
                                   "%Y%m%d%H%M", tz="UTC")
   }
-  r.list[[1]] <- grid
+  if (argv$temporal_trend) {
+    for (i in 1:nlayers(r))  r.list[[i]] <- grid[,,i]
+  } else {
+    r.list[[1]] <- grid
+  }
   rm( grid, r)
   if ( any( is.na( argv$time_bnds_string_as_two_dates))) {
     time_bnds <- array( format( rev( seq(
