@@ -37,9 +37,7 @@ temporal_trends_fun <- function( i     = NA,
   } else if ( lab == "Mann_Kendall_trend_test") {
     # REF: Wilks (2019) p. 178
     # S, test statistic
-    aux <- outer( data, data, FUN="-")
-    aux[ aux > 0] <- 1
-    aux[ aux < 0] <- -1
+    aux <- sign( outer( data, data, FUN="-"))
     S <- sum( aux[row(aux)>col(aux) & is.finite(aux)])
     # varS, variance of the sampling sidtribution of S
     ng <- length( uni <- unique( data))
