@@ -104,6 +104,7 @@ spider_readEmAll <- function( argv=NA,
   #
   # Master grid
   rmaster <- NA
+  ffmaster_proj4 <- NA
   if ( !( "rmaster" %in% ls(envir = .GlobalEnv))) {
     if ( argv$get_master_from_input_grid) {
       if ( argv$master_from_input_aggfact > 1) {
@@ -111,7 +112,7 @@ spider_readEmAll <- function( argv=NA,
       } else {
         rmaster <- r
       }
-      argv$ffmaster_proj4 <- argv$ffin_proj4
+      ffmaster_proj4 <- argv$ffin_proj4
     } else if ( file.exists(argv$ffmaster)) {
       rmaster <- read_griddeddata( "master")
       if ( is.null( rmaster)) boom( "ERROR problem reading master grid")
@@ -142,6 +143,7 @@ spider_readEmAll <- function( argv=NA,
                 ffin           = ffin,
                 t_to_read_ffin = t_to_read_ffin,
                 rmaster        = rmaster, 
+                ffmaster_proj4 = ffmaster_proj4,
                 rmaster_dem    = rmaster_dem, 
                 r_dem          = r_dem, 
                 r_ref          = r_ref))

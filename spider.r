@@ -174,12 +174,14 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   # reference dataset
   r_ref   <- res$r_ref
   # master
-  if ( !exists( "rmaster"))  
+  if ( !exists( "rmaster")) {
     if ( class( res$rmaster) == "logical") { 
       rmaster <- r
     } else { 
       rmaster <- res$rmaster
     }
+    argv$ffmaster_proj4 <- res$ffmaster_proj4
+  }
   if ( !exists( "rmaster_dem")) rmaster_dem <- res$rmaster_dem
   if ( !exists( "r_dem"))             r_dem <- res$r_dem
   rm( res) 
@@ -443,7 +445,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
       s <- r 
     # online time aggregation
     } else if ( argv$time_aggregation_online) {
-      if ( argv$time_fun == "sum")  s <- spider_timeaggOnline_sum()
+      if ( argv$time_fun == "sum")  s <- s + r
     # save r in a rasterStack
     } else {
       s <- stack( s, r)
