@@ -184,7 +184,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   }
   if ( !exists( "rmaster_dem")) rmaster_dem <- res$rmaster_dem
   if ( !exists( "r_dem"))             r_dem <- res$r_dem
-  rm( res) 
+  rm( res)
   #----------------------------------------------------------------------------
   # crop
   if ( !any( is.na( argv$crop))) {
@@ -326,7 +326,13 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     # - Ellipsis, object-based summary statistics 
     } else if ( argv$summ_stat_fun == "ellipsis") {
       if ( !exists( "ell_list")) ell_list <- list()
-      ell_list[[t]] <- spider_summ_stat_ellipsis()
+      aux <- spider_summ_stat_ellipsis()
+      if (!is.null(ell_list))
+        ell_list <- append( ell_list, aux)
+    } else if ( argv$summ_stat_fun == "gamma_parest") {
+      if ( !exists( "dat_to_gamma")) dat_to_gamma <- integer(0)
+      aux <- getValues(r)[which(!is.na(getValues(r)))]
+      dat_to_gamma <- c( dat_to_gamma, aux)
     # - what?
     } else {
       boom("ERROR: summ_stat_fun not defined")
@@ -473,6 +479,11 @@ if (argv$debug) {
 # RData output file
 if ( argv$summ_stat_fun == "ellipsis") 
   save( file=argv$ffout_summ_stat, ell_list,tseq, t_ok, n)
+if ( argv$summ_stat_fun == "gamma_parest") {
+  dat_to_gamma[which(dat_to_gamma<0)] <- 0
+  res <- gamma_get_shape_rate_from_dataset_constrOptim( dat_to_gamma)
+  save( file=argv$ffout_summ_stat, dat_to_gamma, res)
+}
 #------------------------------------------------------------------------------
 # Aggregate gridpoint-by-gridpoint over time
 if (gridded_output)  {

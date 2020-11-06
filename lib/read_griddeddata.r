@@ -127,7 +127,7 @@ read_griddeddata<-function( mode="data",
   }
   if (is.na(ff_epos)) ff_epos<-NULL
   if (is.na(ff_e)) ff_e<-NULL
-  #save(file="tmp.rdata",ff,ff_varname,ff_topdown,ff_ndim,ff_tpos,ff_epos,ff_dimnames,ff_proj4,ff_proj4_var,ff_proj4_att,ff_t,ff_e)
+#  save(file="tmp.rdata",ff,ff_varname,ff_topdown,ff_ndim,ff_tpos,ff_epos,ff_dimnames,ff_proj4,ff_proj4_var,ff_proj4_att,ff_t,ff_e)
   raux<-try(read_dotnc(nc.file=ff,
                        nc.varname=ff_varname,
                        topdown=ff_topdown,
