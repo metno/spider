@@ -61,9 +61,9 @@ spider_summ_stat_wave_nrgx <- function( argv  = NULL,
                    cellStats(mask(disaggregate(ragg3,fact=2**i),rbootmask),stat="mean",na.rm=T) 
         rm(ragg1,ragg2,ragg3) 
       } else {
-        En2o[i] <- mean((Eo.dwt[[1 + 3 * (i - 1)]]/2^i)^2) + 
-                   mean((Eo.dwt[[2 + 3 * (i - 1)]]/2^i)^2) +
-                   mean((Eo.dwt[[3 + 3 * (i - 1)]]/2^i)^2)
+        En2o[i] <- mean( Eo.dwt[[1+3*(i-1)]]**2 / 2**i) + 
+                   mean( Eo.dwt[[2+3*(i-1)]]**2 / 2**i) +
+                   mean( Eo.dwt[[3+3*(i-1)]]**2 / 2**i)
       }
     }
     # energies of mother wavelets
