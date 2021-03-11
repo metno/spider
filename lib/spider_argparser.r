@@ -334,6 +334,9 @@ p<- add_argument(p, "--fill_gaps",
 p<- add_argument(p, "--stop_if_two_gaps",
                  help="\"fill the gaps\" mode, stop if two consecutive gaps are found",
                  flag=T)
+p<- add_argument(p, "--fun_narm",
+                 help="should be NAs removed when applying fun?",
+                 flag=T)
 p <- add_argument(p, "--r",
                   help="thresholds, used for fun = \"freq\" or \"count\", either one value or two values",
                   type="character",

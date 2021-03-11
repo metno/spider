@@ -1,15 +1,15 @@
 #+
-spider_summ_stat_list_values <- function( argv  = NULL, 
+spider_summ_stat_list_values <- function( argv  = NA, 
                                           r     = NULL,
                                           first = F,
                                           time  = NA) {
 #------------------------------------------------------------------------------
-  if ( is.null(argv))
-    if ( "argv" %in% ls(envir = .GlobalEnv)) 
-      get( "argv", envir = .GlobalEnv)
+ if ( class(argv)=="logical") 
+    if ("argv" %in% ls(envir = .GlobalEnv)) 
+      argv <- get("argv", envir = .GlobalEnv)
   if ( is.null(r))
     if ( "r" %in% ls(envir = .GlobalEnv)) 
-      get( "r", envir = .GlobalEnv)
+      r <- get( "r", envir = .GlobalEnv)
   # write header, if needed 
   if ( !file.exists(argv$ffout_summ_stat) | 
       (!argv$ffout_summ_stat_append & first)) 
@@ -46,7 +46,7 @@ spider_summ_stat_list_values <- function( argv  = NULL,
   if ( !is.na( argv$list_values_max)) 
     values[ which( values > argv$list_values_max)] <- argv$list_values_max_replace
   cat(file=argv$ffout_summ_stat,append=T,
-      paste0( t_to_read,";",
+      paste0( time,";",
               labels,";",
               round(      x, argv$list_values_coord_rounddig),";",
               round(      y, argv$list_values_coord_rounddig),";",

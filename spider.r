@@ -287,7 +287,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   #----------------------------------------------------------------------------
   # summary statistics 
   if (argv$summ_stat) {
-    values <- getValues( r)
+    if (!exists("values")) values <- getValues( r)
     # some values not NAs
     if (length( ixvalid <- which(!is.na(values)) ) > 0) {
       ncells <- NA
@@ -532,10 +532,10 @@ if (gridded_output)  {
       # case of all weights = 1
       if (!any(weights!=1)) {
         #---------------------------------------------------------------------
-        if (argv$time_fun=="sum")  { r<-sum(s) } 
-        else if (argv$time_fun=="mean") { r<-mean(s,na.rm=T) }
-        else if (argv$time_fun=="max")  { r<-max(s,na.rm=T) }
-        else if (argv$time_fun=="min")  { r<-min(s,na.rm=T) }
+        if (argv$time_fun=="sum")  { r<-sum(s,na.rm=argv$fun_narm) } 
+        else if (argv$time_fun=="mean") { r<-mean(s,na.rm=argv$fun_narm) }
+        else if (argv$time_fun=="max")  { r<-max(s,na.rm=argv$fun_narm) }
+        else if (argv$time_fun=="min")  { r<-min(s,na.rm=argv$fun_narm) }
         else if (argv$time_fun=="count" | argv$time_fun=="freq")  {
           if (length(argv$r)>1) { 
             threshold<-argv$r[1]
@@ -669,9 +669,9 @@ if (gridded_output)  {
           if (argv$time_fun=="sum")  {
             dat_res[ix_nona]<-dat_res[ix_nona]+aux
           } else if (argv$time_fun=="max") {
-            dat_res[ix_nona]<-pmax(dat_res[ix_nona],aux,na.rm=T)
+            dat_res[ix_nona]<-pmax(dat_res[ix_nona],aux,na.rm=argv$fun_narm)
           } else if (argv$time_fun=="min") {
-            dat_res[ix_nona]<-pmin(dat_res[ix_nona],aux,na.rm=T)
+            dat_res[ix_nona]<-pmin(dat_res[ix_nona],aux,na.rm=argv$fun_narm)
           } else if (argv$time_fun=="mean") {
             dat_res[ix_nona]<-dat_res[ix_nona]+aux
           }
