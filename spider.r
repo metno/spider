@@ -84,7 +84,7 @@ argv <- argparser()
 if (!is.na(argv$cores)) {
   suppressPackageStartupMessages(library("parallel"))
   if (argv$cores==0) argv$cores <- detectCores()
-  print(paste("--> multi-core run, cores=",argv$cores))
+  cat( paste( "--> multi-core run, cores=", argv$cores, "\n"))
 }
 #------------------------------------------------------------------------------
 # Time sequence
@@ -520,11 +520,14 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   #----------------------------------------------------------------------------
   # radar data quality control
   if (argv$metno_radar_dqc) {
-    var_dqcrad<-c("is_nodata",
-                  "is_blocked",
-                  "is_seaclutter",
-                  "is_groundclutter",
-                  "is_otherclutter")
+    var_dqcrad <- c( "block_percent",
+                     "is_seaclutter",
+                     "is_groundclutter",
+                     "is_otherclutter",
+                     "is_lowele",
+                     "is_highele")
+    thr  <- c(    50,    1,    1,    1,    0,    1)
+    cond <- c( "geq", "eq", "eq", "eq", "eq", "eq") 
     nv_dqcrad<-length(var_dqcrad)
     for (v in 1:nv_dqcrad) {   
       u<-read_griddeddata("data",var=var_dqcrad[v])
@@ -536,7 +539,17 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
         print(paste("warning: all NAs for  radar dqc var=",var_dqcrad[v]))
         next
       }
-      r[which(getValues(u)==1)]<-NA
+      if ( cond[v] == "eq") {
+        r[which(getValues(u) == thr[v])] <- NA
+      } else if ( cond[v] == "geq") {
+        r[which(getValues(u) >= thr[v])] <- NA
+      } else if ( cond[v] == "leq") {
+        r[which(getValues(u) <= thr[v])] <- NA
+      } else if ( cond[v] == "gt") {
+        r[which(getValues(u) > thr[v])] <- NA
+      } else if ( cond[v] == "lt") {
+        r[which(getValues(u) < thr[v])] <- NA
+      }
     } # end for v
     if (!any(!is.na(values<-getValues(r)))) {
       print(paste("warning: all NAs after radar dqc"))
@@ -545,22 +558,22 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   } 
   #----------------------------------------------------------------------------
   # data quality control 
-  if (argv$gridded_dqc) {
+  if ( argv$gridded_dqc) {
     # check for unplausible values
-    if (!is.na(argv$gridded_dqc.min) & !is.na(argv$gridded_dqc.max)) {
-      rval<-getValues(r)
-      r[which(rval<argv$gridded_dqc.min)]<-argv$gridded_dqc.min_pad
-      r[which(rval>argv$gridded_dqc.max)]<-argv$gridded_dqc.max_pad
-      rm(rval)
+    if ( !is.na( argv$gridded_dqc.min) & !is.na( argv$gridded_dqc.max)) {
+      rval <- getValues(r)
+      r[which(rval<argv$gridded_dqc.min)] <- argv$gridded_dqc.min_pad
+      r[which(rval>argv$gridded_dqc.max)] <- argv$gridded_dqc.max_pad
+      rm( rval)
     }
     # remove small patches of connected cells
-    if (!any(is.na(argv$gridded_dqc.clump_r)) & 
-        !(any(is.na(argv$gridded_dqc.clump_n)))) {
-      rval<-getValues(r)
-      suppressPackageStartupMessages(library("igraph"))
+    if ( !any( is.na( argv$gridded_dqc.clump_r)) & 
+         !any( is.na( argv$gridded_dqc.clump_n))) {
+      rval <- getValues(r)
+      suppressPackageStartupMessages( library( "igraph"))
       for (i in 1:length(argv$gridded_dqc.clump_r)) {
         raux<-r
-        if (any(rval<=argv$gridded_dqc.clump_r[i])) 
+        if ( any( rval <= argv$gridded_dqc.clump_r[i])) 
           raux[which(rval<=argv$gridded_dqc.clump_r[i])]<-NA
         rclump<-clump(raux)
         fr<-freq(rclump)
@@ -576,8 +589,10 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     if (!is.na(argv$gridded_dqc.outlier_aggfact)) {
       # c. remove outliers. Check for outliers in square boxes
       t0a<-Sys.time()
+      rval<-getValues(r)
+      print( rval[1000:2000])
       raux<-r
-      daux<-boxcox(x=rval,lambda=0.5)
+      daux<-boxcox(x=rval,lambda=0.3)
       raux[]<-daux
       # compute mean and sd on a coarser grid
       raux_agg<-aggregate(raux,

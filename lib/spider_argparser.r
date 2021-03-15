@@ -930,13 +930,14 @@ if (any(!is.na(argv$r))) {
   rm(aux)
 }
 
-if (any(!is.na(argv$gridded_dqc.clump_r))) {
-  aux<-vector(mode="numeric",length=length(argv$gridded_dqc.clump_r))
+if ( any( !is.na( argv$gridded_dqc.clump_r))) {
+  aux <- vector( mode   = "numeric",
+                 length = length( argv$gridded_dqc.clump_r))
   for (i in 1:length(argv$gridded_dqc.clump_r)) 
-    aux[i]<-as.numeric(gsub("_","-",argv$gridded_dqc.clump_r[i]))
-  argv$gridded_dqc.clump_r<-aux
+    aux[i] <- as.numeric( gsub( "_", "-", argv$gridded_dqc.clump_r[i]))
+  argv$gridded_dqc.clump_r <- aux
   rm(aux)
-  if (length(argv$gridded_dqc.clump_r)!=length(argv$gridded_dqc.clump_n)) 
+  if (length(argv$gridded_dqc.clump_r) != length(argv$gridded_dqc.clump_n)) 
     boom(paste0("gridded_dqc clum check. number of thresholds \"r\" is ",
                 length(argv$gridded_dqc.clump_r),
                 " while number of thresholds \"n\" is ",
@@ -946,12 +947,16 @@ if (any(!is.na(argv$gridded_dqc.clump_r))) {
                 length(argv$gridded_dqc.clump_r),
                 " while number of thresholds \"pad\" is ",
                 length(argv$gridded_dqc.clump_pad)))
-  aux<-vector(mode="numeric",length=length(argv$gridded_dqc.clump_pad))
+  aux <- vector( mode   = "numeric", 
+                 length = length(argv$gridded_dqc.clump_pad))
   for (i in 1:length(argv$gridded_dqc.clump_pad)) 
-    aux[i]<-as.numeric(gsub("_","-",argv$gridded_dqc.clump_pad[i]))
-  argv$gridded_dqc.clump_pad<-aux
+    aux[i] <- as.numeric( gsub( "_", "-", argv$gridded_dqc.clump_pad[i]))
+  argv$gridded_dqc.clump_pad <- aux
   rm(aux)
 }
+argv$gridded_dqc.clump_r <- as.numeric( argv$gridded_dqc.clump_r)
+argv$gridded_dqc.clump_n <- as.numeric( argv$gridded_dqc.clump_n)
+argv$gridded_dqc.clump_pad <- as.numeric( argv$gridded_dqc.clump_pad)
 
 if (!is.na(argv$list_values_min)) 
   argv$list_values_min<-as.numeric(gsub("_","-",argv$list_values_min))
@@ -970,6 +975,9 @@ if (!is.na(argv$gridded_dqc.max_pad))
 if (!is.na(argv$gridded_dqc.outlier_pad)) 
   argv$gridded_dqc.outlier_pad<-as.numeric(gsub("_","-",
                                 argv$gridded_dqc.outlier_pad))
+argv$gridded_dqc.min_pad <- as.numeric( argv$gridded_dqc.min_pad)
+argv$gridded_dqc.max_pad <- as.numeric( argv$gridded_dqc.max_pad)
+argv$gridded_dqc.outlier_pad <- as.numeric( argv$gridded_dqc.outlier_pad)
 #
 if (is.na(argv$space_fun)) argv$space_fun<-argv$fun
 if (is.na(argv$time_fun)) argv$time_fun<-argv$fun
