@@ -1,5 +1,5 @@
 #+ create time sequences
-timeseq<-function( argv) {
+spider_timeseq<-function( argv) {
 #------------------------------------------------------------------------------
   # input - sequence of time steps 
   # (a) get tseq from the date file

@@ -1,7 +1,7 @@
 #+
 argparser<-function() {
 #------------------------------------------------------------------------------
-p <- arg_parser("ffmrr")
+p <- arg_parser("spider")
 #..............................................................................
 p <- add_argument(p, "date1",
                   help="period start date (if \"none\" then date1 and date2 are derived from file)",
@@ -35,6 +35,11 @@ p <- add_argument(p, "--time_bnds_string",
                   help="time bounds with respect to date_out (e.g., \"-1 day\" \"-1 min\"). The end of the aggregation period is assumed to be date_out.",
                   type="character",
                   default="none")
+p <- add_argument(p, "--time_bnds_string_as_two_dates",
+                  help="time bounds as two dates (format %Y%m%d%H%M)",
+                  type="character",
+                  default=NA,
+                  nargs=Inf)
 #..............................................................................
 p <- add_argument(p, "--time_step",
                   help="time step",
@@ -108,6 +113,9 @@ p <- add_argument(p, "--downscale",
 p <- add_argument(p, "--latte",
                   help="interpoLATion verTical profilE. Interpolation over master grid based on a non-linear vertical profile",
                   flag=T)
+p <- add_argument(p, "--latte_express",
+                  help="interpoLATion verTical profilE. Fast algorithm with shortcuts. Gain speed, loose optimal conditions. Interpolation over master grid based on a non-linear vertical profile",
+                  flag=T)
 p <- add_argument(p, "--cores",
                   help="set the number of cores for parallel runs. Rpackage \"parallel\" required. 0 stands for \"use detectCores\". Default do not use it.",
                   type="numeric",
@@ -125,9 +133,17 @@ p <- add_argument(p, "--latte_fglab",
                   type="character",
                   default="Frei")
 p <- add_argument(p, "--latte_gamma",
-                  help="lapse rate value",
+                  help="lapse rate value. Units degC/m",
                   type="numeric",
                   default=-0.0065)
+p <- add_argument(p, "--latte_agg_fact",
+                  help="aggregation factor (original to aggregated grid). Used in latte_express. Units number of grid points",
+                  type="numeric",
+                  default=50)
+p <- add_argument(p, "--latte_weight_dh_scale",
+                  help="horizontal length scale used in the blending of sub-regional verical profiles to weight them. Used in latte_express. same units as master CRS.",
+                  type="numeric",
+                  default=25000)
 #..............................................................................
 p <- add_argument(p, "--metno_radar_dqc",
                   help="data quality control over metno radar data",
@@ -317,6 +333,9 @@ p<- add_argument(p, "--fill_gaps",
                  flag=T)
 p<- add_argument(p, "--stop_if_two_gaps",
                  help="\"fill the gaps\" mode, stop if two consecutive gaps are found",
+                 flag=T)
+p<- add_argument(p, "--fun_narm",
+                 help="should be NAs removed when applying fun?",
                  flag=T)
 p <- add_argument(p, "--r",
                   help="thresholds, used for fun = \"freq\" or \"count\", either one value or two values",
@@ -847,6 +866,42 @@ p<- add_argument(p, "--pam_leg_height",
                  type="character",
                  default="standard")
 #..............................................................................
+p <- add_argument(p, "--gridclimind",
+                  help="gridded climate indices",
+                  flag=T)
+p<- add_argument(p, "--gridclimind_index",
+                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\"",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--prcptot_r",
+                 help="threshold for total precipitation",
+                 type="numeric",
+                 default=NA)
+p<- add_argument(p, "--prcptot_b",
+                 help="type one of 'below' (< x), 'below=' (<= x), 'above' (> x), or 'above=' (>= x).",
+                 type="character",
+                 default="above=")
+p<- add_argument(p, "--degday_r",
+                 help="threshold for degree days sum",
+                 type="numeric",
+                 default=NA)
+p<- add_argument(p, "--degday_b",
+                 help="type one of 'below' (< x), 'below=' (<= x), 'above' (> x), or 'above=' (>= x).",
+                 type="character",
+                 default="above")
+#..............................................................................
+p <- add_argument(p, "--temporal_trend",
+                  help="trend through time. NOTE: the output nc-file has preset varname, varlongname, varstandardname, varversion, diground.",
+                  flag=T)
+p<- add_argument(p, "--temporal_trend_elab",
+                 help="trend through time elaboration, one of: \"Theil_Sen_regression\", \"Mann_Kendall_trend_test\"",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--temporal_trend_FDR",
+                 help="false discovery rate for the Benjamini‐Hochberg meta-test of the p-values used to assess statistical significance",
+                 type="numeric",
+                 default=0.05)
+#..............................................................................
 p <- add_argument(p, "--verbose",
                   help="verbose mode",
                   flag=T)
@@ -930,14 +985,13 @@ if (any(!is.na(argv$r))) {
   rm(aux)
 }
 
-if ( any( !is.na( argv$gridded_dqc.clump_r))) {
-  aux <- vector( mode   = "numeric",
-                 length = length( argv$gridded_dqc.clump_r))
+if (any(!is.na(argv$gridded_dqc.clump_r))) {
+  aux<-vector(mode="numeric",length=length(argv$gridded_dqc.clump_r))
   for (i in 1:length(argv$gridded_dqc.clump_r)) 
-    aux[i] <- as.numeric( gsub( "_", "-", argv$gridded_dqc.clump_r[i]))
-  argv$gridded_dqc.clump_r <- aux
+    aux[i]<-as.numeric(gsub("_","-",argv$gridded_dqc.clump_r[i]))
+  argv$gridded_dqc.clump_r<-aux
   rm(aux)
-  if (length(argv$gridded_dqc.clump_r) != length(argv$gridded_dqc.clump_n)) 
+  if (length(argv$gridded_dqc.clump_r)!=length(argv$gridded_dqc.clump_n)) 
     boom(paste0("gridded_dqc clum check. number of thresholds \"r\" is ",
                 length(argv$gridded_dqc.clump_r),
                 " while number of thresholds \"n\" is ",
@@ -947,16 +1001,12 @@ if ( any( !is.na( argv$gridded_dqc.clump_r))) {
                 length(argv$gridded_dqc.clump_r),
                 " while number of thresholds \"pad\" is ",
                 length(argv$gridded_dqc.clump_pad)))
-  aux <- vector( mode   = "numeric", 
-                 length = length(argv$gridded_dqc.clump_pad))
+  aux<-vector(mode="numeric",length=length(argv$gridded_dqc.clump_pad))
   for (i in 1:length(argv$gridded_dqc.clump_pad)) 
-    aux[i] <- as.numeric( gsub( "_", "-", argv$gridded_dqc.clump_pad[i]))
-  argv$gridded_dqc.clump_pad <- aux
+    aux[i]<-as.numeric(gsub("_","-",argv$gridded_dqc.clump_pad[i]))
+  argv$gridded_dqc.clump_pad<-aux
   rm(aux)
 }
-argv$gridded_dqc.clump_r <- as.numeric( argv$gridded_dqc.clump_r)
-argv$gridded_dqc.clump_n <- as.numeric( argv$gridded_dqc.clump_n)
-argv$gridded_dqc.clump_pad <- as.numeric( argv$gridded_dqc.clump_pad)
 
 if (!is.na(argv$list_values_min)) 
   argv$list_values_min<-as.numeric(gsub("_","-",argv$list_values_min))
@@ -975,9 +1025,6 @@ if (!is.na(argv$gridded_dqc.max_pad))
 if (!is.na(argv$gridded_dqc.outlier_pad)) 
   argv$gridded_dqc.outlier_pad<-as.numeric(gsub("_","-",
                                 argv$gridded_dqc.outlier_pad))
-argv$gridded_dqc.min_pad <- as.numeric( argv$gridded_dqc.min_pad)
-argv$gridded_dqc.max_pad <- as.numeric( argv$gridded_dqc.max_pad)
-argv$gridded_dqc.outlier_pad <- as.numeric( argv$gridded_dqc.outlier_pad)
 #
 if (is.na(argv$space_fun)) argv$space_fun<-argv$fun
 if (is.na(argv$time_fun)) argv$time_fun<-argv$fun

@@ -12,27 +12,27 @@
 # 21.01.2019 - Cristian Lussana. Original code.
 # -----------------------------------------------------------------------------
 #
-rm(list=ls())
+rm( list = ls())
 #
 # -----------------------------------------------------------------------------
 # Libraries
-suppressPackageStartupMessages(library("argparser"))
-suppressPackageStartupMessages(library("sp"))
-suppressPackageStartupMessages(library("raster"))
-suppressPackageStartupMessages(library("rgdal"))
-suppressPackageStartupMessages(library("ncdf4"))
-suppressPackageStartupMessages(library("dotnc"))
+suppressPackageStartupMessages( library( "argparser"))
+suppressPackageStartupMessages( library( "sp"))
+suppressPackageStartupMessages( library( "raster"))
+suppressPackageStartupMessages( library( "rgdal"))
+suppressPackageStartupMessages( library( "ncdf4"))
+suppressPackageStartupMessages( library( "dotnc"))
 #options(warn = 2, scipen = 999)
-options(scipen = 999)
+options( scipen = 999999999)
 #
 # -----------------------------------------------------------------------------
 # Constants
 # CRS strings
-proj4.wgs84<-"+proj=longlat +datum=WGS84"
-proj4.ETRS_LAEA<-"+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +units=m +no_defs"
-proj4.utm33<-"+proj=utm +zone=33 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"
-proj4.lcc<-"+proj=lcc +lat_0=63 +lon_0=15 +lat_1=63 +lat_2=63 +no_defs +R=6.371e+06"
-ffout_default<-"out.nc"
+proj4.wgs84     <- "+proj=longlat +datum=WGS84"
+proj4.ETRS_LAEA <- "+proj=laea +lat_0=52 +lon_0=10 +x_0=4321000 +y_0=3210000 +ellps=GRS80 +units=m +no_defs"
+proj4.utm33     <- "+proj=utm +zone=33 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"
+proj4.lcc       <- "+proj=lcc +lat_0=63 +lon_0=15 +lat_1=63 +lat_2=63 +no_defs +R=6.371e+06"
+ffout_default   <- "out.nc"
 
 # -----------------------------------------------------------------------------
 # FUNCTIONS
@@ -56,7 +56,7 @@ rip <- function( str=NA, code=NA, t0=NA) {
   }
   if ( !is.na(t0)) {
     t1 <- Sys.time()
-    cat( paste( "total time=", round(t1-t0,1), attr(t1-t0,"unit")))
+    cat( paste( "total time=", round(t1-t0,1), attr(t1-t0,"unit")," "))
   }
   if ( !is.na(str)) cat( str)
   cat("\n")
@@ -81,14 +81,14 @@ rm(file)
 argv <- argparser()
 #-----------------------------------------------------------------------------
 # Multi-cores run
-if (!is.na(argv$cores)) {
-  suppressPackageStartupMessages(library("parallel"))
-  if (argv$cores==0) argv$cores <- detectCores()
-  cat( paste( "--> multi-core run, cores=", argv$cores, "\n"))
+if ( !is.na( argv$cores)) {
+  suppressPackageStartupMessages( library( "parallel"))
+  if ( argv$cores==0) argv$cores <- detectCores()
+  print( paste( "--> multi-core run, cores=", argv$cores))
 }
 #------------------------------------------------------------------------------
 # Time sequence
-res <- timeseq( argv)
+res <- spider_timeseq( argv)
 n_tseq <- res$n_tseq
 tseq   <- res$tseq
 date_out        <- res$date_out
@@ -99,33 +99,43 @@ tseq_ref <- res$tseq_ref
 tseq_out <- res$tseq_out
 rm( res)
 #------------------------------------------------------------------------------
+# Initialization
 # default is time_aggregation
-if ( !argv$time_aggregation & 
+if ( !argv$time_aggregation        & 
      !argv$time_aggregation_online & 
-     !argv$time_cat & 
-     !argv$upscale & 
-     !argv$downscale & 
-     !argv$latte &
-     !argv$summ_stat & 
-     !argv$pam & 
+     !argv$time_cat                & 
+     !argv$upscale                 & 
+     !argv$downscale               &  
+     !argv$latte                   &
+     !argv$latte_express           &
+     !argv$summ_stat               & 
+     !argv$gridclimind             & 
+     !argv$pam                     & 
      !argv$verif ) 
   argv$time_aggregation<-T
 #
-gridded_output<-F
-if ( argv$time_aggregation | 
+# decide if gridded output is required
+gridded_output <- F
+if ( argv$time_aggregation        | 
      argv$time_aggregation_online | 
-     argv$time_cat | 
-     argv$upscale | 
-     argv$downscale | 
-     argv$latte | 
+     argv$time_cat                | 
+     argv$upscale                 | 
+     argv$downscale               | 
+     argv$latte_express           |
+     argv$gridclimind             | 
+     argv$latte                   | 
     (argv$verif & argv$ffout!=ffout_default) ) 
   gridded_output<-T
 #
+# load special libraries
 if (argv$summ_stat & argv$summ_stat_fun=="wave_nrgx") 
-  suppressPackageStartupMessages(library("waveslim"))
-if (argv$summ_stat & argv$summ_stat_fun=="ellipsis") 
-  {suppressPackageStartupMessages(library("cluster"))
-   suppressPackageStartupMessages(library("igraph"))}
+  suppressPackageStartupMessages( library( "waveslim"))
+if (argv$summ_stat & argv$summ_stat_fun=="ellipsis") { 
+  suppressPackageStartupMessages( library( "cluster"))
+  suppressPackageStartupMessages( library(  "igraph")) 
+}
+#
+# adjust negative numbers
 argv$summ_stat_condition_threshold<-as.numeric(gsub("_","-",
                                       argv$summ_stat_condition_threshold))
 if ( is.na( argv$ffin_point_mask)) {
@@ -149,373 +159,103 @@ t_ok<-vector()
 n<-0
 first<-T
 for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
-  if (argv$verbose & t%%100==0) 
-    print(paste("timestep",t,"/",n_tseq,
-          "elapsed time",round(Sys.time()-t0,2),attr(Sys.time()-t0,"unit")))
-  ffin<-replaceDate(string=argv$ffin_template,
-                    date.str=format(tseq[t],
-                              format=argv$ffin_date.format,tz="GMT"),
-                    year_string=argv$year_string,
-                    month_string=argv$month_string,
-                    day_string=argv$day_string,
-                    hour_string=argv$hour_string,
-                    min_string=argv$min_string,
-                    sec_string=argv$sec_string,
-                    format=argv$ffin_date.format)
-  if (!file.exists(ffin)) {
-    print(paste("file not found",ffin))
-    next
+#  if (argv$verbose & t%%100==0) 
+    print( paste( "timestep", t, "/", n_tseq,
+                  "elapsed time", round(Sys.time()-t0,2), 
+                  attr(Sys.time()-t0,"unit")))
+  res <- spider_readEmAll( 
+    time     = tseq[t], 
+    time_ref = ifelse( any(is.na(tseq_ref)), NA, tseq_ref[t]))
+  if ( is.null(res)) next
+  ffin           <- res$ffin
+  t_to_read_ffin <- res$t_to_read_ffin
+  # 
+  r       <- res$r 
+  # reference dataset
+  r_ref   <- res$r_ref
+  # master
+  if ( !exists( "rmaster")) {
+    if ( class( res$rmaster) == "logical") { 
+      rmaster <- r
+    } else { 
+      rmaster <- res$rmaster
+    }
+    argv$ffmaster_proj4 <- res$ffmaster_proj4
   }
-  t_to_read<-format(
-              as.POSIXct(
-               as.numeric(
-    as.POSIXct(tseq[t],format=argv$ffin_date.format,tz="GMT")) 
-    + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
-              "%Y%m%d%H%M%S")
-  if (argv$debug) print(paste("time_to_read time file",t_to_read,tseq[t],ffin))
-  r<-read_griddeddata()
-  # case of problems while reading the input file (e.g., missing timestep)
-  if (is.null(r)) {
-    # try an alternative input file, if provided
-    if (!is.na(argv$ffin_template_alternative)) {
-      print("---> using alternative input file template")
-      ffin<-replaceDate(string=argv$ffin_template_alternative,
-                        date.str=format(tseq[t],
-                                 format=argv$ffin_date.format,tz="GMT"),
-                        year_string=argv$year_string,
-                        month_string=argv$month_string,
-                        day_string=argv$day_string,
-                        hour_string=argv$hour_string,
-                        sec_string=argv$sec_string,
-                        format=argv$ffin_date.format)
-      if (!file.exists(ffin)) {
-        print(paste("file not found",ffin))
-        next
-      }
-      t_to_read<-format(
-                  as.POSIXct(
-                   as.numeric(
-        as.POSIXct(tseq[t],format=argv$ffin_date.format,tz="GMT")) 
-        + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
-                  "%Y%m%d%H%M%S")
-      if (argv$debug) print(paste("time_to_read time file",t_to_read,tseq[t],ffin))
-      r<-read_griddeddata()
-    }
-    if (is.null(r)) {
-      print(paste("warning: problem while reading time file",t_to_read,ffin))
-      next
-    }
-  } # end, try an alternative input file
-  if (!any(!is.na(values<-getValues(r)))) {
-    print(paste("warning: all NAs for time file",t_to_read,ffin))
-    next
-  }
-  if (argv$verbose & first) {
-    print(paste("extension of the raster file (xmin,xmax,ymin,ymax)",
-                round(extent(r)[1],6),
-                round(extent(r)[2],6),
-                round(extent(r)[3],6),
-                round(extent(r)[4],6)))
-  }
-  #----------------------------------------------------------------------------
-  # read reference file
-  if (!is.na(argv$ffin_ref_template)) {
-    ffin_ref<-replaceDate(string=argv$ffin_ref_template,
-                          date.str=format(tseq_ref[t],
-                                    format=argv$ffin_date.format,tz="GMT"),
-                          year_string=argv$year_string,
-                          month_string=argv$month_string,
-                          day_string=argv$day_string,
-                          hour_string=argv$hour_string,
-                          sec_string=argv$sec_string,
-                          format=argv$ffin_date.format)
-    if (!file.exists(ffin_ref)) {
-      print(paste("file not found",ffin_ref))
-      next
-    }
-    t_to_read<-format(
-                as.POSIXct(
-                 as.numeric(
-      as.POSIXct(tseq[t],format=argv$ffin_date.format,tz="GMT")) 
-      + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
-                "%Y%m%d%H%M%S")
-    if (argv$debug) print(paste("time_to_read time file",t_to_read,tseq[t],ffin_ref))
-    r_ref<-read_griddeddata(mode="ref")
-    # case of problems while reading the input file (e.g., missing timestep)
-    if (is.null(r_ref)) {
-      print(paste("warning: problem while reading time file",t_to_read,ffin_ref))
-      next
-    }
-    if (!any(!is.na(values<-getValues(r_ref)))) {
-      print(paste("warning: all NAs for time file",t_to_read,ffin_ref))
-      next
-    }
-  }
+  if ( !exists( "rmaster_dem")) rmaster_dem <- res$rmaster_dem
+  if ( !exists( "r_dem"))             r_dem <- res$r_dem
+  rm( res)
   #----------------------------------------------------------------------------
   # crop
-  if (!any(is.na(argv$crop))) {
-    if (argv$ffin_proj4==argv$crop_proj4) {
-      r<-crop(r,
-              extent(argv$crop[1],argv$crop[2],argv$crop[3],argv$crop[4]))
-    } else {
-      coord.new<-spTransform( 
-                  SpatialPoints(rbind(c(argv$crop[1],argv$crop[3]),
-                                      c(argv$crop[1],argv$crop[4]),
-                                      c(argv$crop[2],argv$crop[3]),
-                                      c(argv$crop[2],argv$crop[4])),
-                                 proj4string=CRS(argv$crop_proj4)) 
-                                            ,CRS(argv$ffin_proj4))
-      bbox<-attr(coord.new,"bbox")
-      r<-crop(r,
-              extent(bbox[1,1],bbox[1,2],bbox[2,1],bbox[2,2]))
-      rm(coord.new,bbox)
-    }
-    if (!any(!is.na(values<-getValues(r)))) {
-      print(paste("warning: all NAs after crop"))
-      next
-    }
-  }
-  #----------------------------------------------------------------------------
-  # master grid
-  if ( argv$get_master_from_input_grid) {
-    if (argv$master_from_input_aggfact>1) {
-      rmaster<-aggregate(r,fact=argv$master_from_input_aggfact)
-    } else {
-      rmaster<-r
-    }
-    argv$ffmaster_proj4<-argv$ffin_proj4
+  if ( !any( is.na( argv$crop))) {
+    res <- spider_crop()
+    if ( is.null( res)) next
+    r     <- res$r
+    r_dem <- res$r_dem
+    rm( res)
   }
   #----------------------------------------------------------------------------
   # Upscale to coarser grid
-  if (argv$upscale) {
-    if (!exists("rmaster")) {
-      rmaster<-read_griddeddata("master")
-      if (is.null(rmaster)) boom("ERROR problem reading master grid")
-    }
-    ix<-which(!is.na(values))
-    if (argv$ffin_proj4==argv$ffmaster_proj4) {
-      coord.new<-xyFromCell(r,ix)
-    } else {
-      coord.new<-spTransform( 
-                  SpatialPoints(xyFromCell(r,ix),
-                                 proj4string=CRS(argv$ffin_proj4)) 
-                                            ,CRS(argv$ffmaster_proj4))
-    }
-    if (argv$space_fun=="mean") {
-      r1<-rasterize(x=coord.new, y=rmaster, field=values[ix], fun=mean)
-    } else if (argv$space_fun=="max") {
-      r1<-rasterize(x=coord.new, y=rmaster, field=values[ix], fun=max)
-    } else if (argv$space_fun=="min") {
-      r1<-rasterize(x=coord.new, y=rmaster, field=values[ix], fun=min)
-    }
-    if (argv$master_mask) r1<-mask(r1,mask=rmaster)
-    if (argv$master_trim) r1<-trim(r1)
-    r<-r1
-    rm(r1,coord.new)
-    if (!any(!is.na(values<-getValues(r)))) {
-      print(paste("warning: all NAs after upscale"))
-      next
-    }
+  if ( argv$upscale) {
+    r <- spider_upscale()
+    if ( is.null(r)) next
   }
   #----------------------------------------------------------------------------
   # Downscale to finer grid
-  if (argv$downscale) {
-    if (!exists("rmaster")) {
-      rmaster<-read_griddeddata("master")
-      if (is.null(rmaster)) boom("ERROR problem reading master grid")
-    }
-    if (!(argv$space_fun %in% c("ngb","bilinear"))) 
-      boom("--fun must be either \"ngb\" or \"bilinear\"")
-    if (argv$ffin_proj4==argv$ffmaster_proj4) {
-      r1<-resample(r, rmaster, method=argv$space_fun)
-    } else {
-      r1<-projectRaster(r, rmaster, method=argv$space_fun)
-    }
-    if (argv$master_mask) r1<-mask(r1,mask=rmaster)
-    r<-r1
-    rm(r1)
-    if (!any(!is.na(values<-getValues(r)))) {
-      print(paste("warning: all NAs after downscale"))
-      next
-    }
+  if ( argv$downscale) {
+    r <- spider_downscale()
+    if ( is.null(r)) next
   }
   #----------------------------------------------------------------------------
   # Interpolation over master grid based on a non-linear vertical profile
-  if (argv$latte) { # LATTE - interpoLATion verTical profilE
-    if (!exists("rmaster")) {
-      cat("read master...")
-      rmaster<-read_griddeddata("master")
-      if (is.null(rmaster)) boom("ERROR problem reading master grid")
-      if (!any(!is.na(values_ma<-getValues(rmaster)))) {
-        print(paste("warning: all NAs for master grid file",argv$ffmaster))
-        next
-      }
-      cat("ok!\n")
-    }
-    if (!exists("rmaster_dem")) {
-      cat("read master dem...")
-      rmaster_dem<-read_griddeddata("master_dem")
-      if (is.null(rmaster_dem)) boom("ERROR problem reading master dem")
-      if (!any(!is.na(values_ma_dem<-getValues(rmaster_dem)))) {
-        print(paste("warning: all NAs for master dem file",argv$ffmasterdem))
-        next
-      }
-      # ix_ma, indexes to points that unmasked and not NAs
-      if (length(ix_ma<-which(!is.na(values_ma) & !is.na(values_ma_dem)))==0) {
-        print(paste("warning: all NAs for conjunction of master & dem files"))
-        next
-      }
-      cat("ok!\n")
-      xy_ma<-xyFromCell(rmaster,ix_ma) #dim nmaster 2
-      nmaster<-length(ix_ma)
-      xgrid_spint<-xy_ma[,1]
-      ygrid_spint<-xy_ma[,2]
-      zgrid_spint<-values_ma_dem[ix_ma]
-      yo_to_check<-rep(NA,nmaster)
-    }
-    if (!exists("r_dem")) {
-      cat("read data dem...")
-      r_dem<-read_griddeddata("data_dem")
-      if (is.null(r_dem)) boom("ERROR problem reading dem")
-      if (!any(!is.na(values_dem<-getValues(r_dem)))) {
-        print(paste("warning: all NAs for dem file",argv$ffindem))
-        next
-      }
-      rm(r_dem)
-      cat("ok!\n")
-    }
-    ix_in<-which(!is.na(values) & !is.na(values_dem))
-    if (argv$ffin_proj4==argv$ffmaster_proj4) {
-      coord.new<-xyFromCell(r,ix_in) #nobs 2
+  if ( argv$latte | 
+       argv$latte_express) {# LATTE-interpoLATion verTical profilE
+    if ( argv$latte_express) {
+      res <- latte_express( box_o_nearest_halfwidth = argv$latte_halfbox, 
+                            pmax            = argv$latte_pmax,
+                            gamma           = argv$latte_gamma,
+                            agg_fact        = argv$latte_agg_fact, 
+                            weight_dh_scale = argv$latte_weight_dh_scale)
     } else {
-      cat("coordinate conversion...")
-      coord.new<-spTransform( 
-                  SpatialPoints(xyFromCell(r,ix_in),
-                                 proj4string=CRS(argv$ffin_proj4)) 
-                                            ,CRS(argv$ffmaster_proj4))
-      coord.new<-attr(coord.new,"coords") #nobs 2
-      cat("ok!\n")
+      res <- latte()
     }
-    # 
-    nobs<-length(ix_in)
-    xobs_spint<-coord.new[,1]
-    yobs_spint<-coord.new[,2]
-    zobs_spint<-values_dem[ix_in]
-    yo_spint<-values[ix_in]
-    fg_min<-min(yo_spint)-as.numeric(diff(range(yo_spint)))
-    fg_max<-max(yo_spint)+as.numeric(diff(range(yo_spint)))
-    cat("who ordered latte?...")
-    if (!is.na(argv$cores)) {
-      arr<-mcmapply(oi_var_gridpoint_by_gridpoint,
-                    1:nmaster,
-                    mc.cores=argv$cores,
-                    SIMPLIFY=T,
-                    box_o_nearest_halfwidth=argv$latte_halfbox,
-                    pmax=argv$latte_pmax,
-                    fg=argv$latte_fglab,
-                    fg_gamma=argv$latte_gamma,
-                    fg_min=fg_min,
-                    fg_max=fg_max,
-                    return_fg_only=T)
-    # no-multicores
-    } else {
-      arr<-mapply(oi_var_gridpoint_by_gridpoint,
-                  1:nmaster,
-                  SIMPLIFY=T,
-                  box_o_nearest_halfwidth=argv$latte_halfbox,
-                  pmax=argv$latte_pmax,
-                  fg=argv$latte_fglab,
-                  fg_gamma=argv$latte_gamma,
-                  fg_min=fg_min,
-                  fg_max=fg_max,
-                  return_fg_only=T)
-    }
-    cat("there you are!\n")
-    if (any(is.na(arr))) 
-      print(paste0("@@ warning: problems in regridding over ",length(which(is.na(arr))),
+    if ( any( is.na( res))) 
+      print(paste0("@@ warning: problems in regridding over ",
+                   length( which( is.na( res))),
                    " points"))
-    r<-rmaster; r[]<-NA
-    r[ix_ma]<-arr
-    if (!any(!is.na(values<-getValues(r)))) {
-      print(paste("warning: all NAs after latte"))
+    # save results in r
+    r  <- rmaster; r[]<-NA
+    ix <- which( !is.na( getValues(rmaster)) & 
+                 !is.na( getValues(rmaster_dem)))
+#    res1<-res; res<-ix_ma; res[]<-NA; res[1:length(res1)]<-res1; rm(res1)
+    r[ix]<-res
+    if ( !any( !is.na( values <- getValues(r)))) {
+      print("warning: all NAs after latte")
       next
     }
   }
   #----------------------------------------------------------------------------
   # Use the mask(s) if needed
-  if (argv$master_mask & !argv$latte & !argv$downscale & !argv$upscale) {
-    if (!exists("rmaster")) {
-      rmaster<-read_griddeddata("master")
-      if (is.null(rmaster)) boom("ERROR problem reading master grid")
-    }
-    r<-mask(r,mask=rmaster)
-    if (!any(!is.na(values<-getValues(r)))) {
+  # special case of downscaling
+  if ( argv$master_mask & 
+       !argv$latte & !argv$latte_express & !argv$downscale & !argv$upscale) {
+    r <- spider_downscale() # mask is rmaster, so this is a downscaling for us
+    if ( is.null(r)) next
+    if ( !any( !is.na( values <- getValues(r)))) {
       print(paste("warning: all NAs after mask"))
       next
     }
   }
   #
   if (argv$polygon_mask) {
-    if (!file.exists(argv$ffin_polygon_shp)) {
-      print(paste("warning: file not found",argv$ffin_polygon_shp))
-      next
-    }
-    poly<-suppressWarnings(suppressMessages(readOGR(argv$ffin_polygon_shp,argv$polygon_layer,
-           stringsAsFactors=F,verbose=F)))
-    if (as.character(poly@proj4string)!=as.character(crs(r))) poly<-spTransform(poly,crs(r))
-    if (any(!is.na(argv$polygon_ids))) {
-      pix<-which(names(poly@data)==argv$polygon_data_field)
-      if (length(pix)==0) 
-        boom(paste("Error while reading shapefile",argv$ffin_polygon_shp,
-                   "layer",argv$polygon_layer,
-                   "data field",argv$polygon_data_field,
-                   ", please use one of",toString(names(poly@data))))
-      if (length(ix<-which(poly@data[,pix] %in% as.character(argv$polygon_ids)))>0) {
-        poly<-poly[ix,]
-      } else {
-        print("warning: the shapefile doe not contain the dpscified IDs. Skip this timestep")
-        next
-      }
-    } 
-    r<-mask(r,poly)
-    if (!any(!is.na(values<-getValues(r)))) {
-      print(paste("warning: all NAs after polygon mask"))
-      next
-    }
+    r <- spider_polygon_mask()
+    if ( is.null(r)) next
   }
   #----------------------------------------------------------------------------
   # Extract a list of points
   if (argv$point_mask) {
-    if ( any(is.na(argv$point_mask_x)) | any(is.na(argv$point_mask_y)) |
-         length(argv$point_mask_x)!=length(argv$point_mask_y) |
-         length(argv$point_mask_x)!=length(argv$point_mask_labels) ) {
-      print("warning: something is wrong with the list of points")
-      print(argv$point_mask_x)
-      print(argv$point_mask_y)
-      print(argv$point_mask_labels)
-      print(any(is.na(argv$point_mask_x)))
-      print(any(is.na(argv$point_mask_y)))
-      print(length(argv$point_mask_x))
-      print(length(argv$point_mask_y))
-      print(length(argv$point_mask_labels))
-      next
-    }
-    if (argv$point_mask_proj4!=as.character(crs(r))) { 
-      coord.new<- attr( spTransform( SpatialPoints(cbind(argv$point_mask_x,
-                                                         argv$point_mask_y),
-                                                         proj4string=CRS(argv$point_mask_proj4)),
-                               crs(r)), "coords")
-      point_x<-coord.new[,1]
-      point_y<-coord.new[,2]
-    } else {
-      point_x<-argv$point_mask_x
-      point_y<-argv$point_mask_y
-    }
-    if (!any(!is.na( values<-extract(r,cbind(point_x,point_y),
-                                     method=argv$point_mask_method) ) ) ) {
-      print(paste("warning: all NAs after point mask"))
-      next
-    }
+    values <- spider_point_mask()
+    if ( is.null(r)) next
   }
   #----------------------------------------------------------------------------
   # radar data quality control
@@ -670,562 +410,193 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   #----------------------------------------------------------------------------
   # convert from equivalent_reflectivity_factor to rain rate (mm/h) 
   if (argv$reflectivity_to_precip) { 
-    r<-(10**(r/10)/200)**(5/8)
-    if (!any(!is.na(values<-getValues(r)))) {
-      print(paste("warning: all NAs after transforming reflectivity to precip"))
-      next
-    }
+    r <- spider_reflectivity_to_precip()
+    if ( is.null(r)) next
   } 
   #----------------------------------------------------------------------------
   # summary statistics 
   if (argv$summ_stat) {
-    if (length( ixvalid<-which(!is.na(values)) )>0) {
-      ncells<-NA
-      fcells<-NA
-      if (!is.na(argv$summ_stat_condition_threshold)) {
-        ixtrue<-which( !is.na(values) & 
-                       values>argv$summ_stat_condition_threshold )
-        ncells<-length(ixtrue) 
-        fcells<-length(ixtrue)/length(ixvalid)
-        if ( !is.na(argv$summ_stat_condition_ncells) &
-             ncells<argv$summ_stat_condition_ncells ) 
+    if (!exists("values")) values <- getValues( r)
+    # some values not NAs
+    if (length( ixvalid <- which(!is.na(values)) ) > 0) {
+      ncells <- NA
+      fcells <- NA
+      if ( !is.na( argv$summ_stat_condition_threshold)) {
+        ixtrue <- which( !is.na(values) & 
+                         values > argv$summ_stat_condition_threshold )
+        ncells <- length( ixtrue) 
+        fcells <- length( ixtrue) / length( ixvalid)
+        if ( !is.na( argv$summ_stat_condition_ncells) &
+             ncells < argv$summ_stat_condition_ncells ) 
           next
-        if ( !is.na(argv$summ_stat_condition_fcells) &
-             fcells<argv$summ_stat_condition_fcells ) 
+        if ( !is.na( argv$summ_stat_condition_fcells) &
+             fcells < argv$summ_stat_condition_fcells ) 
           next
       } 
+    # values are all NAs
     } else {
       next
     }
     #--------------------------------------------------------------------------
-    # argv$summ_stat_fun=="list_values"
-    if (argv$summ_stat_fun=="list_values") {
-      if (!file.exists(argv$ffout_summ_stat) | 
-          (!argv$ffout_summ_stat_append & first)) {
-        cat(file=argv$ffout_summ_stat,append=F,
-            paste0("time;label;x;y;value\n"))
-      }
-      if (any(is.na(argv$point_mask_x))) {
-        labels<-1:ncell(r)
-        xy<-xyFromCell(r,1:ncell(r))
-        x<-xy[,1]
-        y<-xy[,2]
-      } else {
-        labels<-argv$point_mask_labels
-        x<-round(argv$point_mask_x,6)
-        y<-round(argv$point_mask_y,6)
-      }
-      if ( !is.na(argv$ffout_summ_stat_proj4) & 
-           argv$ffout_summ_stat_proj4!=argv$ffin_proj4) {
-        coord.new<-attr(spTransform( 
-                        SpatialPoints(cbind(x,y),
-                                      proj4string=CRS(argv$ffin_proj4)) 
-                                                 ,CRS(argv$ffout_summ_stat_proj4)),
-                   "coords")
-        x<-coord.new[,1]
-        y<-coord.new[,2]
-      }
-      if (!is.na(argv$list_values_min)) 
-        values[which(values<argv$list_values_min)]<-argv$list_values_min_replace
-      if (!is.na(argv$list_values_max)) 
-        values[which(values>argv$list_values_max)]<-argv$list_values_max_replace
-      cat(file=argv$ffout_summ_stat,append=T,
-          paste0(t_to_read,";",
-                 labels,";",
-                 round(x,argv$list_values_coord_rounddig),";",
-                 round(y,argv$list_values_coord_rounddig),";",
-                 round(values,argv$list_values_rounddig),"\n",collapse=""))
-    #--------------------------------------------------------------------------
-    # argv$summ_stat_fun=="wave_nrgx"
-    } else if (argv$summ_stat_fun=="wave_nrgx") {
-      if (!exists("nnboot")) {
-        mindim<-min(dim(r)[1:2])
-        resx<-res(r)[1]
-        resy<-res(r)[2]
-        # number of bootstrap samples
-        nnboot<-10
-        # largest spatial scale (#cells) within the domain
-        dimdy<-2**floor(log2(mindim))
-        # number of scales 1,...,dimdy
-        nnscales<-log2(dimdy)+1
-        # scales 1,...,dimdy (#cells)
-        listscales<-2**(seq(1,nnscales)-1)*1#cell
-        # select bootstrap grids SW corners 
-        spanx<-ncol(r)-dimdy
-        spany<-nrow(r)-dimdy
-        xsw<-xmin(r)+
-             round(runif(nnboot,min=0,max=spanx))*resx
-        ysw<-ymin(r)+
-             round(runif(nnboot,min=0,max=spany))*resy
-      }
-      En2o_boot<-array(data=NA,dim=c(nnscales,nnboot))
-      for(boot in seq(1,nnboot)){
-        boots<-formatC(boot,width=2,flag="0")
-        # dimdy x dimdy grid
-        rboot_ext<-extent(xsw[boot],xsw[boot]+resx*dimdy,
-                          ysw[boot],ysw[boot]+resy*dimdy)
-        rboot<-crop(r,rboot_ext)
-        if (usemask<-any(is.na(getValues(rboot)))) {
-          rbootmask<-aggregate(rboot,fact=8,fun=mean,na.rm=F)
-          rbootmask<-disaggregate(rbootmask,fact=8)
-        }
-        obs<-as.matrix(rboot)
-        obs[is.na(obs)]<-0
-        # N= nnscales-1
-        N<-log2(dim(rboot)[1])
-        Eo.dwt<-dwt.2d(obs, wf = "haar", J = N)
-        En2o<-vector(mode="numeric",length=N)
-        for (i in 1:N) {
-          is<-formatC(i,width=2,flag="0")
-          if (usemask) {
-            ragg1<-raster(ext=rboot_ext,
-                          res=c(2**i*resx,2**i*resy),
-                          crs=crs(r), vals=NA)
-            ragg2<-ragg1; ragg3<-ragg1
-            ragg1[]<-(Eo.dwt[[1+3*(i-1)]]/2**i)**2
-            ragg2[]<-(Eo.dwt[[2+3*(i-1)]]/2**i)**2
-            ragg3[]<-(Eo.dwt[[3+3*(i-1)]]/2**i)**2
-            En2o[i] <- cellStats(mask(disaggregate(ragg1,fact=2**i),rbootmask),stat="mean",na.rm=T) + 
-                       cellStats(mask(disaggregate(ragg2,fact=2**i),rbootmask),stat="mean",na.rm=T) +
-                       cellStats(mask(disaggregate(ragg3,fact=2**i),rbootmask),stat="mean",na.rm=T) 
-            rm(ragg1,ragg2,ragg3) 
-          } else {
-            En2o[i] <- mean((Eo.dwt[[1 + 3 * (i - 1)]]/2^i)^2) + 
-                       mean((Eo.dwt[[2 + 3 * (i - 1)]]/2^i)^2) +
-                       mean((Eo.dwt[[3 + 3 * (i - 1)]]/2^i)^2)
-
-          }
-#          ragg1<-raster(ext=rboot_ext,
-#                        res=c(2**i*resx,2**i*resy),
-#                        crs=crs(r), vals=NA)
-#          ragg2<-ragg1; ragg3<-ragg1
-#          ragg1[]<-(Eo.dwt[[1+3*(i-1)]]/2**i)**2
-#          ragg2[]<-(Eo.dwt[[2+3*(i-1)]]/2**i)**2
-#          ragg3[]<-(Eo.dwt[[3+3*(i-1)]]/2**i)**2
-#          png(file=paste0("map_",boots,"_comp_",is,"_1.png"),
-#              width=800,height=800)
-#          plot(ragg1)
-#          dev.off()
-#          png(file=paste0("map_",boots,"_comp_",is,"_2.png"),
-#              width=800,height=800)
-#          plot(ragg2)
-#          dev.off()
-#          png(file=paste0("map_",boots,"_comp_",is,"_3.png"),
-#              width=800,height=800)
-#          plot(ragg3)
-#          dev.off()
-        }
-        # energies of mother wavelets
-        En2o_boot[1:N,boot]<-En2o[1:N]
-        # nnscales = N+1, energy of the father wavelet = mean(obs)**2
-        En2o_boot[(N+1),boot]<-cellStats(rboot,stat="mean",na.rm=T)**2
-#        png(file=paste0("map_",boots,".png"),width=800,height=800)
-#        plot(rboot,breaks=c(0,0.1,0.5,1,2,3,4,5,15),
-#             col=c("gray",rev(rainbow(7))))
-#        dev.off()
-#        png(file=paste0("nrgx_",boots,".png"),width=800,height=800)
-#        plot(En2o_boot[,boot],ylim=c(0,2),axes=F)
-#        axis(1,labels=listscales,at=1:nnscales)
-#        axis(2)
-#        abline(h=0)
-#        dev.off()
-      }
-      # control sum(En2o) == mean(obs^2)
-      En2o_t<-array(data=NA,dim=c(nnscales+1))
-      En2o_t[1:nnscales]<-rowMeans(En2o_boot,na.rm=T)  
-      # Total squared-energy, sum(En2o) == mean(obs^2)
-      En2o_t[(nnscales+1)]<-sum(En2o_t[1:nnscales],na.rm=T)
-      if (!file.exists(argv$ffout_summ_stat) | 
-          (!argv$ffout_summ_stat_append & first)) {
-        str<-"time;"
-        for (aux in 1:nnscales) 
-          str<-paste0(str,
-                      "En2_",
-                      formatC(listscales[aux],width=4,flag="0"),
-                      ";")
-        str<-paste0(str,"En2_tot;\n")
-        cat(file=argv$ffout_summ_stat,append=F,str)
-        rm(str,aux)
-      }
-      cat(file=argv$ffout_summ_stat,append=T,
-          paste(t_to_read,
-                gsub(",",";",toString(round(En2o_t,9))),"\n",sep=";"))
-      rm(obs,En2o_boot,En2o_t,Eo.dwt)
-    } #endif summ_stat_fun=="wave_nrgx"
-    #--------------------------------------------------------------------------
-    # argv$summ_stat_fun=="standard"
-     else if (argv$summ_stat_fun=="standard") {
-      if (!file.exists(argv$ffout_summ_stat) | 
-          (!argv$ffout_summ_stat_append & first)) {
-        cat(file=argv$ffout_summ_stat,append=F,
-            paste0("time;mean;stdev;min;",
-                   "q01;q05;q10;q20;q25;q50;q75;q80;q90;q95;q99;",
-                   "max;thr_gt;ncell;fcell\n"))
-      }
-      qvec<-as.vector(quantile(values[ixvalid],
-            probs=c(0,0.01,0.05,0.1,0.2,0.25,0.5,0.75,0.8,0.9,0.95,0.99,1)))
-      cat(file=argv$ffout_summ_stat,append=T,
-          paste0(t_to_read,";",
-                 round(mean(values[ixvalid]),3),";",
-                 round(sd(values[ixvalid]),3),";",
-                 round(qvec[1],3),";",
-                 round(qvec[2],3),";",
-                 round(qvec[3],3),";",
-                 round(qvec[4],3),";",
-                 round(qvec[5],3),";",
-                 round(qvec[6],3),";",
-                 round(qvec[7],3),";",
-                 round(qvec[8],3),";",
-                 round(qvec[9],3),";",
-                 round(qvec[10],3),";",
-                 round(qvec[11],3),";",
-                 round(qvec[12],3),";",
-                 round(qvec[13],3),";",
-                 round(argv$summ_stat_condition_threshold,4),";",
-                 round(ncells,0),";",
-                 round(fcells,4),"\n"))
-    } #endif summ_stat_fun=="standard"
-    #--------------------------------------------------------------------------
-    # argv$summ_stat_fun=="freqdist"
-     else if (argv$summ_stat_fun=="freqdist") {
-      # first time in, define variables
-      # NOTE: case of "within", num is a vector with dimension nr-1
-      #       otherwise, num is a vector with dimension nr
-      if (first) {
-        header_string<-integer(0)
-        nr<-length(argv$summ_stat_r)
-        for (i in 1:nr) {
-          if (argv$summ_stat_b=="=within" | argv$summ_stat_b=="within" |
-              argv$summ_stat_b=="within=" | argv$summ_stat_b=="=within=") {
-            if (i<nr) header_string<-paste0(header_string,
-                                            paste0(";num_",argv$summ_stat_b,"_",
-                                                   argv$summ_stat_r[i],"_",
-                                                   argv$summ_stat_r[(i+1)]))
-          } else {
-            header_string<-paste0(header_string,
-                                  paste0(";num_",argv$summ_stat_b,"_",
-                                         argv$summ_stat_r[i]))
-          }
-        }
-        header_string<-paste0(header_string,";numtot")
-        if (argv$summ_stat_b=="=within" | argv$summ_stat_b=="within" |
-            argv$summ_stat_b=="within=" | argv$summ_stat_b=="=within=") {
-          num<-vector(mode="numeric",length=(nr-1))
-        } else {
-          num<-vector(mode="numeric",length=nr)
-        }
-        num[]<-NA
-      }
-      # if required, write the file header
-      if (!file.exists(argv$ffout_summ_stat) | 
-           (!argv$ffout_summ_stat_append & first)) {
-         cat(file=argv$ffout_summ_stat,append=F,
-             paste0("time",header_string,"\n"))
-      }
-      # count the number of cases 
-      val<-getValues(r)
-      numtot<-length(which(!is.na(val)))
-      val<-val[which(!is.na(val))]
-      num[]<-NA
-      for (i in 1:nr) {
-        if ( argv$summ_stat_b %in% c("within","=within","within=","=within=") ) {
-          if (i<nr) num[i]<-score_fun(x=val,
-                                      lab="count_x",
-                                      threshold=argv$summ_stat_r[i],
-                                      threshold1=argv$summ_stat_r[(i+1)],
-                                      type=argv$summ_stat_b)
-        } else { 
-          num[i]<-score_fun(x=val,
-                            lab="count_x",
-                            threshold=argv$summ_stat_r[i],
-                            type=argv$summ_stat_b)
-        }
-      }
-      if (exists("ix")) rm(ix)
-      rm(val)
-      # output
-      data_string<-integer(0)
-      for (i in 1:nr) {
-        if (argv$summ_stat_b=="=within" | argv$summ_stat_b=="within" |
-            argv$summ_stat_b=="within=" | argv$summ_stat_b=="=within=") {
-          if (i<nr) data_string<-paste0(data_string,";",num[i])
-        } else {
-          data_string<-paste0(data_string,";",num[i])
-        }
-      }
-      data_string<-paste0(data_string,";",numtot)
-      cat(file=argv$ffout_summ_stat,append=T,
-          paste0(t_to_read,data_string,"\n"))
-    #endif summ_stat_fun=="freqdist"
-    #--------------------------------------------------------------------------
-    # argv$summ_stat_fun=="ellipsis"
-    } else if (argv$summ_stat_fun=="ellipsis") {
-      dat<-getValues(r)
-      ix<-score_fun(x=dat,
-                    lab="index_x",
-                    threshold=argv$summ_stat_r,
-                    type=argv$summ_stat_b) 
-      dat[]<-NA
-      dat[ix]<-1
-      r[]<-dat
-      r<-clump(r,directions=8,gaps=F)
-      clump_lab<-freq(r)
-      ix_clump_big<-which(!is.na(clump_lab[,1]) & clump_lab[,2]>100)
-      clump_lab_val<-clump_lab[ix_clump_big,1]
-      clump_lab_n<-clump_lab[ix_clump_big,2]
-      ix_r_clump_small<-which(!(getValues(r) %in% clump_lab_val))
-      r[ix_r_clump_small]<-NA
-      dat<-getValues(r)
-      xy<-xyFromCell(r,1:ncell(r))
-      x<-xy[,1]
-      y<-xy[,2]
-      n_clump<-length(clump_lab_val)
-      ell_x<-vector(mode="numeric",length=n_clump); ell_x[]<-NA
-      ell_y<-vector(mode="numeric",length=n_clump); ell_y[]<-NA
-      ell_smajor<-vector(mode="numeric",length=n_clump); ell_smajor[]<-NA
-      ell_sminor<-vector(mode="numeric",length=n_clump); ell_sminor[]<-NA
-      ell_smadir_eve<-vector(mode="numeric",length=n_clump); ell_smadir_eve[]<-NA
-#png(file=paste0("ellipsis_",t_to_read,".png"),width=800,height=800)
-#image(r)
-      ell_list_t<-list()
-      for (i in 1:n_clump) {
-        ixi<-which(dat==clump_lab_val[i])
-        xy<-cbind(x[ixi],y[ixi])
-        ell<-ellipsoidhull(xy)
-        ell_list_t[[i]]<-ell
-        ell_x[i]<-ell$loc[1]
-        ell_y[i]<-ell$loc[2]
-        eigenval<-eigen(ell$cov)$values
-        eigenvec<-eigen(ell$cov)$vectors
-        e <- sqrt(eigenval)
-        ell_smajor[i] <- sqrt(ell$d2) * e[1] /1000  # semi-major axis [Km]
-        ell_sminor[i] <- sqrt(ell$d2) * e[2] /1000  # semi-minor axis [Km]
-        # orientation of the ellipse: angle between the major axis and the y-axis
-        # dir=0 N-S orientation; dir=45 NE-SW; dir=90 E-W; dir=135 NW-SE; dir=180 N-S
-        ell_smadir_eve[i]<-atan2(eigenvec[1,1],eigenvec[2,1])
-        if (ell_smadir_eve[i]<0) ell_smadir_eve[i]<-ell_smadir_eve[i]+pi
-        ell_smadir_eve[i]<-ell_smadir_eve[i]/pi*180.
-#lines(predict(ell))
-      }
-      if (!exists("ell_list")) ell_list<-list()
-      ell_list[[t]]<-ell_list_t
-#dev.off()
-#next
+    # - List values in a text file
+    if ( argv$summ_stat_fun        == "list_values") {
+      res <- spider_summ_stat_list_values( first=first, time=t_to_read_ffin) 
+    # - Energy decomposition based on wavelet analysis
+    } else if ( argv$summ_stat_fun == "wave_nrgx") {
+      res <- spider_summ_stat_wave_nrgx()
+    # - Summary statistics, standard set of parameters
+    } else if ( argv$summ_stat_fun == "standard") {
+      res <- spider_summ_stat_standard( first  = first, 
+                                        ncells = ncells, fcells = fcells,
+                                        time = t_to_read_ffin)
+    # - Frequency distributions
+    } else if ( argv$summ_stat_fun == "freqdist") {
+      res <- spider_summ_stat_freqdist( first  = first)
+    # - Ellipsis, object-based summary statistics 
+    } else if ( argv$summ_stat_fun == "ellipsis") {
+      if ( !exists( "ell_list")) ell_list <- list()
+      aux <- spider_summ_stat_ellipsis()
+      if (!is.null(ell_list))
+        ell_list <- append( ell_list, aux)
+    } else if ( argv$summ_stat_fun == "gamma_parest") {
+      if ( !exists( "dat_to_gamma")) dat_to_gamma <- integer(0)
+      aux <- getValues(r)[which(!is.na(getValues(r)))]
+      dat_to_gamma <- c( dat_to_gamma, aux)
+    # - what?
+    } else {
+      boom("ERROR: summ_stat_fun not defined")
     } 
-    #endif summ_stat_fun=="ellipsis"
   } # end if summary statistics
   #----------------------------------------------------------------------------
   # prepare for verification statistics 
-  if (argv$verif) {
-    if (gridded_output) {
-      # scores that require to store the whole dataset in memory
-      if (argv$verif_metric %in% c("corr","msess","ets","a","b","c","d",
-                                   "seeps","roblinreg","quantile")) {
-        if (!exists("mat")) {
-          if (!is.na(argv$ffin_ref_template)) {
-            ix_ver<-which(!is.na(getValues(r)) & !is.na(getValues(r_ref)))
-          } else {
-            ix_ver<-which(!is.na(getValues(r)))
-          }
-          mat<-getValues(r)[ix_ver]
-          if (!is.na(argv$ffin_ref_template))
-            mat_ref<-getValues(r_ref)[ix_ver]
-          npoints<-length(mat)
-          if (!exists("rmaster")) {rmaster<-r; rmaster[]<-NA}
-        } else {
-          mat<-cbind(mat,getValues(r)[ix_ver])
-          if (!is.na(argv$ffin_ref_template))
-            mat_ref<-cbind(mat_ref,getValues(r_ref)[ix_ver])
-        }
+  if ( argv$verif) {
+    if ( gridded_output) {
+      if ( !exists( "rmaster")) { rmaster<-r; rmaster[]<-NA}
+      res <- spider_verif_grid_prepare()
+      if ( is.null( res)) next
       # scores that are computed online
+      #  dat_... dimension is the number of cells of raster "r"
+      if ( res$online) {
+        dat_mean <- res$dat_mean_up
+        dat_cont <- res$dat_cont_up
+        if ( !exists( "ix_dat")) ix_dat <- 1:ncell(r)
+        print( paste("verif & gridded output: number of cells",res$n)) 
+      # scores that require to store the whole dataset in memory
+      #  mat... matrix (number of cells, subset not NAs) x (number of times)
       } else {
-        if ( argv$verif_metric %in% c("mbias","rmsf") )
-          r<-r/r_ref
-        if ( argv$verif_metric %in% c("bias","mae","rmse") )
-          r<-r-r_ref
-        if (!exists("ix_ver")) ix_ver<-which(!is.na(getValues(r)))
-        dat<-getValues(r)[ix_ver]
-        if ( argv$verif_metric=="mae" ) 
-          dat<-abs(dat)
-        if ( argv$verif_metric %in% c("rmse","rmsf") ) 
-          dat<-dat**2
-        if (!exists("dat_mean")) {
-          if (!exists("rmaster")) {rmaster<-r; rmaster[]<-NA}
-          dat_mean<-dat
-          dat_cont<-dat
-          dat_cont[]<-NA 
-          dat_cont[!is.na(dat)]<-1
+        if ( !exists("mat")) {
+          mat    <- res$mat_col
+          ix_dat <- res$ix
+          if ( !is.na( argv$ffin_ref_template)) 
+            mat_ref <- res$mat_ref_col
         } else {
-          ix_nona<-which(!is.na(dat))
-          ix_nonas<-which(!is.na(dat) & is.na(dat_cont))
-          if (length(ix_nonas)>0) {
-            dat_cont[ix_nonas]<-0
-            dat_mean[ix_nonas]<-0
+          if ( any( !(res$ix %in% ix_dat))) {
+            print("WARNING: verif & gridded output, wrong indexes: statistics is supposed to use always the same cells")
+            next
           }
-          if (length(ix_nona)>0) {
-            dat_cont[ix_nona]<-dat_cont[ix_nona]+1
-            dat_mean[ix_nona]<-dat_mean[ix_nona]+
-                    (dat[ix_nona]-dat_mean[ix_nona])/
-                    dat_cont[ix_nona]
-          }
-          rm(ix_nona,ix_nonas)
+          mat <- cbind( mat, res$mat_col)
+          if ( !is.na( argv$ffin_ref_template)) 
+            mat_ref <- cbind(  mat_ref, res$mat_ref_col)
         }
-        rm(dat)
       }
+      rm( res)
     } # end if gridded output is TRUE
       # compute verif statistics on a step-by-step basis
       else {
-      # first time in, define variables
-      # NOTE: case of "within", num is a vector with dimension nr-1
-      #       otherwise, num is a vector with dimension nr
-      if (first) {
-        header_string<-integer(0)
-        nr<-length(argv$verif_r)
-        if (nr>0) {
-          for (i in 1:nr) {
-            if (argv$verif_b=="=within" | argv$verif_b=="within" |
-                argv$verif_b=="within=" | argv$verif_b=="=within=") {
-              if (i<nr) header_string<-paste0(header_string,
-                                              paste0(";thr_",argv$verif_b,"_",
-                                                     argv$verif_r[i],"_",
-                                                     argv$verif_r[(i+1)]))
-            } else {
-              header_string<-paste0(header_string,
-                                    paste0(";thr_",argv$verif_b,"_",
-                                           argv$verif_r[i]))
-            }
-          }
-          header_string<-paste0(header_string,";numtot")
-          if (argv$verif_b=="=within" | argv$verif_b=="within" |
-              argv$verif_b=="within=" | argv$verif_b=="=within=") {
-            score<-vector(mode="numeric",length=(nr-1))
-          } else {
-            score<-vector(mode="numeric",length=nr)
-          }
-          score[]<-NA
-        # no thresolds
-        } else {
-          header_string<-paste0(";score;numtot")
-          score<-NA
-        }
-      }
-      # if required, write the file header
-      if (!file.exists(argv$ffout_verif) | 
-           (!argv$ffout_verif_append & first)) {
-         cat(file=argv$ffout_verif,append=F,
-             paste0("time",header_string,"\n"))
-      }
-      # compute score
-      val<-getValues(r)
-      ref<-getValues(r_ref)
-      numtot<-length(aux<-which(!is.na(val) & !is.na(ref)))
-      val<-val[ix]
-      ref<-ref[ix]; rm(ix)
-      # use thresholds if needed
-      if (nr>0) {
-        score[]<-NA
-        for (i in 1:nr) {
-          if ( argv$verif_b %in% c("within","=within","within=","=within=") ) {
-            if (i<nr) score[i]<-score_fun(x=val,
-                                          x_ref=ref,
-                                          lab=argv$verif_metric,
-                                          threshold=argv$verif_r[i],
-                                          threshold1=argv$verif_r[(i+1)],
-                                          type=argv$verif_b)
-          } else { 
-            score[i]<-score_fun(x=val,
-                                x_ref=ref,
-                                lab=argv$verif_metric,
-                                threshold=argv$verif_r[i],
-                                type=argv$verif_b)
-          }
-        }
-      } else {
-        score<-score_fun(x=val,
-                         x_ref=ref,
-                         lab=argv$verif_metric)
-      } # end compute score
-      rm(val,ref)
-      # output
-      if (nr>0) {
-        data_string<-integer(0)
-        for (i in 1:nr) {
-          if ( argv$verif_b %in% c("within","=within","within=","=within=") ) {
-            if (i<nr) data_string<-paste0(data_string,";",score[i])
-          } else {
-            data_string<-paste0(data_string,";",score[i])
-          }
-        }
-        data_string<-paste0(data_string,";",numtot)
-      } else {
-        data_string<-paste0(score,";",numtot)
-      }
-      cat(file=argv$ffout_verif,append=T,
-          paste0(t_to_read,";",data_string))
+      res <- spider_verif_online( first = first, 
+                                  time  = t_to_read_ffin)
     } # end if gridded_output yes/no
   } # end if verif
   #----------------------------------------------------------------------------
+  # prepare for gridded climate indices 
+  if ( argv$gridclimind) {
+    if ( !exists( "rmaster")) { rmaster<-r; rmaster[]<-NA}
+    res <- spider_gridclimind_prepare()
+    if ( is.null( res)) next
+    # scores that are computed online
+    #  dat_... dimension is the number of cells of raster "r"
+    if ( res$online) {
+      dat_aggr <- res$dat_aggr_up
+      dat_cont <- res$dat_cont_up
+      if ( !exists( "ix_dat")) ix_dat <- 1:ncell(r)
+      print( paste("gridclimind & gridded output: number of cells",res$n)) 
+    # scores that require to store the whole dataset in memory
+    #  mat... matrix (number of cells, subset not NAs) x (number of times)
+    } else {
+      if ( !exists("mat")) {
+        mat    <- res$mat_col
+        ix_dat <- res$ix
+        if ( !is.na( argv$ffin_ref_template)) 
+          mat_ref <- res$mat_ref_col
+      } else {
+        if ( any( !(res$ix %in% ix_dat))) {
+          print("WARNING: verif & gridded output, wrong indexes: statistics is supposed to use always the same cells")
+          next
+        }
+        mat <- cbind( mat, res$mat_col)
+        if ( !is.na( argv$ffin_ref_template)) 
+          mat_ref <- cbind(  mat_ref, res$mat_ref_col)
+      }
+    }
+    rm( res)
+  } # end if gridclimind
+  #----------------------------------------------------------------------------
+  # prepare for temporal trend 
+  if ( argv$temporal_trend) {
+    if ( !exists( "rmaster")) { rmaster<-r; rmaster[]<-NA}
+    res <- spider_temporal_trend_prepare()
+    if ( is.null( res)) next
+    # scores that are computed online
+    #  dat_... dimension is the number of cells of raster "r"
+    if ( res$online) {
+      dat_aggr <- res$dat_aggr_up
+      dat_cont <- res$dat_cont_up
+      if ( !exists( "ix_dat")) ix_dat <- 1:ncell(r)
+      print( paste("gridclimind & gridded output: number of cells",res$n)) 
+    # scores that require to store the whole dataset in memory
+    #  mat... matrix (number of cells, subset not NAs) x (number of times)
+    } else {
+      if ( !exists("mat")) {
+        mat    <- res$mat_col
+        ix_dat <- res$ix
+        if ( !is.na( argv$ffin_ref_template)) 
+          mat_ref <- res$mat_ref_col
+      } else {
+        if ( any( !(res$ix %in% ix_dat))) {
+          print("WARNING: verif & gridded output, wrong indexes: statistics is supposed to use always the same cells")
+          next
+        }
+        mat <- cbind( mat, res$mat_col)
+        if ( !is.na( argv$ffin_ref_template)) 
+          mat_ref <- cbind(  mat_ref, res$mat_ref_col)
+      }
+    }
+    rm( res)
+  } # end if temporal trend
+  #----------------------------------------------------------------------------
   # store in a raster stack 
-  if (gridded_output & !argv$verif & !argv$time_aggregation_online)  {
-    if (!exists("s"))  {
-      s <- r
+  if ( gridded_output & !argv$verif & !argv$gridclimind) {
+    if ( !exists( "s")) {
+      s <- r 
+    # online time aggregation
+    } else if ( argv$time_aggregation_online) {
+      if ( argv$time_fun == "sum")  s <- s + r
+    # save r in a rasterStack
     } else {
       s <- stack( s, r)
     }
-  } else if (gridded_output & !argv$verif & argv$time_aggregation_online) {
-    if (!exists("s"))  {
-      s <- r
-    } else {
-      if (argv$time_fun=="sum")  {
-        sval <- getValues(s); rval <- getValues(r)
-        ix_aux <- which(!is.na(sval) & !is.na(rval) & is.finite(sval) & is.finite(rval))
-        if ( length( ix_aux)>0) s[ix_aux] <- sval[ix_aux] + rval[ix_aux]
-        rm( sval, rval, ix_aux)
-      }
-    }
   }
   #----------------------------------------------------------------------------
-  # plot
-  if (argv$pam) {
-     ffout_png<-replaceDate(string=argv$ffout_pam_template,
-                            date.str=format(tseq[t],
-                                      format=argv$ffin_date.format,tz="GMT"),
-                            year_string=argv$year_string,
-                            month_string=argv$month_string,
-                            day_string=argv$day_string,
-                            hour_string=argv$hour_string,
-                            sec_string=argv$sec_string,
-                            format=argv$ffin_date.format)
-    pam(ffout=list(name=ffout_png,
-                   width=argv$pam_width,
-                   height=argv$pam_height),
-        borders_par=list(name=argv$pam_ffshp_borders,
-                         layer=argv$pam_ffshp_borders_layer,
-                         lwd=argv$pam_ffshp_borders_lwd),
-        fig_par=list(mar=c(.5,.5,.5,.5),
-                     xlim=argv$pam_xlim,
-                     ylim=argv$pam_ylim,
-                     fool_coltab=argv$pam_fool_coltab,
-                     fool_coltab_rev=argv$pam_fool_coltab_rev,
-                     fool_path=argv$pam_fool_path,
-                     fool_breaks=argv$pam_fool_breaks,
-                     breaks=argv$pam_breaks,
-                     disagg_fact=argv$pam_disagg_fact,
-                     colors=argv$pam_colors),
-        leg_par=list(type=argv$pam_leg_type,
-                     nticks=argv$pam_leg_cbar_nticks,
-                     height=argv$pam_leg_height,
-                     dig=argv$pam_leg_dig),
-        raster_to_plot=r
-       ) 
-  }
+  # plot a map
+  if (argv$pam) aux <- spider_pam( time=tseq[t])
   #----------------------------------------------------------------------------
   # update counters of valid timesteps
-  n<-n+1
-  t_ok[n]<-t
-  rm(r,values)
-  if (exists("r_ref")) rm(r_ref)
-  first<-F
+#  if (exists("values")) rm(values)
+  if (exists("r"))      rm(r)
+  if (exists("r_ref"))  rm(r_ref)
+  n       <- n+1
+  t_ok[n] <- t
+  first   <- F
 } # MAIN LOOP @@END@@
 #
 if (argv$debug) {
@@ -1235,9 +606,12 @@ if (argv$debug) {
 }
 #------------------------------------------------------------------------------
 # RData output file
-if (argv$summ_stat_fun=="ellipsis") {
-  save(file=argv$ffout_summ_stat,
-       ell_list,tseq,t_ok,n)
+if ( argv$summ_stat_fun == "ellipsis") 
+  save( file=argv$ffout_summ_stat, ell_list,tseq, t_ok, n)
+if ( argv$summ_stat_fun == "gamma_parest") {
+  dat_to_gamma[which(dat_to_gamma<0)] <- 0
+  res <- gamma_get_shape_rate_from_dataset_constrOptim( dat_to_gamma)
+  save( file=argv$ffout_summ_stat, dat_to_gamma, res)
 }
 #------------------------------------------------------------------------------
 # Aggregate gridpoint-by-gridpoint over time
@@ -1245,30 +619,32 @@ if (gridded_output)  {
   #----------------------------------------------------------------------------
   # fill the gaps
   if (argv$fill_gaps) {
-    imiss<-which(!(1:n_tseq %in% t_ok))
-    nmiss<-length(imiss)
-    if (nmiss>0) {
-      if (any(diff(imiss)==1) & argv$stop_if_two_gaps) 
-        boom(paste("ERROR two consecutive gaps found"))
-      r<-raster(s,layer=1)
+    imiss <- which(!(1:n_tseq %in% t_ok))
+    nmiss <- length(imiss)
+    if ( nmiss > 0) {
+      if ( any( diff( imiss)==1) & argv$stop_if_two_gaps) 
+        boom( paste( "ERROR two consecutive gaps found"))
+      r <- raster( s, layer=1)
       for (i in imiss) {
-        r[]<-NA
-        iprev<-ifelse(i==1,2,(i-1))
-        inext<-ifelse(i==n_tseq,(n_tseq-1),(i+1))
-        r[]<-(getValues(raster(s,layer=iprev))+getValues(raster(s,layer=inext)))/2
-        if (!any(!is.na(getValues(r))) & argv$stop_if_two_gaps )
-          boom(paste("ERROR two consecutive gaps found"))
-        s<-stack(s,r)
-        n<-n+1
-        t_ok[n]<-i
+        r[] <- NA
+        iprev <- ifelse(      i==1,          2, (i-1))
+        inext <- ifelse( i==n_tseq, (n_tseq-1), (i+1))
+        r[]  <- ( getValues( raster( s, layer=iprev)) + 
+                  getValues( raster( s, layer=inext))) / 2
+        if ( !any( !is.na(getValues( r))) & argv$stop_if_two_gaps )
+          boom( paste( "ERROR two consecutive gaps found"))
+        s <- stack( s, r)
+        n <- n + 1
+        t_ok[n] <- i
       }
     }
-    if (exists("r")) rm(r,i,iprev,inext)
-    rm(imiss,nmiss)
+    if ( exists( "r")) rm( r, i, iprev, inext)
+    rm( imiss, nmiss)
   } # end fill the gaps
   #----------------------------------------------------------------------------
   # time aggregation
-  if (argv$time_aggregation & !argv$time_aggregation_online) {
+  if (  argv$time_aggregation & 
+       !argv$time_aggregation_online) {
     if ((n/n_tseq)>=argv$frac) {
       # set weights
       weights_aux<-suppressWarnings(
@@ -1285,10 +661,10 @@ if (gridded_output)  {
       # case of all weights = 1
       if (!any(weights!=1)) {
         #---------------------------------------------------------------------
-        if (argv$time_fun=="sum")  { r<-sum(s) } 
-        else if (argv$time_fun=="mean") { r<-mean(s,na.rm=T) }
-        else if (argv$time_fun=="max")  { r<-max(s,na.rm=T) }
-        else if (argv$time_fun=="min")  { r<-min(s,na.rm=T) }
+        if (argv$time_fun=="sum")  { r<-sum(s,na.rm=argv$fun_narm) } 
+        else if (argv$time_fun=="mean") { r<-mean(s,na.rm=argv$fun_narm) }
+        else if (argv$time_fun=="max")  { r<-max(s,na.rm=argv$fun_narm) }
+        else if (argv$time_fun=="min")  { r<-min(s,na.rm=argv$fun_narm) }
         else if (argv$time_fun=="count" | argv$time_fun=="freq")  {
           if (length(argv$r)>1) { 
             threshold<-argv$r[1]
@@ -1303,28 +679,28 @@ if (gridded_output)  {
           mat<-array(data=NA,dim=c(npoints,nlayers(s))) 
           for (l in 1:nlayers(s)) mat[,l]<-getValues(subset(s,subset=l))[ix]
           if (!is.na(argv$cores)) {
-            dat<-mcmapply(score_fun,
-                          1:npoints,
-                          mc.cores=argv$cores,
-                          SIMPLIFY=T, 
-                          lab="count_x",
-                          threshold=threshold,
-                          threshold1=threshold1,
-                          type=type)
+            dat <- mcmapply( score_fun,
+                             1:npoints,
+                             mc.cores   = argv$cores,
+                             SIMPLIFY   = T, 
+                             lab        = "count_x",
+                             threshold  = threshold,
+                             threshold1 = threshold1,
+                             type       = type)
           # no-multicores
           } else {
-            dat<-mapply(score_fun,
-                        1:npoints,
-                        SIMPLIFY=T,
-                        lab="count_x",
-                        threshold=threshold,
-                        threshold1=threshold1,
-                        type=type)
+            dat <- mapply( score_fun,
+                           1:npoints,
+                           SIMPLIFY   = T,
+                           lab        = "count_x",
+                           threshold  = threshold,
+                           threshold1 = threshold1,
+                           type       = type)
           }
-          r<-subset(s,subset=1)
-          r[]<-NA
-          if (argv$time_fun=="count") {r[ix]<-dat} else {r[ix]<-dat/nlayers(s)}
-          rm(mat,dat,ix)
+          r <- subset(s,subset=1)
+          r[] <- NA
+          if ( argv$time_fun=="count") {r[ix]<-dat} else {r[ix]<-dat/nlayers(s)}
+          rm( mat, dat, ix)
         }
         #---------------------------------------------------------------------
         else if (argv$time_fun=="radar_mean")  {
@@ -1422,9 +798,9 @@ if (gridded_output)  {
           if (argv$time_fun=="sum")  {
             dat_res[ix_nona]<-dat_res[ix_nona]+aux
           } else if (argv$time_fun=="max") {
-            dat_res[ix_nona]<-pmax(dat_res[ix_nona],aux,na.rm=T)
+            dat_res[ix_nona]<-pmax(dat_res[ix_nona],aux,na.rm=argv$fun_narm)
           } else if (argv$time_fun=="min") {
-            dat_res[ix_nona]<-pmin(dat_res[ix_nona],aux,na.rm=T)
+            dat_res[ix_nona]<-pmin(dat_res[ix_nona],aux,na.rm=argv$fun_narm)
           } else if (argv$time_fun=="mean") {
             dat_res[ix_nona]<-dat_res[ix_nona]+aux
           }
@@ -1452,72 +828,176 @@ if (gridded_output)  {
     if (argv$verif_metric %in% c("corr","msess","ets","a","b","c","d",
                                  "seeps","roblinreg","quantile")) {
       if (argv$verif_metric=="corr") {
-        threshold<-NA
-        threshold1<-NA
-        type<-argv$verif_corr_method
+        threshold  <- NA
+        threshold1 <- NA
+        type       <- argv$verif_corr_method
       } else if (argv$verif_metric=="msess") {
-        threshold<-NA
-        threshold1<-NA
-        type<-NA
+        threshold  <- NA
+        threshold1 <- NA
+        type       <- NA
       } else if (argv$verif_metric=="seeps") {
-        threshold<-argv$verif_seeps_threshold
-        threshold1<-argv$verif_seeps_threshold
-        type<-argv$verif_seeps_type
+        threshold  <- argv$verif_seeps_threshold
+        threshold1 <- argv$verif_seeps_threshold
+        type       <- argv$verif_seeps_type
       } else if (argv$verif_metric=="roblinreg") {
-        threshold<-argv$verif_roblinreg_threshold
-        threshold1<-argv$verif_roblinreg_threshold
-        type<-argv$verif_roblinreg_type
+        threshold  <- argv$verif_roblinreg_threshold
+        threshold1 <- argv$verif_roblinreg_threshold
+        type       <- argv$verif_roblinreg_type
       } else if (argv$verif_metric=="quantile") {
-        threshold<-argv$which_quantile
-        threshold1<-NA
-        type<-NA
+        threshold  <- argv$which_quantile
+        threshold1 <- NA
+        type       <- NA
       } else if (argv$verif_metric %in% c("a","b","c","d","ets")) {
-        threshold<-argv$verif_contab_threshold
-        threshold1<-argv$verif_contab_threshold1
-        type<-argv$verif_contab_type
+        threshold  <- argv$verif_contab_threshold
+        threshold1 <- argv$verif_contab_threshold1
+        type       <- argv$verif_contab_type
       }
-      if (!is.na(argv$cores)) {
-        dat_mean<-mcmapply(score_fun,
-                           1:npoints,
-                           mc.cores=argv$cores,
-                           SIMPLIFY=T, 
-                           lab=argv$verif_metric,
-                           threshold=threshold,
-                           threshold1=threshold1,
-                           type=type)
+      npoints <- dim(mat)[1]
+      if ( !is.na( argv$cores)) {
+        dat_mean <- mcmapply( score_fun,
+                              1:npoints,
+                              mc.cores   = argv$cores,
+                              SIMPLIFY   = T, 
+                              lab        = argv$verif_metric,
+                              threshold  = threshold,
+                              threshold1 = threshold1,
+                              type       = type)
       # no-multicores
       } else {
-        dat_mean<-mapply(score_fun,
-                         1:npoints,
-                         SIMPLIFY=T,
-                         lab=argv$verif_metric,
-                         threshold=threshold,
-                         threshold1=threshold1,
-                         type=type)
+        dat_mean <- mapply( score_fun,
+                            1:npoints,
+                            SIMPLIFY   = T,
+                            lab        = argv$verif_metric,
+                            threshold  = threshold,
+                            threshold1 = threshold1,
+                            type       = type)
       }
       if (exists("mat")) rm(mat)
       if (exists("mat_ref")) rm(mat_ref)
-      if (exists("mat_ref_mean")) rm(mat_ref_mean)
-      dat_cont<-dat_mean
-      dat_cont[]<-n
+      dat_cont   <- dat_mean
+      dat_cont[] <- n
     } else if (argv$verif_metric %in% c("rmse","rmsf")) {
-      dat_mean<-sqrt(dat_mean)
+      dat_mean <- sqrt(dat_mean)
     }
     # define r again
-    r<-rmaster
-    rm(rmaster)
-    ix<-which(!is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
-    if (length(ix)>0) r[ix_ver[ix]]<-dat_mean[ix]
-    if (exists("dat_mean")) rm(dat_mean)
-    if (exists("dat_cont")) rm(dat_cont)
-    if (exists("ix_ver")) rm(ix_ver)
-    if (exists("ix")) rm(ix)
-  }
+    r <- rmaster
+    rm( rmaster)
+    r[]<-NA
+    ix <- which( !is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
+    if ( length(ix)>0) r[ix_dat[ix]] <- dat_mean[ix]
+    if ( exists( "dat_mean")) rm(dat_mean)
+    if ( exists( "dat_cont")) rm(dat_cont)
+    if ( exists( "ix_dat"))   rm(ix_dat)
+    if ( exists( "ix"))       rm(ix)
+  } # end verification
+  #----------------------------------------------------------------------------
+  # gridded climate indices 
+  if ( argv$gridclimind) {
+    # currently, gridded climate indices are compute online
+    # define r again
+    r <- rmaster
+    rm( rmaster)
+    r[] <- NA
+    ix <- which( !is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
+    if ( length(ix)>0) r[ix_dat[ix]] <- dat_aggr[ix]
+    if ( exists( "dat_aggr")) rm(dat_aggr)
+    if ( exists( "dat_cont")) rm(dat_cont)
+    if ( exists( "ix_dat"))   rm(ix_dat)
+    if ( exists( "ix"))       rm(ix)
+  } # end gridclimind
+  #----------------------------------------------------------------------------
+  # temporal trends 
+  if (argv$temporal_trend) {
+    if ( argv$temporal_trend_elab %in% c( "Theil_Sen_regression", 
+                                          "Mann_Kendall_trend_test")) {
+      npoints <- dim(mat)[1]
+      if ( !is.na( argv$cores)) {
+        res <- mcmapply( temporal_trends_fun,
+                         1:npoints,
+                         mc.cores   = argv$cores,
+                         SIMPLIFY   = T, 
+                         MoreArgs   = list( lab = argv$temporal_trend_elab))
+      # no-multicores
+      } else {
+        res <- mapply( temporal_trends_fun,
+                       1:npoints,
+                       SIMPLIFY   = T, 
+                       MoreArgs   = list( lab = argv$temporal_trend_elab))
+      }
+      if (exists("mat")) rm(mat)
+      if (exists("mat_ref")) rm(mat_ref)
+      dat_cont <- res[3,]
+      if ( argv$temporal_trend_elab == "Mann_Kendall_trend_test") {
+        # Benjamini‐Hochberg meta test of the p-values used to assess statistical significance
+        # REF: Wilks (2019) p. 195
+        # Hypothesis testing (problem of test multiplicity, assessing statistical significance). Simplyfing a bit: H0(j)=no-trend at the j-th point; return TRUE(1) if H0(j) can be rejected with the preset global false discovery rate; return FALSE(0) if H0(j) cannot be rejected. The threshold used to assess significance varies from point to point. Results of individual tests are regarded as significant if the corresponding H0 is TRUE(1).
+        p_values <- res[2,]
+        trend_significance <- p_values; trend_significance[] <- NA
+        p_values_adj       <- p_values; p_values_adj[]       <- NA
+        if ( (np <- length( ixp <- which( !is.na( p_values)))) > 0) {
+          p_values_adj[ixp] <- p.adjust( p_values[ixp], method="BH")
+          trend_significance[ixp] <- p_values_adj[ixp] <= argv$temporal_trend_FDR
+        }
+      }
+    }
+    # prepare for output
+    r <- rmaster
+    rm( rmaster)
+    r[]<-NA
+    ix <- which( !is.na( dat_cont) & ( dat_cont / n_tseq) >= argv$frac)
+    if ( length(ix)>0) {
+      r1 <- r
+      r1[ix_dat[ix]] <- res[1,ix]; r <- r1; r1[] <- NA
+      if ( argv$temporal_trend_elab == "Mann_Kendall_trend_test") {
+        r1[ix_dat[ix]] <- p_values_adj[ix]; r <- stack( r, r1); r1[] <- NA
+      } else {
+        r1[ix_dat[ix]] <- res[2,ix]; r <- stack( r, r1); r1[] <- NA
+      }
+      r1[ix_dat[ix]] <- res[3,ix]; r <- stack( r, r1); r1[] <- NA
+      if ( argv$temporal_trend_elab == "Mann_Kendall_trend_test") {
+        r1[ix_dat[ix]] <- as.numeric(trend_significance[ix]); r <- stack( r, r1)
+      }
+    } else {
+      r1 <- r
+      r <- stack( r, r1); r <- stack( r, r1); r <- stack( r, r1)
+      if ( argv$temporal_trend_elab == "Mann_Kendall_trend_test")
+        r <- stack( r, r1)
+    }
+    rm( r1)
+    if ( exists( "res"))      rm(res)
+    if ( exists( "dat_cont")) rm(dat_cont)
+    if ( exists( "ix_dat"))   rm(ix_dat)
+    if ( exists( "ix"))       rm(ix)
+    if ( exists( "p_values_adj")) rm(p_values_adj)
+    if ( exists( "p_values"))     rm(p_values)
+    if ( exists( "trend_significance")) rm(trend_significance)
+  } # end temporal_trend
   #-----------------------------------------------------------------------------
-  # Gridded output
+  # Gridded output (not in a function to save memory)
   # adjust
   if ( !exists("r")) r <- s
   if (  exists("s")) rm(s)
+  if (argv$temporal_trend) {
+    if ( argv$temporal_trend_elab == "Theil_Sen_regression") {
+      argv$ffout_varname         <- c( "a", "b", "n")
+      argv$ffout_varlongname     <- c( "estimate of the intercept of the temporal trend using Theil-Sen regression",
+                                       "estimate of the slope of the temporal trend using Theil-Sen regression",
+                                       "number of points used in the elaboration")
+      argv$ffout_varstandardname <- c( "intercept", "slope", "counter")
+      argv$ffout_varversion      <- c( "1.0", "1.0", "1.0")
+      argv$ffout_diground        <- 4
+    } else if ( argv$temporal_trend_elab ==  "Mann_Kendall_trend_test") {
+      argv$ffout_varname         <- c( "z", "p_value", "n", "trend")
+      argv$ffout_varlongname     <- c( "standard Gaussian value Mann-Kendall trend test",
+                                       "p-value Mann-Kendall trend test adjusted using Benjamini‐Hochberg method",
+                                       "number of points used in the elaboration",
+                                       paste0("trend significance with FDR=",
+                                              round( argv$temporal_trend_FDR,3)))
+      argv$ffout_varstandardname <- c( "standard_Gaussian_value", "p_value", "counter","hypothesis_testing")
+      argv$ffout_varversion      <- c( "1.0", "1.0", "1.0", "1.0")
+      argv$ffout_diground        <- 6
+    }
+  }
   # write
   xy <- xyFromCell( r, 1:ncell(r))
   x  <- sort( unique( xy[,1]))
@@ -1528,10 +1008,16 @@ if (gridded_output)  {
     for (i in 1:nlayers(r)) 
       grid[,,i] <- matrix( data=subset( r, subset=i), 
                            ncol=length(y), nrow=length(x))
-    if ( any(is.na(tseq_out))) {
-      date_out <- format( tseq[t_ok], "%Y%m%d%H%M", tz="UTC")
+    if (argv$temporal_trend) {
+      date_out <- format( strptime( date_out,
+                                    date_out.format,tz="UTC"),
+                                    "%Y%m%d%H%M", tz="UTC")
     } else {
-      date_out <- format( tseq_out[2:n_tseq_out], "%Y%m%d%H%M", tz="UTC")
+      if ( any(is.na(tseq_out))) {
+        date_out <- format( tseq[t_ok], "%Y%m%d%H%M", tz="UTC")
+      } else {
+        date_out <- format( tseq_out[2:n_tseq_out], "%Y%m%d%H%M", tz="UTC")
+      }
     }
   } else {
     grid     <- array(  data=NA, dim=c(length(x), length(y)))
@@ -1540,12 +1026,23 @@ if (gridded_output)  {
                                   date_out.format,tz="UTC"),
                                   "%Y%m%d%H%M", tz="UTC")
   }
-  r.list[[1]] <- grid
+  if (argv$temporal_trend) {
+    for (i in 1:nlayers(r))  r.list[[i]] <- grid[,,i]
+  } else {
+    r.list[[1]] <- grid
+  }
   rm( grid, r)
-  time_bnds <- array( format( rev( seq(
-                strptime( date_out, "%Y%m%d%H%M", tz="UTC"),
-                          length=2, by=argv$time_bnds_string)),
-                format="%Y%m%d%H%M", tz="UTC"), dim=c(1,2))
+  if ( any( is.na( argv$time_bnds_string_as_two_dates))) {
+    time_bnds <- array( format( rev( seq(
+                  strptime( date_out, "%Y%m%d%H%M", tz="UTC"),
+                            length=2, by=argv$time_bnds_string)),
+                  format="%Y%m%d%H%M", tz="UTC"), dim=c(1,2))
+  } else {
+    time_bnds <- array( format( 
+       strptime( argv$time_bnds_string_as_two_dates, "%Y%m%d%H%M", tz="UTC"),
+                 format="%Y%m%d%H%M", tz="UTC"), dim=c(1,2))
+
+  }
   out <- write_dotnc(grid.list = r.list,
                      times     = date_out,
                      file.name = argv$ffout,
@@ -1576,4 +1073,4 @@ if (gridded_output)  {
 } # endif gridded_output
 #------------------------------------------------------------------------------
 # Normal exit
-q(status=0) 
+rip( str="Normal Exit", code=0, t0=t0)
