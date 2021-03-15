@@ -1025,6 +1025,10 @@ if (!is.na(argv$gridded_dqc.max_pad))
 if (!is.na(argv$gridded_dqc.outlier_pad)) 
   argv$gridded_dqc.outlier_pad<-as.numeric(gsub("_","-",
                                 argv$gridded_dqc.outlier_pad))
+argv$gridded_dqc.outlier_pad <- as.numeric( argv$gridded_dqc.outlier_pad)
+argv$gridded_dqc.min_pad <- as.numeric( argv$gridded_dqc.min_pad)
+argv$gridded_dqc.max_pad <- as.numeric( argv$gridded_dqc.max_pad)
+argv$gridded_dqc.clump_pad <- as.numeric( argv$gridded_dqc.clump_pad)
 #
 if (is.na(argv$space_fun)) argv$space_fun<-argv$fun
 if (is.na(argv$time_fun)) argv$time_fun<-argv$fun

@@ -260,152 +260,23 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   #----------------------------------------------------------------------------
   # radar data quality control
   if (argv$metno_radar_dqc) {
-    var_dqcrad <- c( "block_percent",
-                     "is_seaclutter",
-                     "is_groundclutter",
-                     "is_otherclutter",
-                     "is_lowele",
-                     "is_highele")
-    thr  <- c(    50,    1,    1,    1,    0,    1)
-    cond <- c( "geq", "eq", "eq", "eq", "eq", "eq") 
-    nv_dqcrad<-length(var_dqcrad)
-    for (v in 1:nv_dqcrad) {   
-      u<-read_griddeddata("data",var=var_dqcrad[v])
-      if (is.null(u)) {
-        print(paste("warning: problem reading radar dqc var=",var_dqcrad[v]))
-        next
-      }
-      if (!any(!is.na(values_u<-getValues(u)))) {
-        print(paste("warning: all NAs for  radar dqc var=",var_dqcrad[v]))
-        next
-      }
-      if ( cond[v] == "eq") {
-        r[which(getValues(u) == thr[v])] <- NA
-      } else if ( cond[v] == "geq") {
-        r[which(getValues(u) >= thr[v])] <- NA
-      } else if ( cond[v] == "leq") {
-        r[which(getValues(u) <= thr[v])] <- NA
-      } else if ( cond[v] == "gt") {
-        r[which(getValues(u) > thr[v])] <- NA
-      } else if ( cond[v] == "lt") {
-        r[which(getValues(u) < thr[v])] <- NA
-      }
-    } # end for v
-    if (!any(!is.na(values<-getValues(r)))) {
-      print(paste("warning: all NAs after radar dqc"))
-      next
-    }
+    r <- spider_metno_radar_dqc( ffin=ffin, t_to_read=t_to_read_ffin)
+    if ( is.null(r)) next
   } 
   #----------------------------------------------------------------------------
   # data quality control 
   if ( argv$gridded_dqc) {
-    # check for unplausible values
-    if ( !is.na( argv$gridded_dqc.min) & !is.na( argv$gridded_dqc.max)) {
-      rval <- getValues(r)
-      r[which(rval<argv$gridded_dqc.min)] <- argv$gridded_dqc.min_pad
-      r[which(rval>argv$gridded_dqc.max)] <- argv$gridded_dqc.max_pad
-      rm( rval)
-    }
-    # remove small patches of connected cells
+    # range check_ check for unplausible values
+    if ( !is.na( argv$gridded_dqc.min) & 
+         !is.na( argv$gridded_dqc.max)) 
+      r <- spider_griddqc_range_check()
+    # check for holes in the field: remove small patches of connected cells
     if ( !any( is.na( argv$gridded_dqc.clump_r)) & 
-         !any( is.na( argv$gridded_dqc.clump_n))) {
-      rval <- getValues(r)
-      suppressPackageStartupMessages( library( "igraph"))
-      for (i in 1:length(argv$gridded_dqc.clump_r)) {
-        raux<-r
-        if ( any( rval <= argv$gridded_dqc.clump_r[i])) 
-          raux[which(rval<=argv$gridded_dqc.clump_r[i])]<-NA
-        rclump<-clump(raux)
-        fr<-freq(rclump)
-        ix<-which( !is.na(fr[,2]) & 
-                   fr[,2]<=argv$gridded_dqc.clump_n[i] )
-        if (length(ix)>0) {
-          rval[getValues(rclump) %in% fr[ix,1]]<-argv$gridded_dqc.clump_pad[i]
-          r[]<-rval
-        }
-        rm(raux,fr,ix,rclump)
-      }
-    }
-    if (!is.na(argv$gridded_dqc.outlier_aggfact)) {
-      # c. remove outliers. Check for outliers in square boxes
-      t0a<-Sys.time()
-      rval<-getValues(r)
-      print( rval[1000:2000])
-      raux<-r
-      daux<-boxcox(x=rval,lambda=0.3)
-      raux[]<-daux
-      # compute mean and sd on a coarser grid
-      raux_agg<-aggregate(raux,
-                          fact=argv$gridded_dqc.outlier_aggfact,
-                          fun=mean,
-                          na.rm=T)
-      daux_agg<-getValues(raux_agg)
-      ix_aux<-which(!is.na(daux_agg))
-      xyaux<-xyFromCell(raux_agg,ix_aux)
-      xrad_aux<-xyaux[,1]
-      yrad_aux<-xyaux[,2]
-      vrad_aux<-daux_agg[ix_aux]
-      get_rad_stat<-function(i,dh_ref=25000) { 
-        deltax<-abs(xrad_aux[i]-xrad_aux)
-        if (length(ix<-which( deltax<dh_ref ))==0) return(NA,NA)
-        deltay<-abs(yrad_aux[i]-yrad_aux[ix])
-        if (length(iy<-which( deltay<dh_ref ))==0) return(NA,NA)
-        ix<-ix[iy]
-#        dist<-deltax; dist[]<-NA
-#        dist[ix]<-sqrt(deltax[ix]*deltax[ix]+deltay[ix]*deltay[ix])
-#        ix<-which(dist<dh_ref)
-        return(c(mean(vrad_aux[ix]),sd(vrad_aux[ix])))
-      }
-      if (!is.na(argv$cores)) {
-        arr<-mcmapply(get_rad_stat,
-                      1:length(ix_aux),
-                      mc.cores=argv$cores,
-                      SIMPLIFY=T,
-                      dh_ref=argv$gridded_dqc.outlier_reflen)
-      # no-multicores
-      } else {
-        arr<-mapply(get_rad_stat,
-                    1:length(ix_aux),
-                    SIMPLIFY=T,
-                    dh_ref=argv$gridded_dqc.outlier_reflen)
-      }
-      # disaggregate mean and sd on the original grid
-      raux_agg[]<-NA
-      raux_agg[ix_aux]<-arr[1,] # mean
-      raux<-disaggregate(raux_agg,
-                         fact=argv$gridded_dqc.outlier_aggfact,
-                         method="bilinear",
-                         na.rm=T)
-      if (ncell(raux)>ncell(r)) {
-        raux<-crop(raux,r)
-      } else if (ncell(raux)<ncell(r)) {
-        raux<-extend(raux,r)
-      }
-      avg<-getValues(raux)
-      raux_agg[]<-NA
-      raux_agg[ix_aux]<-arr[2,] # sd
-      raux<-disaggregate(raux_agg,
-                         fact=argv$gridded_dqc.outlier_aggfact,
-                         method="bilinear",
-                         na.rm=T)
-      if (ncell(raux)>ncell(r)) {
-        raux<-crop(raux,r)
-      } else if (ncell(raux)<ncell(r)) {
-        raux<-extend(raux,r)
-      }
-      stdev<-getValues(raux)
-      # check for outliers
-      ix<-which(stdev>0 & !is.na(daux) & !is.na(avg) & !is.na(stdev))
-      rm(arr,raux_agg,ix_aux,xrad_aux,yrad_aux,vrad_aux,daux_agg,xyaux)
-      # outliers are defined as in Lanzante,1997: abs(value-mean)/st.dev > 5
-      suspect<-which( ( abs(daux[ix]-avg[ix]) / stdev[ix] ) > 5 ) 
-      if (length(suspect)>0) rval[ix[suspect]]<-argv$gridded_dqc.outlier_pad
-      r[]<-rval
-      rm(raux,daux,avg,stdev,ix,suspect,rval)
-      t1a<-Sys.time()
-      print(paste(" remove outliers - time",round(t1a-t0a,1),
-                                            attr(t1a-t0a,"unit")))
-    }
+         !any( is.na( argv$gridded_dqc.clump_n))) 
+      r <- spider_griddqc_cool()
+    # check for outliers
+    if ( !is.na( argv$gridded_dqc.outlier_aggfact)) 
+      r <- spider_griddqc_outliers()
   }
   #----------------------------------------------------------------------------
   # convert from equivalent_reflectivity_factor to rain rate (mm/h) 
