@@ -1,12 +1,13 @@
 #+ check for holes in the field
 spider_griddqc_cool <- function( argv=NULL, r=NULL) {
 #------------------------------------------------------------------------------
-  if ( is.null(argv))
-    if ("argv" %in% ls(envir = .GlobalEnv)) 
-      get("argv", envir = .GlobalEnv)
+  t00 <- Sys.time()
+  if ( is.null( argv))
+    if ("argv" %in% ls( envir = .GlobalEnv)) 
+      argv <- get( "argv", envir = .GlobalEnv)
   if ( is.null(r))
-    if ("r" %in% ls(envir = .GlobalEnv)) 
-      get("r", envir = .GlobalEnv)
+    if ( "r" %in% ls( envir = .GlobalEnv)) 
+      r <- get("r", envir = .GlobalEnv)
   # 
   rval <- getValues(r)
   suppressPackageStartupMessages( library( "igraph"))
@@ -23,5 +24,8 @@ spider_griddqc_cool <- function( argv=NULL, r=NULL) {
       r[] <- rval
     }
   }
+  t11 <- Sys.time()
+  print( paste( "spider_griddqc_cool",
+                "/ time", round(t11-t00,1), attr(t11-t00,"unit")))
   r
 }

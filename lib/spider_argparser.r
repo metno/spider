@@ -155,6 +155,9 @@ p <- add_argument(p, "--reflectivity_to_precip",
 p <- add_argument(p, "--gridded_dqc",
                   help="data quality control over gridded data",
                   flag=T)
+p <- add_argument(p, "--gridded_dqc_afterAgg",
+                  help="data quality control over gridded data (do it after the aggregation)",
+                  flag=T)
 p <- add_argument(p, "--gridded_dqc.min",
                   help="minimum allowed value",
                   type="numeric",
@@ -985,8 +988,8 @@ if (any(!is.na(argv$r))) {
   rm(aux)
 }
 
-if (any(!is.na(argv$gridded_dqc.clump_r))) {
-  aux<-vector(mode="numeric",length=length(argv$gridded_dqc.clump_r))
+if ( any( !is.na( argv$gridded_dqc.clump_r))) {
+  aux <- vector( mode="numeric", length=length(argv$gridded_dqc.clump_r))
   for (i in 1:length(argv$gridded_dqc.clump_r)) 
     aux[i]<-as.numeric(gsub("_","-",argv$gridded_dqc.clump_r[i]))
   argv$gridded_dqc.clump_r<-aux
@@ -1029,6 +1032,8 @@ argv$gridded_dqc.outlier_pad <- as.numeric( argv$gridded_dqc.outlier_pad)
 argv$gridded_dqc.min_pad <- as.numeric( argv$gridded_dqc.min_pad)
 argv$gridded_dqc.max_pad <- as.numeric( argv$gridded_dqc.max_pad)
 argv$gridded_dqc.clump_pad <- as.numeric( argv$gridded_dqc.clump_pad)
+argv$gridded_dqc.clump_r <- as.numeric( argv$gridded_dqc.clump_r)
+argv$gridded_dqc.clump_n <- as.numeric( argv$gridded_dqc.clump_n)
 #
 if (is.na(argv$space_fun)) argv$space_fun<-argv$fun
 if (is.na(argv$time_fun)) argv$time_fun<-argv$fun

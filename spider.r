@@ -84,7 +84,7 @@ argv <- argparser()
 if ( !is.na( argv$cores)) {
   suppressPackageStartupMessages( library( "parallel"))
   if ( argv$cores==0) argv$cores <- detectCores()
-  print( paste( "--> multi-core run, cores=", argv$cores))
+  cat( paste( "--> multi-core run, cores=", argv$cores, "\n"))
 }
 #------------------------------------------------------------------------------
 # Time sequence
@@ -160,9 +160,9 @@ n<-0
 first<-T
 for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
 #  if (argv$verbose & t%%100==0) 
-    print( paste( "timestep", t, "/", n_tseq,
+    cat( paste( "timestep", t, "/", n_tseq,
                   "elapsed time", round(Sys.time()-t0,2), 
-                  attr(Sys.time()-t0,"unit")))
+                  attr(Sys.time()-t0,"unit"),"\n"))
   res <- spider_readEmAll( 
     time     = tseq[t], 
     time_ref = ifelse( any(is.na(tseq_ref)), NA, tseq_ref[t]))
@@ -170,7 +170,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   ffin           <- res$ffin
   t_to_read_ffin <- res$t_to_read_ffin
   # 
-  r       <- res$r 
+  r       <- res$r
   # reference dataset
   r_ref   <- res$r_ref
   # master
@@ -619,9 +619,13 @@ if (gridded_output)  {
         }
         #---------------------------------------------------------------------
         else if (argv$time_fun=="precise_mean")  {
+          t00 <- Sys.time()
           ndat <- length( getValues( subset( s, subset=1)))
           dat  <- array(  data=0, dim=c(ndat,n))
           for (t in 1:n) dat[,t] <- getValues( subset( s, subset=t))
+          tprec_in <- as.numeric( tseq)
+          tprec0 <- as.numeric( seq( tseq_out, by=paste0("-",argv$date_out_time_step," ",argv$date_out_time_unit),length=2)[2])
+          tprec_out <- c( tprec0, as.numeric( tseq_out))
           if (!is.na(argv$cores)) {
             res <- mcmapply( precise_fun,
                              1:ndat,
@@ -636,18 +640,22 @@ if (gridded_output)  {
                            fun = "mean")
           }
           r<-subset(s,subset=1)
-          if (n_tseq_out == 1) {
+          if ( n_tseq_out == 1) {
             r[] <- argv$precise_mean_rescale * res
           } else {
             r1 <- subset( s, subset=1)
             r[] <- argv$precise_mean_rescale * res[1,]
-            for (t in 2:(n_tseq_out-1)) { 
+            for (t in 1:n_tseq_out) { 
               r1[] <- argv$precise_mean_rescale * res[t,]
               r <- stack( r, r1)
             }
             rm(r1)
           }
           rm( ndat, dat, s, res)
+          t11 <- Sys.time()
+          print( paste( " precise mean - time", round(t11-t00,1),
+                                                attr( t11-t00,"unit")))
+
         } # end if over time_fun
       # use weights
       } else {
@@ -843,8 +851,24 @@ if (gridded_output)  {
     if ( exists( "p_values"))     rm(p_values)
     if ( exists( "trend_significance")) rm(trend_significance)
   } # end temporal_trend
+  #----------------------------------------------------------------------------
+  # data quality control 
+  if ( argv$gridded_dqc_afterAgg) {
+    # range check_ check for unplausible values
+    if ( !is.na( argv$gridded_dqc.min) & 
+         !is.na( argv$gridded_dqc.max)) 
+      r <- spider_griddqc_range_check()
+    # check for holes in the field: remove small patches of connected cells
+    if ( !any( is.na( argv$gridded_dqc.clump_r)) & 
+         !any( is.na( argv$gridded_dqc.clump_n))) 
+      r <- spider_griddqc_cool()
+    # check for outliers
+    if ( !is.na( argv$gridded_dqc.outlier_aggfact)) 
+      r <- spider_griddqc_outliers()
+  }
+  #----------------------------------------------------------------------------
   #-----------------------------------------------------------------------------
-  # Gridded output (not in a function to save memory)
+  # Gridded output (we want to reduce memory usage, then this is not in a function)
   # adjust
   if ( !exists("r")) r <- s
   if (  exists("s")) rm(s)
@@ -904,10 +928,16 @@ if (gridded_output)  {
   }
   rm( grid, r)
   if ( any( is.na( argv$time_bnds_string_as_two_dates))) {
-    time_bnds <- array( format( rev( seq(
-                  strptime( date_out, "%Y%m%d%H%M", tz="UTC"),
-                            length=2, by=argv$time_bnds_string)),
-                  format="%Y%m%d%H%M", tz="UTC"), dim=c(1,2))
+    if ( length( date_out) == 1) {
+      time_bnds <- array( format( rev( seq(
+                    strptime( date_out, "%Y%m%d%H%M", tz="UTC"),
+                              length=2, by=argv$time_bnds_string)),
+                    format="%Y%m%d%H%M", tz="UTC"), dim=c(1,2))
+    } else {
+      time_bnds <- array( format( 
+       strptime( date_out, "%Y%m%d%H%M", tz="UTC"),
+                 format="%Y%m%d%H%M", tz="UTC"), dim=c(1,2))
+    }
   } else {
     time_bnds <- array( format( 
        strptime( argv$time_bnds_string_as_two_dates, "%Y%m%d%H%M", tz="UTC"),

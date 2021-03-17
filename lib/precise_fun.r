@@ -7,15 +7,15 @@ precise_fun<-function( i,
                        range_val = c(0,1000)) {
 #------------------------------------------------------------------------------
   if ( (n_y_x <- length( ix<- which( !is.na( dat[i,])))) < nmin ) {
-    res <- rep( NA, (n_tseq_out-1))
+    res <- rep( NA, n_tseq_out)
   } else {
     yo  <- dat[i,ix]
     if ( !any( yo!=0)) {
-      res <- rep( 0, (n_tseq_out-1))
+      res <- rep( 0, n_tseq_out)
     } else {
       yb  <- rep( mean(yo), n_y_x)
       xb  <- rep( mean(yo), n_x_x)
-      y_x <- t_ok[ix]
+      y_x <- tprec_in[ix]
       x_x <- seq( range( y_x, na.rm=T)[1], range( y_x, na.rm=T)[2], length=n_x_x)
       dx  <- mean( diff(y_x), na.rm=T)/2
       S <- exp( -0.5 * outer( y_x, y_x, FUN="-")**2 / dx**2)
@@ -29,11 +29,11 @@ precise_fun<-function( i,
         xa[ xa < range_val[1]] <- range_val[1]
         xa[ xa > range_val[2]] <- range_val[2]
       }
-      res <- vector( mode="numeric", length= (n_tseq_out-1))
+      res <- vector( mode="numeric", length= n_tseq_out)
       if (fun == "mean") {
-        for (t in 2:n_tseq_out) 
-          res[t-1] <- mean( xa[ x_x >= (date_out_ix[t-1] * n_x_x) & 
-                                x_x <= (date_out_ix[t]   * n_x_x)], na.rm=T)
+        for (t in 1:n_tseq_out) 
+          res[t] <- mean( xa[ x_x >= tprec_out[t] & 
+                              x_x <= tprec_out[t+1]], na.rm=T)
       }
     }
   }
