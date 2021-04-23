@@ -20,3 +20,31 @@ spider_downscale <- function() {
   }
   r
 }
+
+
+#  coord.master<-xyFromCell(rmaster,1:ncell(rmaster))
+#  values<-getValues(r)
+#  ix<-which(!is.na(values))
+#  if ( compareCRS( crs(r), crs(rmaster))) {
+#    coord.new<-xyFromCell(r,ix)
+#  } else {
+#    coord.new<-spTransform(
+#                SpatialPoints(xyFromCell(r,ix),
+#                               proj4string=CRS(argv$ffin_proj4))
+#                                          ,CRS(argv$ffmaster_proj4))
+#  }
+#
+#  if (!is.na(argv$cores)) {
+#    res <- mcmapply( precise_fun,
+#                     1:ndat,
+#                     mc.cores = argv$cores,
+#                     SIMPLIFY = T,
+#                     fun = "mean")
+#  # no-multicores
+#  } else {
+#    res <- mapply( precise_fun,
+#                   1:ndat,
+#                   SIMPLIFY = T,
+#                   fun = "mean")
+#  }
+

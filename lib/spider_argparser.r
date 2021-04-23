@@ -601,6 +601,9 @@ p <- add_argument(p, "--ffmaster_e",
                   help="ensemble member to read in the netCDF file",
                   type="numeric",
                   default=NA)
+p <- add_argument(p, "--ffmaster_get_timestamp_from_file",
+                  help="read the timestamp from the master file",
+                  flag=T)
 # master grid (digital elevation model)
 p<- add_argument(p, "--ffmasterdem",
                  help="path to + name (template) of the input observation files",

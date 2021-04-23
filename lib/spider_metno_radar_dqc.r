@@ -1,14 +1,19 @@
 #+
 spider_metno_radar_dqc <- function( ffin, t_to_read) {
 #------------------------------------------------------------------------------
+#  var_dqcrad <- c( "block_percent",
+#                   "is_seaclutter",
+#                   "is_groundclutter",
+#                   "is_otherclutter",
+#                   "is_lowele",
+#                   "is_highele")
+#  thr  <- c(    20,    1,    1,    1,    0,    1)
+#  cond <- c( "geq", "eq", "eq", "eq", "eq", "eq") 
   var_dqcrad <- c( "block_percent",
                    "is_seaclutter",
-                   "is_groundclutter",
-                   "is_otherclutter",
-                   "is_lowele",
-                   "is_highele")
-  thr  <- c(    20,    1,    1,    1,    0,    1)
-  cond <- c( "geq", "eq", "eq", "eq", "eq", "eq") 
+                   "is_otherclutter")
+  thr  <- c(    20,    1,    1)
+  cond <- c( "geq", "eq", "eq") 
   nv_dqcrad<-length(var_dqcrad)
   for (v in 1:nv_dqcrad) {   
     u<-read_griddeddata( "data",

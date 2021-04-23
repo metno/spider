@@ -122,7 +122,11 @@ read_griddeddata<-function( mode="data",
       }
     # master grid, set time to read as the first time step
     } else if (mode=="master" | mode=="data_dem" | mode=="master_dem") {
-      ff_t<-tsteps_in[1]
+      if (argv$ffmaster_get_timestamp_from_file) {
+        ff_t<-nc4.getTime(ff,format="%Y%m%d%H%M%S")
+      } else {
+        ff_t<-tsteps_in[1]
+      }
     }
   }
   if (is.na(ff_epos)) ff_epos<-NULL

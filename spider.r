@@ -258,6 +258,12 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     if ( is.null(r)) next
   }
   #----------------------------------------------------------------------------
+  # convert from equivalent_reflectivity_factor to rain rate (mm/h) 
+  if (argv$reflectivity_to_precip) { 
+    r <- spider_reflectivity_to_precip()
+    if ( is.null(r)) next
+  } 
+  #----------------------------------------------------------------------------
   # radar data quality control
   if (argv$metno_radar_dqc) {
     r <- spider_metno_radar_dqc( ffin=ffin, t_to_read=t_to_read_ffin)
@@ -278,12 +284,6 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     if ( !is.na( argv$gridded_dqc.outlier_aggfact)) 
       r <- spider_griddqc_outliers()
   }
-  #----------------------------------------------------------------------------
-  # convert from equivalent_reflectivity_factor to rain rate (mm/h) 
-  if (argv$reflectivity_to_precip) { 
-    r <- spider_reflectivity_to_precip()
-    if ( is.null(r)) next
-  } 
   #----------------------------------------------------------------------------
   # summary statistics 
   if (argv$summ_stat) {
