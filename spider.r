@@ -108,6 +108,7 @@ if ( !argv$time_aggregation        &
      !argv$downscale               &  
      !argv$latte                   &
      !argv$latte_express           &
+     !argv$estvertprof             &
      !argv$summ_stat               & 
      !argv$gridclimind             & 
      !argv$pam                     & 
@@ -122,6 +123,7 @@ if ( argv$time_aggregation        |
      argv$upscale                 | 
      argv$downscale               | 
      argv$latte_express           |
+     argv$estvertprof             |
      argv$gridclimind             | 
      argv$latte                   | 
     (argv$verif & argv$ffout!=ffout_default) ) 
@@ -234,6 +236,24 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
       next
     }
   }
+  #----------------------------------------------------------------------------
+  # Estimation of vertical profile
+  if ( argv$estvertprof) {
+    rmaster <- r
+    rmaster_dem <- r_dem
+    argv$ffmaster_proj4 <- argv$ffin_proj4
+    res_evp <- spider_estvertprof( box_o_nearest_halfwidth = argv$evp_halfbox, 
+                                   pmax            = argv$evp_pmax,
+                                   gamma           = argv$evp_gamma,
+                                   gamma_min       = argv$evp_gamma_min,
+                                   gamma_max       = argv$evp_gamma_max,
+                                   agg_fact        = argv$evp_agg_fact, 
+                                   weight_dh_scale = argv$evp_weight_dh_scale)
+    t0_evp    <- res_evp$res_out[1,]
+    gamma_evp <- res_evp$res_out[2,]
+    ix_evp    <- res_evp$ix
+    rm( res_evp)
+  } 
   #----------------------------------------------------------------------------
   # Use the mask(s) if needed
   # special case of downscaling
@@ -867,6 +887,20 @@ if (gridded_output)  {
       r <- spider_griddqc_outliers()
   }
   #----------------------------------------------------------------------------
+  # 
+  if ( argv$estvertprof) {
+    # prepare for output
+    r <- rmaster
+    rm( rmaster)
+    r[]<-NA
+    r1 <- r
+print( ix_evp)
+    r[ix_evp] <- t0_evp
+    r1[ix_evp] <- gamma_evp
+    r <- stack( r, r1)
+    rm (r1, t0_evp, gamma_evp, ix_evp)
+  }
+  #----------------------------------------------------------------------------
   #-----------------------------------------------------------------------------
   # Gridded output (we want to reduce memory usage, then this is not in a function)
   # adjust
@@ -892,6 +926,15 @@ if (gridded_output)  {
       argv$ffout_varversion      <- c( "1.0", "1.0", "1.0", "1.0")
       argv$ffout_diground        <- 6
     }
+  }
+  if ( argv$estvertprof) {
+    argv$ffout_varname         <- c( "t0", "gamma")
+    argv$ffout_varlongname     <- c( "estimate of the intercept of the linear vertical profile with z=0m",
+                                     "near-surface lapse rate (degC/m)")
+    argv$ffout_varstandardname <- c( "intercept", "slope")
+    argv$ffout_varversion      <- c( "1.0", "1.0")
+    argv$ffout_varunit         <- c( "Celsius", "Celsius/m")
+    argv$ffout_diground        <- 4
   }
   # write
   xy <- xyFromCell( r, 1:ncell(r))
@@ -921,7 +964,7 @@ if (gridded_output)  {
                                   date_out.format,tz="UTC"),
                                   "%Y%m%d%H%M", tz="UTC")
   }
-  if (argv$temporal_trend) {
+  if (argv$temporal_trend | argv$estvertprof) {
     for (i in 1:nlayers(r))  r.list[[i]] <- grid[,,i]
   } else {
     r.list[[1]] <- grid

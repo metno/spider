@@ -145,6 +145,40 @@ p <- add_argument(p, "--latte_weight_dh_scale",
                   type="numeric",
                   default=25000)
 #..............................................................................
+p <- add_argument(p, "--estvertprof",
+                  help="interpoLATion verTical profilE. Interpolation over master grid based on a non-linear vertical profile",
+                  flag=T)
+p <- add_argument(p, "--evp_halfbox",
+                  help="half-width of the square box used to select the nearest observations. same units as master CRS.",
+                  type="numeric",
+                  default=1)
+p <- add_argument(p, "--evp_pmax",
+                  help="maximum number of observations to use in the neighbourhood of each observation",
+                  type="integer",
+                  default=50)
+p <- add_argument(p, "--evp_fglab",
+                  help="method used to create the first-guess (\"linear\",\"Frei\")",
+                  type="character",
+                  default="Frei")
+p <- add_argument(p, "--evp_gamma",
+                  help="lapse rate value. Units degC/m",
+                  type="numeric",
+                  default=-0.0065)
+p <- add_argument(p, "--evp_agg_fact",
+                  help="aggregation factor (original to aggregated grid). Units number of grid points",
+                  type="numeric",
+                  default=50)
+p <- add_argument(p, "--evp_weight_dh_scale",
+                  help="horizontal length scale used in the blending of sub-regional verical profiles to weight them. same units as master CRS.",
+                  type="numeric",
+                  default=25000)
+p <- add_argument(p, "--evp_gamma_min",
+                  help="lapse rate minimum allowed value. Units degC/m",
+                  default=-0.0065)
+p <- add_argument(p, "--evp_gamma_max",
+                  help="lapse rate maximum allowed value. Units degC/m",
+                  default=-0.0065)
+#..............................................................................
 p <- add_argument(p, "--metno_radar_dqc",
                   help="data quality control over metno radar data",
                   flag=T)
