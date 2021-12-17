@@ -423,7 +423,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
       dat_aggr <- res$dat_aggr_up
       dat_cont <- res$dat_cont_up
       if ( !exists( "ix_dat")) ix_dat <- 1:ncell(r)
-      print( paste("gridclimind & gridded output: number of cells",res$n)) 
+      print( paste("temporal trend & gridded output: number of cells",res$n)) 
     # scores that require to store the whole dataset in memory
     #  mat... matrix (number of cells, subset not NAs) x (number of times)
     } else {
@@ -772,17 +772,52 @@ if (gridded_output)  {
   #----------------------------------------------------------------------------
   # gridded climate indices 
   if ( argv$gridclimind) {
-    # currently, gridded climate indices are compute online
-    # define r again
-    r <- rmaster
-    rm( rmaster)
-    r[] <- NA
-    ix <- which( !is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
-    if ( length(ix)>0) r[ix_dat[ix]] <- dat_aggr[ix]
-    if ( exists( "dat_aggr")) rm(dat_aggr)
-    if ( exists( "dat_cont")) rm(dat_cont)
-    if ( exists( "ix_dat"))   rm(ix_dat)
-    if ( exists( "ix"))       rm(ix)
+    # indices all dataset in memory
+    if ( argv$gridclimind_index %in% c("quantile")) { 
+      if (argv$gridclimind_index == "quantile") {
+          threshold  <- argv$which_quantile
+          threshold1 <- NA
+          type       <- NA
+      }
+      npoints <- dim(mat)[1]
+      if ( !is.na( argv$cores)) {
+        dat <- mcmapply( score_fun,
+                         1:npoints,
+                         mc.cores   = argv$cores,
+                         SIMPLIFY   = T, 
+                         lab        = argv$gridclimind_index,
+                         threshold  = threshold,
+                         threshold1 = threshold1,
+                         type       = type)
+      # no-multicores
+      } else {
+        dat <- mapply( score_fun,
+                       1:npoints,
+                       SIMPLIFY   = T,
+                       lab        = argv$gridclimind_index,
+                       threshold  = threshold,
+                       threshold1 = threshold1,
+                       type       = type)
+      }
+      # define r again
+      r <- rmaster
+      rm( rmaster)
+      r[] <- NA
+      r[ix_dat] <- dat
+      if ( exists( "dat")) rm(dat)
+    } else {
+      # indices computed online
+      # define r again
+      r <- rmaster
+      rm( rmaster)
+      r[] <- NA
+      ix <- which( !is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
+      if ( length(ix)>0) r[ix_dat[ix]] <- dat_aggr[ix]
+      if ( exists( "dat_aggr")) rm(dat_aggr)
+      if ( exists( "dat_cont")) rm(dat_cont)
+      if ( exists( "ix_dat"))   rm(ix_dat)
+      if ( exists( "ix"))       rm(ix)
+    }
   } # end gridclimind
   #----------------------------------------------------------------------------
   # temporal trends 
@@ -903,7 +938,8 @@ if (gridded_output)  {
     for (i in 1:nlayers(r)) 
       grid[,,i] <- matrix( data=subset( r, subset=i), 
                            ncol=length(y), nrow=length(x))
-    if (argv$temporal_trend) {
+    if ( argv$temporal_trend || 
+         (argv$gridclimind &  argv$gridclimind_index == "quantile")) {
       date_out <- format( strptime( date_out,
                                     date_out.format,tz="UTC"),
                                     "%Y%m%d%H%M", tz="UTC")
