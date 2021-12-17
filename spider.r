@@ -473,7 +473,13 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
       s <- r 
     # online time aggregation
     } else if ( argv$time_aggregation_online) {
-      if ( argv$time_fun == "sum")  s <- s + r
+      if ( argv$time_fun == "sum")   {
+        s <- s + r
+      } else if ( argv$time_fun == "mean")  {
+        s <- s + 1/(n+1) * (r-s)
+      } else {
+        rip( str=paste("time_aggregation_online not defined for fun=",argv$time_fun), code=1, t0=t0)
+      }
     # save r in a rasterStack
     } else {
       s <- stack( s, r)
