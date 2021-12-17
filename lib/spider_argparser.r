@@ -178,6 +178,12 @@ p <- add_argument(p, "--evp_gamma_min",
 p <- add_argument(p, "--evp_gamma_max",
                   help="lapse rate maximum allowed value. Units degC/m",
                   default=-0.0065)
+p <- add_argument(p, "--evp_t0_min",
+                  help="t0 minimum allowed value. Units degC.",
+                  default=-60)
+p <- add_argument(p, "--evp_t0_max",
+                  help="t0 maximum allowed value. Units degC.",
+                  default=40)
 #..............................................................................
 p <- add_argument(p, "--metno_radar_dqc",
                   help="data quality control over metno radar data",

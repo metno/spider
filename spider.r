@@ -247,6 +247,8 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
                                    gamma           = argv$evp_gamma,
                                    gamma_min       = argv$evp_gamma_min,
                                    gamma_max       = argv$evp_gamma_max,
+                                   t0_min          = argv$evp_t0_min,
+                                   t0_max          = argv$evp_t0_max,
                                    agg_fact        = argv$evp_agg_fact, 
                                    weight_dh_scale = argv$evp_weight_dh_scale)
     t0_evp    <- res_evp$res_out[1,]
@@ -887,14 +889,13 @@ if (gridded_output)  {
       r <- spider_griddqc_outliers()
   }
   #----------------------------------------------------------------------------
-  # 
+  # Estimation of verical profile 
   if ( argv$estvertprof) {
     # prepare for output
     r <- rmaster
     rm( rmaster)
     r[]<-NA
     r1 <- r
-print( ix_evp)
     r[ix_evp] <- t0_evp
     r1[ix_evp] <- gamma_evp
     r <- stack( r, r1)
