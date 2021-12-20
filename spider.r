@@ -840,7 +840,11 @@ if (gridded_output)  {
       rm( rmaster)
       r[] <- NA
       ix <- which( !is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
-      if ( length(ix)>0) r[ix_dat[ix]] <- dat_aggr[ix]
+      if ( argv$gridclimind_index == "freq" & argv$freq_as_perc) {
+        if ( length(ix)>0) r[ix_dat[ix]] <- dat_aggr[ix] / dat_cont[ix] * 100
+      } else {
+        if ( length(ix)>0) r[ix_dat[ix]] <- dat_aggr[ix]
+      }
       if ( exists( "dat_aggr")) rm(dat_aggr)
       if ( exists( "dat_cont")) rm(dat_cont)
       if ( exists( "ix_dat"))   rm(ix_dat)

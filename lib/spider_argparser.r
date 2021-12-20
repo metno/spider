@@ -916,7 +916,7 @@ p <- add_argument(p, "--gridclimind",
                   help="gridded climate indices",
                   flag=T)
 p<- add_argument(p, "--gridclimind_index",
-                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\"",
+                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\",\"freq\"",
                  type="character",
                  default=NA)
 p<- add_argument(p, "--prcptot_r",
@@ -935,6 +935,19 @@ p<- add_argument(p, "--degday_b",
                  help="type one of 'below' (< x), 'below=' (<= x), 'above' (> x), or 'above=' (>= x).",
                  type="character",
                  default="above")
+p<- add_argument(p, "--freq_r",
+                 help="threshold(s) for frequency of occurrence",
+                 type="numeric",
+                 nargs=Inf,
+                 default=NA)
+p<- add_argument(p, "--freq_b",
+                 help="type one of 'below' (< x), 'below=' (<= x), 'above' (> x), 'above=' (>= x), 'within' (<x<), '=within' (<=x<), '=within=' (<=x<=), 'within=' (<x<=).",
+                 type="character",
+                 default="above=")
+p<- add_argument(p, "--freq_as_perc",
+                 help="return freq as percentage over the total number of samples",
+                 flag=T)
+
 #..............................................................................
 p <- add_argument(p, "--temporal_trend",
                   help="trend through time. NOTE: the output nc-file has preset varname, varlongname, varstandardname, varversion, diground.",

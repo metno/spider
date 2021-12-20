@@ -40,7 +40,12 @@ spider_gridclimind_prepare <- function( argv   = NULL,
     flag <- flag & !is.na( vref) & !is.nan( vref) & is.finite( vref)
   }
   # ix: pointer to elements of r that are not NAs and finite (m-vector)
-  if ( length( ix <- which( flag)) == 0) return(NULL)
+  # (except if one wants to count the number of NAs (freq and freq_r is NA)
+  if ( argv$gridclimind_index == "freq" & is.na(argv$freq_r)) {
+    ix <- 1:length(vr) 
+  } else {
+    if ( length( ix <- which( flag)) == 0) return(NULL)
+  }
   m  <- length( ix)
   vr <- vr[ix]
   if ( !is.na(argv$ffin_ref_template)) vref <- vref[ix]
@@ -92,12 +97,28 @@ spider_gridclimind_prepare <- function( argv   = NULL,
         else if ( argv$prcptot_b == "above=") { ixb <- which( vr >= argv$prcptot_r) }
       }
       if ( length(ixb) > 0) dat[ix][ixb] <- vr[ixb]
+    # %%%%%%%%%% freq %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    } else if ( argv$gridclimind_index == "freq" ) {
+      if ( is.na(argv$freq_r)) {
+        ixb <- which( is.na(vr) | is.nan(vr) | !is.finite( vr))
+      } else {
+        if ( argv$freq_b == "below")         { ixb <- which( vr <  argv$freq_r) }
+        else if ( argv$freq_b == "below=")   { ixb <- which( vr <= argv$freq_r) }
+        else if ( argv$freq_b == "above")    { ixb <- which( vr >  argv$freq_r) }
+        else if ( argv$freq_b == "above=")   { ixb <- which( vr >= argv$freq_r) }
+        else if ( argv$freq_b == "within")   { ixb <- which( vr >  argv$freq_r[1] & vr <  argv$freq_r[2]) }
+        else if ( argv$freq_b == "=within")  { ixb <- which( vr >= argv$freq_r[1] & vr <  argv$freq_r[2]) }
+        else if ( argv$freq_b == "=within=") { ixb <- which( vr >= argv$freq_r[1] & vr <= argv$freq_r[2]) }
+        else if ( argv$freq_b == "within=")  { ixb <- which( vr >  argv$freq_r[1] & vr <= argv$freq_r[2]) }
+      }
+      if ( length(ixb) > 0) dat[ix][ixb] <- rep( 1, length(ixb))
     }
     # compute score for one timestep: end
     # update online score: begin
     # -- online sum
     if ( argv$gridclimind_index %in% c( "degree_days_sum", "degree_days",
-                                        "prcptot") ) {
+                                        "prcptot",
+                                        "freq") ) {
       if ( length( iy <- !is.na( dat_cont[ix])) > 0) 
         dat_aggr[ix][iy] <- dat_aggr[ix][iy] + dat[ix][iy]
       if ( length( iy <-  is.na( dat_cont[ix])) > 0) {
