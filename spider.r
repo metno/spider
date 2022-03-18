@@ -160,12 +160,13 @@ n<-0
 first<-T
 for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
 #  if (argv$verbose & t%%100==0) 
-    print( paste( "timestep", t, "/", n_tseq,
-                  "elapsed time", round(Sys.time()-t0,2), 
-                  attr(Sys.time()-t0,"unit")))
+  print( paste( "timestep", t, "/", n_tseq,
+                "elapsed time", round(Sys.time()-t0,2), 
+                attr(Sys.time()-t0,"unit")))
+  if(any(is.na(tseq_ref))) { tseq_ref_t <- NA} else { tseq_ref_t <- tseq_ref[t]}
   res <- spider_readEmAll( 
     time     = tseq[t], 
-    time_ref = ifelse( any(is.na(tseq_ref)), NA, tseq_ref[t]))
+    time_ref = tseq_ref_t)
   if ( is.null(res)) next
   ffin           <- res$ffin
   t_to_read_ffin <- res$t_to_read_ffin
@@ -288,6 +289,8 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   # summary statistics 
   if (argv$summ_stat) {
     if (!exists("values")) values <- getValues( r)
+    if (exists("values"))
+      if (class(values)!="numeric") values <- getValues( r)
     # some values not NAs
     if (length( ixvalid <- which(!is.na(values)) ) > 0) {
       ncells <- NA
@@ -322,7 +325,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
                                         time = t_to_read_ffin)
     # - Frequency distributions
     } else if ( argv$summ_stat_fun == "freqdist") {
-      res <- spider_summ_stat_freqdist( first  = first)
+      res <- spider_summ_stat_freqdist( time=t_to_read_ffin, first  = first)
     # - Ellipsis, object-based summary statistics 
     } else if ( argv$summ_stat_fun == "ellipsis") {
       if ( !exists( "ell_list")) ell_list <- list()

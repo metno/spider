@@ -213,8 +213,9 @@ score_fun<-function(i=NA,
     }
     if (n<-length(ix)==0) return(NA)
     if (lab=="msess") {
-      score<- 1 - mean( (    mat[i,ix] -       mat_ref[i,ix])**2) /
-                  mean( (mat_ref[i,ix] - mean(mat_ref[i,ix]))**2)
+      num <- mean( (    mat[i,ix] -       mat_ref[i,ix])**2, na.rm=T)
+      den <- mean( (mat_ref[i,ix] - mean(mat_ref[i,ix]))**2, na.rm=T)
+      if (den==0) { score <- NA } else { score <- 1 - num/den }
     } else if (lab=="corr") {
       score<-cor(mat[i,ix],mat_ref[i,ix],method=ifelse(is.na(type),"pearson",type))
     } else if (lab=="bias") {

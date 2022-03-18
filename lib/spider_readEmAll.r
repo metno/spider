@@ -17,6 +17,7 @@ spider_readEmAll <- function( argv=NA,
                        min_string   = argv$min_string,
                        sec_string   = argv$sec_string,
                        format       = argv$ffin_date.format)
+print(ffin)
   if (!file.exists(ffin)) {
     print(paste("file not found",ffin))
     return( NULL)
@@ -82,6 +83,7 @@ spider_readEmAll <- function( argv=NA,
                           hour_string  = argv$hour_string,
                           sec_string   = argv$sec_string,
                           format       = argv$ffin_date.format)
+print(ffin_ref)
     if (!file.exists(ffin_ref)) {
       print( paste( "file not found", ffin_ref))
       return( NULL)
