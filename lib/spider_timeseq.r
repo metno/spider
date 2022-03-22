@@ -1,28 +1,80 @@
 #+ create time sequences
 spider_timeseq<-function( argv) {
 #------------------------------------------------------------------------------
+
   # input - sequence of time steps 
+
   # (a) get tseq from the date file
-  if (!is.na(argv$ffin_date.file)) {
-    if (!file.exists(argv$ffin_date.file))
-       boom(paste0("file not found",argv$ffin_date.file))
-    tin<-read.table(file=argv$ffin_date.file,header=F,stringsAsFactors=F,strip.white=T)
-    tseq<-as.POSIXlt(str2Rdate(tin$V1,argv$ffin_date.format),tz="UTC")
+  if ( !is.na( argv$ffin_date.file)) {
+    if ( !file.exists( argv$ffin_date.file))
+       boom( paste0( "file not found", argv$ffin_date.file))
+    tin  <- read.table( file=argv$ffin_date.file, header=F, stringsAsFactors=F, strip.white=T)
+    tseq <- as.POSIXlt( str2Rdate(tin$V1,argv$ffin_date.format), tz="UTC")
+
+  # (c) 
+  } else if ( argv$date1 != "none" & argv$date2 != "none" & !is.na(argv$time_n_prev) & !is.na(argv$time_n_succ)) {
+    date1 <- argv$date1
+    date2 <- argv$date2
+    first <- T
+    while ( as.POSIXct( strptime( date1, format=argv$date.format)) <= as.POSIXct( strptime( date2, format=argv$date.format))) {
+      if (argv$time_unit %in% c("sec","secs","second","seconds")) {
+        aux1 <- rev( seq( strptime( date1, format=argv$date.format), length=argv$time_n_prev, by=(-argv$time_step)))
+        aux2 <- rev( seq( strptime( date1, format=argv$date.format), length=argv$time_n_succ, by=argv$time_step))
+      } else {
+        aux1 <- rev( seq( strptime( date1, format=argv$date.format), length=argv$time_n_prev, by=paste((-argv$time_step),argv$time_unit)))
+        aux2 <- rev( seq( strptime( date1, format=argv$date.format), length=argv$time_n_succ, by=paste(argv$time_step,argv$time_unit)))
+      }
+      date1_i <- format( aux1[1], format=argv$date.format)
+      date2_i <- format( aux2[1], format=argv$date.format)
+
+      tseq_i <- createTimeSeq( start_date     = date1_i,
+                               stop_date      = date2_i,
+                               format         = argv$date.format,
+                               time_step      = argv$time_step,
+                               unit           = argv$time_unit,
+                               season         = NULL,
+                               hourOFday.sel  = NULL,
+                               dayOFmonth.sel = NULL,
+                               N.prev         = NULL,
+                               N.succ         = NULL,
+                               RdateOnlyOut   = T,
+                               verbose        = F)
+      if (first) {
+        tseq <- tseq_i
+        first <- F
+      } else {
+        tseq <- c( tseq, tseq_i)
+      }
+      aux <- rev( seq( strptime( date1, format=argv$date.format), length=2, by="1 year"))
+      date1 <- format( aux[1], format=argv$date.format)      
+    }
+
+    # tseq for the reference file (if exists)
+    if ( !is.na( argv$ffin_ref_template)) {
+      if (argv$tseq_ref_hour_offset==0) {
+        tseq_ref <- tseq
+      } else {
+        tseq_ref <- as.POSIXlt( as.POSIXct(tseq,tz="GMT") + argv$tseq_ref_hour_offset*3600, tz="GMT")
+      }
+    }
+
   # (b) get tseq from other ways
   } else {
+ 
     # (b1) get tseq from the template file
-    if (argv$date1=="none") {
-      if ( !file.exists(argv$ffin_template))
+    if ( argv$date1 == "none") {
+      if ( !file.exists( argv$ffin_template))
          boom( paste0( "file not found", argv$ffin_template))
-      tseq<-as.POSIXlt(str2Rdate(nc4.getTime(argv$ffin_template),
-                       format="%Y%m%d%H%M"),tz="UTC")
+      tseq <- as.POSIXlt( str2Rdate(nc4.getTime(argv$ffin_template), format="%Y%m%d%H%M"), tz="UTC")
+
     # (b2) compute tseq
     } else {
+
       # (b2a) get tseq from date1 -> date2 
       date2 <- argv$date2
-      if (argv$date2=="none") {
-        if ( is.na(argv$time_n_prev) & 
-             is.na(argv$time_n_succ) ) boom(paste0("error in date definition"))
+      if ( argv$date2 == "none") {
+        if ( is.na(argv$time_n_prev) & is.na(argv$time_n_succ)) 
+          boom( paste0( "error in date definition"))
         if (!is.na(argv$time_n_prev)) {
           if (argv$time_unit %in% c("sec","secs","second","seconds")) {
             aux<-rev(seq(strptime(argv$date1,format=argv$date.format),
@@ -45,8 +97,9 @@ spider_timeseq<-function( argv) {
           rm(aux)
         }
       } else {
-        date1<-argv$date1
+        date1 <- argv$date1
       }
+
       tseq <- createTimeSeq( start_date     = date1,
                              stop_date      = date2,
                              format         = argv$date.format,
@@ -59,16 +112,17 @@ spider_timeseq<-function( argv) {
                              N.succ         = NULL,
                              RdateOnlyOut   = T,
                              verbose        = F)
-      if (!is.na(argv$ffin_ref_template)) {
+      # 
+      if ( !is.na( argv$ffin_ref_template)) {
         if (argv$tseq_ref_hour_offset==0) {
-          tseq_ref<-tseq
+          tseq_ref <- tseq
         } else {
-          tseq_ref<-as.POSIXlt(as.POSIXct(tseq,tz="GMT")+
-                               argv$tseq_ref_hour_offset*3600,tz="GMT")
+          tseq_ref <- as.POSIXlt( as.POSIXct(tseq,tz="GMT") + argv$tseq_ref_hour_offset*3600, tz="GMT")
         }
       }
     } # end if (argv$date1=="none")
   } # end if (!is.na(ffin_date.file))
+
   # consider only some months
   if (any(!is.na(argv$date_filter_by_month))) {
     if (length(ix<-which( as.integer(format(tseq,format="%m",tz="GMT")) %in% 
