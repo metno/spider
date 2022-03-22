@@ -501,6 +501,10 @@ p <- add_argument(p, "--which_quantile",
                   help="if verif_metric is quantile, then this specifies which quantile (0-1)",
                   type="numeric",
                   default=0.5)
+p <- add_argument(p, "--quantile_geq_threshold",
+                  help="if verif_metric is quantile, then this specifies that only values greater or equal to this threshold must be used",
+                  type="numeric",
+                  default=NA)
 #..............................................................................
 # IO
 # input file(s)

@@ -804,8 +804,8 @@ if (gridded_output)  {
     if ( argv$gridclimind_index %in% c("quantile")) { 
       if (argv$gridclimind_index == "quantile") {
           threshold  <- argv$which_quantile
-          threshold1 <- NA
-          type       <- NA
+          threshold1 <- argv$quantile_geq_threshold
+          type       <- "above="
       }
       npoints <- dim(mat)[1]
       if ( !is.na( argv$cores)) {

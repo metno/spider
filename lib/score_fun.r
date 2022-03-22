@@ -81,7 +81,32 @@ score_fun<-function(i=NA,
     if (lab=="count_x") score<-length(score)
   # quantile do not use mat_ref
   } else if (lab=="quantile") {
-    score <- quantile( mat[i,], probs= threshold, na.rm=T )
+    if (!is.na(threshold1)) {
+      if (type=="below") {
+        ix<-which(mat[i,]<threshold1)
+      } else if (type=="below=") {
+        ix<-which(mat[i,]<=threshold1)
+      } else if (type=="=within") {
+        ix<-which(mat[i,]>=threshold1 & mat[i,]<threshold1) 
+      } else if (type=="within") {
+        ix<-which(mat[i,]>threshold1 & mat[i,]<threshold1) 
+      } else if (type=="within=") {
+        ix<-which(mat[i,]>threshold1 & mat[i,]<=threshold1) 
+      } else if (type=="=within=") {
+        ix<-which(mat[i,]>=threshold1 & mat[i,]<=threshold1) 
+      } else if (type=="above") {
+        ix<-which(mat[i,]>threshold1) 
+      } else if (type=="above=") {
+        ix<-which(mat[i,]>=threshold1) 
+      }
+      if ( length(ix)==0) {
+        score <- NA
+      } else {
+        score <- quantile( mat[i,ix], probs= threshold, na.rm=T )
+      }
+    } else {
+      score <- quantile( mat[i,], probs= threshold, na.rm=T )
+    }
   # use the reference data. not assume temporal allignment mat and mat_ref
   } else if (lab %in% c("a","b","c","d","ets")) {
     if (is.na(type)) return(NA)
