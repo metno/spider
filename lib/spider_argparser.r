@@ -94,7 +94,7 @@ p <- add_argument(p, "--config_file",
 #..............................................................................
 p <- add_argument(p, "--crop",
                   help="return a geographic subset of the domain (xmin, xmax, ymin, ymax)",
-                  type="numeric",
+                  type="character",
                   default=NA,
                   nargs=Inf)
 p<- add_argument(p, "--crop_proj4",
@@ -1022,6 +1022,12 @@ if (any(!is.na(argv$summ_stat_r))) {
 
 if (any(!is.na(argv$time_bnds_string))) {
   argv$time_bnds_string<-gsub("_","-",argv$time_bnds_string)
+}
+
+if (any(!is.na(argv$crop))) {
+  for (i in 1:length(argv$crop)) 
+    argv$crop[i] <- gsub("_","-",argv$crop[i])
+  argv$crop <- as.numeric(argv$crop)
 }
 
 if (any(!is.na(argv$verif_r))) {

@@ -194,6 +194,9 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     if ( is.null( res)) next
     r     <- res$r
     r_dem <- res$r_dem
+    r_ref <- res$r_ref
+    rmaster <- res$rmaster
+    rmaster_dem <- res$rmaster_dem
     rm( res)
   }
   #----------------------------------------------------------------------------
