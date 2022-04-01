@@ -811,7 +811,7 @@ if (gridded_output)  {
           threshold1 <- argv$quantile_geq_threshold
           type       <- "above="
       }
-      if (argv$gridclimind_index == "noheatwave") {
+      if (argv$gridclimind_index == "metnoheatwave") {
           threshold  <- argv$metnohw_tmin_threshold
           threshold1 <- argv$metnohw_tmax_threshold
           type       <- "above="
