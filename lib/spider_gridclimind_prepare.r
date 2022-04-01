@@ -52,7 +52,7 @@ spider_gridclimind_prepare <- function( argv   = NULL,
   # NOTE: vr and vref are now m-vectors
   #
   # scores that require to store the whole dataset in memory
-  if ( argv$gridclimind_index %in% c("quantile")) {
+  if ( argv$gridclimind_index %in% c( "quantile", "metnoheatwave")) {
     return( list( online=F, ix=ix, n=length(ix),
                   mat_col=vr, mat_ref_col=vref ))
   #

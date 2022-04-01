@@ -48,6 +48,7 @@ score_fun<-function(i=NA,
 #  threshold defines the prec yes/no threshold for f
 # default to the values of hourly precipitation (see ECMWF memo)
 #------------------------------------------------------------------------------
+
   # transform x and x_ref into 1D mat and mat_ref
   if (is.na(i)) {
     i<-1
@@ -58,6 +59,7 @@ score_fun<-function(i=NA,
       if (!any(!is.na(mat_ref))) return(NA)
     }
   }
+
   # count_x do not use mat_ref
   if (lab=="count_x" | lab=="index_x") {
     if (is.na(type)) return(NA)
@@ -66,19 +68,26 @@ score_fun<-function(i=NA,
     } else if (type=="below=") {
       score<-which(mat[i,]<=threshold)
     } else if (type=="=within") {
-      score<-which(mat[i,]>=threshold & mat[i,]<threshold) 
+      score<-which(mat[i,]>=threshold & mat[i,]<threshold1) 
     } else if (type=="within") {
-      score<-which(mat[i,]>threshold & mat[i,]<threshold) 
+      score<-which(mat[i,]>threshold & mat[i,]<threshold1) 
     } else if (type=="within=") {
-      score<-which(mat[i,]>threshold & mat[i,]<=threshold) 
+      score<-which(mat[i,]>threshold & mat[i,]<=threshold1) 
     } else if (type=="=within=") {
-      score<-which(mat[i,]>=threshold & mat[i,]<=threshold) 
+      score<-which(mat[i,]>=threshold & mat[i,]<=threshold1) 
     } else if (type=="above") {
       score<-which(mat[i,]>threshold) 
     } else if (type=="above=") {
       score<-which(mat[i,]>=threshold) 
     }
     if (lab=="count_x") score<-length(score)
+
+  # Nordic definition for heat waves
+  # mat must be "tmin" ; mat_ref must be "tmax"
+  # 5 day mean of daily min at 16 C or more and 5 day mean of daily max at 28 C or more. 
+  } else if (lab=="metnoheatwave") {
+    score <- as.integer(  ( mean(mat[i,], na.rm=T) >= threshold) & ( mean(mat_ref[i,], na.rm=T) >= threshold1))
+
   # quantile do not use mat_ref
   } else if (lab=="quantile") {
     if (!is.na(threshold1)) {
@@ -86,14 +95,14 @@ score_fun<-function(i=NA,
         ix<-which(mat[i,]<threshold1)
       } else if (type=="below=") {
         ix<-which(mat[i,]<=threshold1)
-      } else if (type=="=within") {
-        ix<-which(mat[i,]>=threshold1 & mat[i,]<threshold1) 
-      } else if (type=="within") {
-        ix<-which(mat[i,]>threshold1 & mat[i,]<threshold1) 
-      } else if (type=="within=") {
-        ix<-which(mat[i,]>threshold1 & mat[i,]<=threshold1) 
-      } else if (type=="=within=") {
-        ix<-which(mat[i,]>=threshold1 & mat[i,]<=threshold1) 
+#      } else if (type=="=within") {
+#        ix<-which(mat[i,]>=threshold1 & mat[i,]<threshold1) 
+#      } else if (type=="within") {
+#        ix<-which(mat[i,]>threshold1 & mat[i,]<threshold1) 
+#      } else if (type=="within=") {
+#        ix<-which(mat[i,]>threshold1 & mat[i,]<=threshold1) 
+#      } else if (type=="=within=") {
+#        ix<-which(mat[i,]>=threshold1 & mat[i,]<=threshold1) 
       } else if (type=="above") {
         ix<-which(mat[i,]>threshold1) 
       } else if (type=="above=") {
@@ -107,6 +116,7 @@ score_fun<-function(i=NA,
     } else {
       score <- quantile( mat[i,], probs= threshold, na.rm=T )
     }
+
   # use the reference data. not assume temporal allignment mat and mat_ref
   } else if (lab %in% c("a","b","c","d","ets")) {
     if (is.na(type)) return(NA)
@@ -149,17 +159,17 @@ score_fun<-function(i=NA,
       yes_val<-which(mat[i,ix_val]<=threshold)
       yes_ref<-which(mat_ref[i,ix_ref]<=threshold1)
     } else if (type=="=within") {
-      yes_val<-which(mat[i,ix_val]>=threshold & mat[i,ix_val]<threshold) 
-      yes_ref<-which(mat_ref[i,ix_ref]>=threshold1 & mat_ref[i,ix_ref]<threshold1) 
+      yes_val<-which(mat[i,ix_val]>=threshold & mat[i,ix_val]<threshold1) 
+      yes_ref<-which(mat_ref[i,ix_ref]>=threshold & mat_ref[i,ix_ref]<threshold1) 
     } else if (type=="within") {
-      yes_val<-which(mat[i,ix_val]>threshold & mat[i,ix_val]<threshold) 
-      yes_ref<-which(mat_ref[i,ix_ref]>threshold1 & mat_ref[i,ix_ref]<threshold1) 
+      yes_val<-which(mat[i,ix_val]>threshold & mat[i,ix_val]<threshold1) 
+      yes_ref<-which(mat_ref[i,ix_ref]>threshold & mat_ref[i,ix_ref]<threshold1) 
     } else if (type=="within=") {
-      yes_val<-which(mat[i,ix_val]>threshold & mat[i,ix_val]<=threshold) 
-      yes_ref<-which(mat_ref[i,ix_ref]>threshold1 & mat_ref[i,ix_ref]<=threshold1) 
+      yes_val<-which(mat[i,ix_val]>threshold & mat[i,ix_val]<=threshold1) 
+      yes_ref<-which(mat_ref[i,ix_ref]>threshold & mat_ref[i,ix_ref]<=threshold1) 
     } else if (type=="=within=") {
-      yes_val<-which(mat[i,ix_val]>=threshold & mat[i,ix_val]<=threshold) 
-      yes_ref<-which(mat_ref[i,ix_ref]>=threshold1 & mat_ref[i,ix_ref]<=threshold1) 
+      yes_val<-which(mat[i,ix_val]>=threshold & mat[i,ix_val]<=threshold1) 
+      yes_ref<-which(mat_ref[i,ix_ref]>=threshold & mat_ref[i,ix_ref]<=threshold1) 
     } else if (type=="above") {
       yes_val<-which(mat[i,ix_val]>threshold) 
       yes_ref<-which(mat_ref[i,ix_ref]>threshold1) 
@@ -186,11 +196,14 @@ score_fun<-function(i=NA,
       a_random<-(a+c)*(a+b)/(a+b+c+d)
       score<-(a-a_random)/(a+c+b-a_random)
     }
+
   # use the reference dataset. temporal allignment mat and mat_ref
-  } else {
+  } else if (lab %in% c("seeps","roblinreg","msess","corr","bias","mae","mbias","rmse","rmsf")){
+
     # no thresholding, then use all not-NA pairs 
     if (is.na(threshold) | lab=="seeps") {
       ix<-which( !is.na(mat[i,]) & !is.na(mat_ref[i,]) )
+
     # thresholding is done both on the reference and evaluated values
     } else if (lab=="roblinreg") {
       if (is.na(type)) return(NA)
@@ -215,6 +228,7 @@ score_fun<-function(i=NA,
       } else if (type=="above=") {
         ix<-which(mat_ref[i,]>=threshold & mat[i,]>=threshold) 
       }
+
     # thresholding is done on the reference values, then use all not-NA pairs
     } else {
       if (is.na(type)) return(NA)
@@ -236,6 +250,7 @@ score_fun<-function(i=NA,
         ix<-which(mat_ref[i,]>=threshold & !is.na(mat[i,])) 
       }
     }
+
     if (n<-length(ix)==0) return(NA)
     if (lab=="msess") {
       score<- 1 - mean( (    mat[i,ix] -       mat_ref[i,ix])**2) /

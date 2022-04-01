@@ -951,6 +951,14 @@ p<- add_argument(p, "--freq_b",
 p<- add_argument(p, "--freq_as_perc",
                  help="return freq as percentage over the total number of samples",
                  flag=T)
+p<- add_argument(p, "--metnohw_tmin_threshold",
+                 help="MET Norway heat wave index, definition of the threshold for tmin",
+                 type="numeric",
+                 default=16)
+p<- add_argument(p, "--metnohw_tmax_threshold",
+                 help="MET Norway heat wave index, definition of the threshold for tmax",
+                 type="numeric",
+                 default=28)
 
 #..............................................................................
 p <- add_argument(p, "--temporal_trend",

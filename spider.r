@@ -165,9 +165,10 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     cat( paste( "timestep", t, "/", n_tseq,
                   "elapsed time", round(Sys.time()-t0,2), 
                   attr(Sys.time()-t0,"unit"),"\n"))
+  if ( any(is.na(tseq_ref))) { time_ref_t <- NA } else { time_ref_t <- tseq_ref[t]}
   res <- spider_readEmAll( 
     time     = tseq[t], 
-    time_ref = ifelse( any(is.na(tseq_ref)), NA, tseq_ref[t]))
+    time_ref = time_ref_t)
   if ( is.null(res)) next
   ffin           <- res$ffin
   t_to_read_ffin <- res$t_to_read_ffin
@@ -804,10 +805,15 @@ if (gridded_output)  {
   # gridded climate indices 
   if ( argv$gridclimind) {
     # indices all dataset in memory
-    if ( argv$gridclimind_index %in% c("quantile")) { 
+    if ( argv$gridclimind_index %in% c("quantile", "noheatwave")) { 
       if (argv$gridclimind_index == "quantile") {
           threshold  <- argv$which_quantile
           threshold1 <- argv$quantile_geq_threshold
+          type       <- "above="
+      }
+      if (argv$gridclimind_index == "noheatwave") {
+          threshold  <- argv$metnohw_tmin_threshold
+          threshold1 <- argv$metnohw_tmax_threshold
           type       <- "above="
       }
       npoints <- dim(mat)[1]
