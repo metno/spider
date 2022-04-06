@@ -805,7 +805,7 @@ if (gridded_output)  {
   # gridded climate indices 
   if ( argv$gridclimind) {
     # indices all dataset in memory
-    if ( argv$gridclimind_index %in% c("quantile", "noheatwave")) { 
+    if ( argv$gridclimind_index %in% c("quantile", "metnoheatwave")) { 
       if (argv$gridclimind_index == "quantile") {
           threshold  <- argv$which_quantile
           threshold1 <- argv$quantile_geq_threshold
