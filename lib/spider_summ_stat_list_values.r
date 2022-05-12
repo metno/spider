@@ -21,19 +21,21 @@ spider_summ_stat_list_values <- function( argv  = NA,
     xy <- xyFromCell(r,1:ncell(r))
     x <- xy[,1]
     y <- xy[,2]
+    xy_proj4 <- argv$ffin_proj4
   } else {
     labels <- argv$point_mask_labels
     x <- round( argv$point_mask_x, 6)
     y <- round( argv$point_mask_y, 6)
+    xy_proj4 <- argv$point_mask_proj4
   }
   #
   if ( !is.na(argv$ffout_summ_stat_proj4)) {
-    if (!compareCRS( crs(argv$ffout_summ_stat_proj4),
-                     crs(argv$ffin_proj4))) {
+    if ( !compareCRS( crs(argv$ffout_summ_stat_proj4),
+                      crs(xy_proj4))) {
       coord.new <- attr( spTransform( 
                          SpatialPoints(
                           cbind(x,y),
-                          proj4string=CRS(argv$ffin_proj4)) 
+                          proj4string=CRS(xy_proj4)) 
                                      ,CRS(argv$ffout_summ_stat_proj4)),
                  "coords")
       x<-coord.new[,1]
