@@ -75,6 +75,16 @@ spider_gridclimind_prepare <- function( argv   = NULL,
         else if ( argv$degday_b == "above=") { ixb <- which( vr >= argv$degday_r) }
       }
       if ( length(ixb) > 0) dat[ix][ixb] <- vr[ixb] - argv$degday_r 
+    # %%%%%%%%%% ETCCDI Heating degree days %%%%%%%%%%%%%%%
+    } else if ( argv$gridclimind_index == "HD17" ) {
+      dat[ix] <- 17 - vr
+    # %%%%%%%%%% ETCCDI Simple daily intensity index %%%%%%
+    } else if ( argv$gridclimind_index == "sdii" ) {
+      dat_cont[ix] <- dat_cont[ix] - 1
+      if (length(ixb <- which(vr>=1)) > 0) {
+        dat_cont[ix][ixb] <- dat_cont[ix][ixb] + 1
+        dat[ix][ixb] <- vr[ixb]
+      }
     # %%%%%%%%%% degree_days %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     } else if ( argv$gridclimind_index == "degree_days" ) {
       if ( is.na(argv$degday_r)) {
@@ -118,6 +128,7 @@ spider_gridclimind_prepare <- function( argv   = NULL,
     # -- online sum
     if ( argv$gridclimind_index %in% c( "degree_days_sum", "degree_days",
                                         "prcptot",
+                                        "HD17",
                                         "freq") ) {
       if ( length( iy <- !is.na( dat_cont[ix])) > 0) 
         dat_aggr[ix][iy] <- dat_aggr[ix][iy] + dat[ix][iy]
@@ -127,11 +138,22 @@ spider_gridclimind_prepare <- function( argv   = NULL,
       }
     # -- online mean
     } else if (argv$gridclimind_index %in% c( "mean") ) {
-      if ( length( iy <- !is.na( dat_cont[ix])) > 0) {
+      if ( length( iy <- is.na( dat_cont[ix])) > 0) {
         dat_cont[ix][iy] <- 1
         dat_aggr[ix][iy] <- dat[ix][iy] 
       }
       dat_aggr[ix] <- dat_aggr[ix] + ( dat[ix] - dat_aggr[ix]) / dat_cont[ix]
+    # -- sdii, kind of online mean
+    } else if (argv$gridclimind_index %in% c( "sdii") ) {
+      if ( length(ixb) > 0) {
+        if ( length( iy <- is.na( dat_cont[ix][ixb])) > 0) {
+          dat_cont[ix][ixb][iy] <- 1
+          dat_aggr[ix][ixb][iy] <- dat[ix][ixb][iy] 
+        }
+        dat_aggr[ix][ixb] <- dat_aggr[ix][ixb] + ( dat[ix][ixb] - dat_aggr[ix][ixb]) / dat_cont[ix][ixb]
+      }
+#save(file="tmp.rdata",dat_cont,dat_aggr,dat,ixb,iy,ix)
+#q()
     } else {
       return( NULL)
     }
