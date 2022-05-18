@@ -88,6 +88,14 @@ score_fun<-function(i=NA,
   } else if (lab=="metnoheatwave") {
     score <- as.integer(  ( mean(mat[i,], na.rm=T) >= threshold) & ( mean(mat_ref[i,], na.rm=T) >= threshold1))
 
+  # Highest 5-day precipitation amount
+  } else if (lab=="rx5day") {
+    if ( any(!is.na(mat[i,]))) {
+      score <- max( filter( mat[i,], filter=rep(1,5), sides=1), na.rm=T)
+    } else {
+      score <- NA
+    }
+
   # quantile do not use mat_ref
   } else if (lab=="quantile") {
     if (!is.na(threshold1)) {

@@ -810,7 +810,7 @@ if (gridded_output)  {
   # gridded climate indices 
   if ( argv$gridclimind) {
     # indices all dataset in memory
-    if ( argv$gridclimind_index %in% c("quantile", "metnoheatwave")) { 
+    if ( argv$gridclimind_index %in% c("quantile", "metnoheatwave", "rx5day")) { 
       if (argv$gridclimind_index == "quantile") {
           threshold  <- argv$which_quantile
           threshold1 <- argv$quantile_geq_threshold
@@ -820,6 +820,11 @@ if (gridded_output)  {
           threshold  <- argv$metnohw_tmin_threshold
           threshold1 <- argv$metnohw_tmax_threshold
           type       <- "above="
+      }
+      if (argv$gridclimind_index == "rx5day") {
+          threshold  <- NA
+          threshold1 <- NA
+          type       <- ""
       }
       npoints <- dim(mat)[1]
       if ( !is.na( argv$cores)) {

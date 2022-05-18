@@ -52,7 +52,7 @@ spider_gridclimind_prepare <- function( argv   = NULL,
   # NOTE: vr and vref are now m-vectors
   #
   # scores that require to store the whole dataset in memory
-  if ( argv$gridclimind_index %in% c( "quantile", "metnoheatwave")) {
+  if ( argv$gridclimind_index %in% c( "quantile", "metnoheatwave", "rx5day")) {
     return( list( online=F, ix=ix, n=length(ix),
                   mat_col=vr, mat_ref_col=vref ))
   #
@@ -122,6 +122,21 @@ spider_gridclimind_prepare <- function( argv   = NULL,
         else if ( argv$freq_b == "within=")  { ixb <- which( vr >  argv$freq_r[1] & vr <= argv$freq_r[2]) }
       }
       if ( length(ixb) > 0) dat[ix][ixb] <- rep( 1, length(ixb))
+    # %%%%%%%%%% maximum number of consecutive cases %%%%%%%%%%%%%%%%
+    } else if ( argv$gridclimind_index == "maxcons" ) {
+      if ( is.na(argv$maxcons_r)) {
+        ixb <- which( is.na(vr) | is.nan(vr) | !is.finite( vr))
+      } else {
+        if ( argv$maxcons_b == "below")         { ixb <- which( !(vr <  argv$maxcons_r)) }
+        else if ( argv$maxcons_b == "below=")   { ixb <- which( !(vr <= argv$maxcons_r)) }
+        else if ( argv$maxcons_b == "above")    { ixb <- which( !(vr >  argv$maxcons_r)) }
+        else if ( argv$maxcons_b == "above=")   { ixb <- which( !(vr >= argv$maxcons_r)) }
+        else if ( argv$maxcons_b == "within")   { ixb <- which( !(vr >  argv$maxcons_r[1] & vr <  argv$maxcons_r[2])) }
+        else if ( argv$maxcons_b == "=within")  { ixb <- which( !(vr >= argv$maxcons_r[1] & vr <  argv$maxcons_r[2])) }
+        else if ( argv$maxcons_b == "=within=") { ixb <- which( !(vr >= argv$maxcons_r[1] & vr <= argv$maxcons_r[2])) }
+        else if ( argv$maxcons_b == "within=")  { ixb <- which( !(vr >  argv$maxcons_r[1] & vr <= argv$maxcons_r[2])) }
+      }
+      if ( length(ixb) > 0) dat_cont[ix][ixb] <- 0
     }
     # compute score for one timestep: end
     # update online score: begin
@@ -135,6 +150,15 @@ spider_gridclimind_prepare <- function( argv   = NULL,
       if ( length( iy <-  is.na( dat_cont[ix])) > 0) {
         dat_cont[ix][iy] <- 1 
         dat_aggr[ix][iy] <- dat[ix][iy]
+      }
+    # -- online max number of consecutive cases
+    } else if (argv$gridclimind_index %in% c( "maxcons") ) {
+      if ( length( iy <- !is.na( dat_cont[ix])) > 0) { 
+        dat_aggr[ix][iy] <- pmax( dat_aggr[ix][iy], dat_cont[ix][iy], na.rm=T)
+      }
+      if ( length( iy <-  is.na( dat_cont[ix])) > 0) {
+        dat_cont[ix][iy] <- 1 
+        dat_aggr[ix][iy] <- dat_cont[ix][iy]
       }
     # -- online mean
     } else if (argv$gridclimind_index %in% c( "mean") ) {

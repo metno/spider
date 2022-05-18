@@ -920,7 +920,7 @@ p <- add_argument(p, "--gridclimind",
                   help="gridded climate indices",
                   flag=T)
 p<- add_argument(p, "--gridclimind_index",
-                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\",\"freq\"",
+                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\",\"freq\",\"maxcons\",\"HD17\",\"sdii\",\"quantile\",\"metnoheatwave\",\"rx5day\"",
                  type="character",
                  default=NA)
 p<- add_argument(p, "--prcptot_r",
@@ -945,6 +945,15 @@ p<- add_argument(p, "--freq_r",
                  nargs=Inf,
                  default=NA)
 p<- add_argument(p, "--freq_b",
+                 help="type one of 'below' (< x), 'below=' (<= x), 'above' (> x), 'above=' (>= x), 'within' (<x<), '=within' (<=x<), '=within=' (<=x<=), 'within=' (<x<=).",
+                 type="character",
+                 default="above=")
+p<- add_argument(p, "--maxcons_r",
+                 help="threshold(s) for maximum number of consecutive occurrencies",
+                 type="numeric",
+                 nargs=Inf,
+                 default=NA)
+p<- add_argument(p, "--maxcons_b",
                  help="type one of 'below' (< x), 'below=' (<= x), 'above' (> x), 'above=' (>= x), 'within' (<x<), '=within' (<=x<), '=within=' (<=x<=), 'within=' (<x<=).",
                  type="character",
                  default="above=")
