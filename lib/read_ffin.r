@@ -37,6 +37,7 @@ read_ffin <- function() {
                         hour_string=argv$hour_string,
                         sec_string=argv$sec_string,
                         format=argv$ffin_date.format)
+      print(ffin)
       if (!file.exists(ffin)) {
         print(paste("file not found",ffin))
         next

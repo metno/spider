@@ -19,14 +19,15 @@ spider_readEmAll <- function( argv=NA,
                        format       = argv$ffin_date.format)
   if (!file.exists(ffin)) {
     print(paste("file not found",ffin))
-    return( NULL)
+    r <- NULL
+  } else {
+    t_to_read <- format( as.POSIXct( as.numeric(
+      as.POSIXct(time,format=argv$ffin_date.format,tz="GMT")) 
+      + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
+                "%Y%m%d%H%M%S")
+    if (argv$debug) print(paste("time_to_read time file",t_to_read,time,ffin))
+    r <- read_griddeddata( mode="data", ffin=ffin, t_to_read=t_to_read)
   }
-  t_to_read <- format( as.POSIXct( as.numeric(
-    as.POSIXct(time,format=argv$ffin_date.format,tz="GMT")) 
-    + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
-              "%Y%m%d%H%M%S")
-  if (argv$debug) print(paste("time_to_read time file",t_to_read,time,ffin))
-  r <- read_griddeddata( mode="data", ffin=ffin, t_to_read=t_to_read)
   # case of problems while reading the input file (e.g., missing timestep)
   if ( is.null(r)) {
     # try an alternative input file, if provided
@@ -84,17 +85,47 @@ spider_readEmAll <- function( argv=NA,
                           format       = argv$ffin_date.format)
     if (!file.exists(ffin_ref)) {
       print( paste( "file not found", ffin_ref))
-      return( NULL)
-    }
-    t_to_read <- format(
-                  as.POSIXct( time_ref, format=argv$ffin_date.format,tz="GMT"),
+      r_ref <- NULL
+    } else {
+      t_to_read<-format( as.POSIXct( as.numeric(
+        as.POSIXct(time_ref,format=argv$ffin_date.format,tz="GMT")) 
+        + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
                   "%Y%m%d%H%M%S")
-    if (argv$debug) print(paste("time_to_read time file", t_to_read,time_ref, ffin_ref))
-    r_ref<-read_griddeddata( mode="ref", ffin_ref=ffin_ref, t_to_read=t_to_read)
+#      t_to_read <- format(
+#                    as.POSIXct( time_ref, format=argv$ffin_date.format,tz="GMT"),
+#                    "%Y%m%d%H%M%S")
+      if (argv$debug) print(paste("time_to_read time file", t_to_read,time_ref, ffin_ref))
+      r_ref<-read_griddeddata( mode="ref", ffin_ref=ffin_ref, t_to_read=t_to_read)
+    }
     # case of problems while reading the input file (e.g., missing timestep)
     if ( is.null( r_ref)) {
-      print(paste("warning: problem while reading time file",t_to_read,ffin_ref))
-      return( NULL)
+      # try an alternative input file, if provided
+      if ( !is.na(argv$ffin_ref_template_alternative)) {
+        print("---> using alternative input ref file template")
+        ffin_ref <- replaceDate( string   = argv$ffin_ref_template_alternative,
+                                 date.str = format(time_ref,
+                                          format=argv$ffin_date.format,tz="GMT"),
+                                 year_string  = argv$year_string,
+                                 month_string = argv$month_string,
+                                 day_string   = argv$day_string,
+                                 hour_string  = argv$hour_string,
+                                 sec_string   = argv$sec_string,
+                                 format       = argv$ffin_date.format)
+        if (!file.exists(ffin_ref)) {
+          print(paste("file not found",ffin_ref))
+          return( NULL)
+        }
+        t_to_read<-format( as.POSIXct( as.numeric(
+          as.POSIXct(time_ref,format=argv$ffin_date.format,tz="GMT")) 
+          + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
+                    "%Y%m%d%H%M%S")
+        if (argv$debug) print(paste("time_to_read time file",t_to_read,time_ref,ffin_ref))
+        r_ref <- read_griddeddata( mode="ref", ffin_ref=ffin_ref, t_to_read=t_to_read)
+      }
+      if (is.null(r_ref)) {
+        print(paste("warning: problem while reading time file",t_to_read,ffin_ref))
+        return( NULL)
+      }
     }
     if ( !any( !is.na( values<-getValues(r_ref)))) {
       print(paste("warning: all NAs for time file",t_to_read,ffin_ref))

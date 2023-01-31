@@ -86,12 +86,25 @@ score_fun<-function(i=NA,
   # mat must be "tmin" ; mat_ref must be "tmax"
   # 5 day mean of daily min at 16 C or more and 5 day mean of daily max at 28 C or more. 
   } else if (lab=="metnoheatwave") {
-    score <- as.integer(  ( mean(mat[i,], na.rm=T) >= threshold) & ( mean(mat_ref[i,], na.rm=T) >= threshold1))
+    if ( length( which(!is.na(mat[i,]) & !is.na(mat_ref[i,]))) == 5) {
+      score <- as.integer(  ( mean(mat[i,], na.rm=T) >= threshold) & ( mean(mat_ref[i,], na.rm=T) >= threshold1))
+    } else {
+      score <- NA
+    }
+#     score <- as.integer(  ( mean(mat[i,], na.rm=T) >= threshold) & ( mean(mat_ref[i,], na.rm=T) >= threshold1))
 
   # Highest 5-day precipitation amount
   } else if (lab=="rx5day") {
     if ( any(!is.na(mat[i,]))) {
       score <- max( filter( mat[i,], filter=rep(1,5), sides=1), na.rm=T)
+    } else {
+      score <- NA
+    }
+
+  # Highest 3-day precipitation amount
+  } else if (lab=="rx3day") {
+    if ( any(!is.na(mat[i,]))) {
+      score <- max( filter( mat[i,], filter=rep(1,3), sides=1), na.rm=T)
     } else {
       score <- NA
     }

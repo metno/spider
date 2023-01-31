@@ -3,7 +3,7 @@ spider_timeseq<-function( argv) {
 #------------------------------------------------------------------------------
 
   # input - sequence of time steps 
-
+print(argv$date1)
   # (a) get tseq from the date file
   if ( !is.na( argv$ffin_date.file)) {
     if ( !file.exists( argv$ffin_date.file))
@@ -93,6 +93,7 @@ spider_timeseq<-function( argv) {
           aux<-rev(seq(strptime(argv$date1,format=argv$date.format),
                                 length=argv$time_n_succ,
                                 by=paste(argv$time_step,argv$time_unit)))
+          date1<-argv$date1
           date2<-format(aux[1],format=argv$date.format)
           rm(aux)
         }

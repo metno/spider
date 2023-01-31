@@ -162,7 +162,7 @@ n<-0
 first<-T
 for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
 #  if (argv$verbose & t%%100==0) 
-    cat( paste( "timestep", t, "/", n_tseq,
+    cat( paste( "time timestep", tseq[t], t, "/", n_tseq,
                   "elapsed time", round(Sys.time()-t0,2), 
                   attr(Sys.time()-t0,"unit"),"\n"))
   if ( any(is.na(tseq_ref))) { time_ref_t <- NA } else { time_ref_t <- tseq_ref[t]}
@@ -810,7 +810,7 @@ if (gridded_output)  {
   # gridded climate indices 
   if ( argv$gridclimind) {
     # indices all dataset in memory
-    if ( argv$gridclimind_index %in% c("quantile", "metnoheatwave", "rx5day")) { 
+    if ( argv$gridclimind_index %in% c("quantile", "metnoheatwave", "rx5day", "rx3day")) { 
       if (argv$gridclimind_index == "quantile") {
           threshold  <- argv$which_quantile
           threshold1 <- argv$quantile_geq_threshold
@@ -821,7 +821,7 @@ if (gridded_output)  {
           threshold1 <- argv$metnohw_tmax_threshold
           type       <- "above="
       }
-      if (argv$gridclimind_index == "rx5day") {
+      if (argv$gridclimind_index %in% c("rx5day","rx3day")) {
           threshold  <- NA
           threshold1 <- NA
           type       <- ""
@@ -1051,7 +1051,7 @@ if (gridded_output)  {
     time_bnds <- array( format( 
        strptime( argv$time_bnds_string_as_two_dates, "%Y%m%d%H%M", tz="UTC"),
                  format="%Y%m%d%H%M", tz="UTC"), dim=c(1,2))
-
+    print(time_bnds)
   }
   out <- write_dotnc(grid.list = r.list,
                      times     = date_out,
