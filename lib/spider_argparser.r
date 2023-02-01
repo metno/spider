@@ -772,6 +772,10 @@ p <- add_argument(p, "--ffout_cell_methods",
                   type="character",
                   default=NA,
                   nargs=Inf)
+p<- add_argument(p, "--ffout_times_ref",
+                 help="output time ref",
+                 type="character",
+                 default="190001010000")
 p<- add_argument(p, "--ffout_times_unit",
                  help="output var version",
                  type="character",
@@ -807,6 +811,35 @@ p<- add_argument(p, "--ffout_comment",
                  help="output",
                  type="character",
                  default="")
+p<- add_argument(p, "--ffout_license",
+                 help="output",
+                 type="character",
+                 default="https://www.met.no/en/free-meteorological-data/Licensing-and-crediting")
+p<- add_argument(p, "--ffout_cf_1.7",
+                 help="output",
+                 type="logical",
+                 default=T)
+p<- add_argument(p, "--ffout_cf_1.0",
+                 help="output",
+                 type="logical",
+                 default=F)
+p<- add_argument(p, "--ffout_lonlat_minmax",
+                 help="output",
+                 type="logical",
+                 default=F)
+p<- add_argument(p, "--ffout_revy",
+                 help="output reverse y-axis",
+                 type="logical",
+                 default=F)
+p<- add_argument(p, "--ffout_x_rounddig",
+                 help="output x-axis number of digits",
+                 type="integer",
+                 default=6)
+p<- add_argument(p, "--ffout_y_rounddig",
+                 help="output y-axis number of digits",
+                 type="integer",
+                 default=6)
+
 p<- add_argument(p, "--year_string",
                  help="string, placeholder for year",
                  type="character",
