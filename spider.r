@@ -1053,7 +1053,19 @@ if (gridded_output)  {
                  format="%Y%m%d%H%M", tz="UTC"), dim=c(1,2))
     print(time_bnds)
   }
-  if (argv$ffout_revy) y <- rev(y)
+  if (argv$ffout_revy) {
+    y <- rev(y)
+    for (i in 1:length(r.list)) {
+      if ( length(dim(r.list[[i]])) == 2) {
+        for (j in 1:length(x)) 
+          r.list[[i]][j,1:length(y)] <- r.list[[i]][j,length(y):1]
+      } else if ( length(dim(r.list[[i]])) == 3) {
+        for (k in 1:dim(r.list[[i]])[3]) 
+          for (j in 1:length(x)) 
+            r.list[[i]][j,1:length(y),k] <- r.list[[i]][j,length(y):1,k]
+      }
+    }
+  }
   out <- write_dotnc(grid.list = r.list,
                      times     = date_out,
                      file.name = argv$ffout,
