@@ -1,0 +1,86 @@
+#+
+return_level_fun <- function( i, 
+                              lab=NULL,
+                              iter_reg=1,
+                              year4retlev=5,
+                              randomseed=1,
+                              iter_bay=50000,
+                              burn=47000,
+                              verbose=T) {
+#------------------------------------------------------------------------------
+  options(warn=2)
+  if (verbose) t0 <- Sys.time()
+  if (lab == "fitGEV_bayesian") {
+    if ( (p <- length( ix <- (which(nn2$nn.idx[i,]!=0)))) == 0) {
+      return(c(NA,NA,NA,rep(NA,(nyears*3))))
+    } else {
+      # use this for reproducible results
+      if (!is.na(randomseed)) set.seed(i)
+      rand <- array(data=sample(x=p,size=(iter_reg*ntime),replace=T),dim=c(iter_reg,ntime))
+      #
+      retlev_j <- array( data=NA, dim=c(iter_reg, (nyears*3)))
+      location_j  <- log_scale_j <- shape_j <- vector(mode="numeric",length=iter_reg)
+      # regionalization
+      for (j in 1:iter_reg) {
+        # 1st iteration, use the timeseries of the closest input point
+        if (j == 1) {
+          data <- mat[nn2$nn.idx[i,1],]
+          proposalParams_mean <- c(0,0,0)
+          proposalParams_sd   <- c(0.5,0.5,0.1)
+        # from the 2nd iteration, use resampled timeseries
+        } else {
+          for (k in 1:ntime) data[k] <- mat[nn2$nn.idx[i,ix[rand[j,k]]],k]
+          proposalParams_mean <- c(location_j[j-1],log_scale_j[j-1],shape_j[j-1])
+          proposalParams_sd   <- c(0.5,0.5,0.1)
+        }
+
+        # use this for reproducible results
+        if (!is.na(randomseed)) set.seed(j)
+#        t0 <- Sys.time()
+        par_bay <- fevd( data,
+                         type="GEV", 
+                         method="Bayesian", 
+                         priorFun="fevdPriorShape",
+                         iter=iter_bay,
+                         proposalParams=list(mean=proposalParams_mean,
+                                             sd=proposalParams_sd))
+#        t1 <- Sys.time()
+#        print( paste( "time", round(t1-t0,1), attr(t1-t0,"unit")))
+        location_j[j]  <-  mean(par_bay$results[(burn+1):iter_bay,1])
+        log_scale_j[j] <-  mean(par_bay$results[(burn+1):iter_bay,2])
+        shape_j[j]     <-  mean(par_bay$results[(burn+1):iter_bay,3])
+        # Return levels
+        retlev_bay <- return.level.fevd.bayesian_anyfunction( par_bay, 
+                                                              return.period = year4retlev,
+                                                              do.ci = TRUE,
+                                                              FUN="median",
+                                                              burn=burn)
+        if (length(year4retlev) == 1) {
+          retlev_j[j,1] <- as.numeric(retlev_bay[1])
+          retlev_j[j,2] <- as.numeric(retlev_bay[2])
+          retlev_j[j,3] <- as.numeric(retlev_bay[3])
+        } else {
+          retlev_j[j,1:nyears] <- as.numeric(retlev_bay[,1])
+          retlev_j[j,(nyears+1):(2*nyears)] <- as.numeric(retlev_bay[,2])
+          retlev_j[j,(2*nyears+1):(3*nyears)] <- as.numeric(retlev_bay[,3])
+        }
+      } # end of regionalization loop
+      retlev_def <- c(NA,NA,NA)
+      retlev_def[1] <- mean(retlev_j[,1])
+      retlev_def[2] <- mean(retlev_j[,2])
+      retlev_def[3] <- mean(retlev_j[,3])
+    }
+    if (verbose) {
+      t1 <- Sys.time()
+      cat( paste( "i=", i, ":time", round(t1-t0,1), attr(t1-t0,"unit"), "\n"))
+    }
+    # first 3: GEV parameters; 
+    # next (3*nyears): average values of (2.5-percentiles of return levels; best estimate of return levels; 97.5-percentiles of return levels)
+    # next (3*nyears): standard deviations of (2.5-percentiles of return levels; best estimate of return levels; 97.5-percentiles of return levels)
+    return( c( mean(location_j),
+               mean(log_scale_j),
+               mean(shape_j),
+               apply(retlev_j,MAR=2,FUN=mean),
+               apply(retlev_j,MAR=2,FUN=sd)))
+  }
+}

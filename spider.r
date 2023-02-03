@@ -125,6 +125,7 @@ if ( argv$time_aggregation        |
      argv$latte_express           |
      argv$estvertprof             |
      argv$gridclimind             | 
+     argv$return_level            | 
      argv$latte                   | 
     (argv$verif & argv$ffout!=ffout_default) ) 
   gridded_output<-T
@@ -135,6 +136,11 @@ if (argv$summ_stat & argv$summ_stat_fun=="wave_nrgx")
 if (argv$summ_stat & argv$summ_stat_fun=="ellipsis") { 
   suppressPackageStartupMessages( library( "cluster"))
   suppressPackageStartupMessages( library(  "igraph")) 
+}
+if (argv$return_level) { 
+  suppressPackageStartupMessages( library( "extRemes"))
+  suppressPackageStartupMessages( library(  "tidyr")) 
+  suppressPackageStartupMessages( library(  "RANN")) 
 }
 #
 # adjust negative numbers
@@ -460,7 +466,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
           mat_ref <- res$mat_ref_col
       } else {
         if ( any( !(res$ix %in% ix_dat))) {
-          print("WARNING: verif & gridded output, wrong indexes: statistics is supposed to use always the same cells")
+          print("WARNING: temporal trend & gridded output, wrong indexes: statistics is supposed to use always the same cells")
           next
         }
         mat <- cbind( mat, res$mat_col)
@@ -470,6 +476,39 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     }
     rm( res)
   } # end if temporal trend
+  #----------------------------------------------------------------------------
+  # prepare for return level
+  if ( argv$return_level) {
+    if ( !exists( "rmaster")) { rmaster<-r; rmaster[]<-NA}
+    res <- spider_return_level_prepare()
+    if ( is.null( res)) next
+    # scores that are computed online
+    #  dat_... dimension is the number of cells of raster "r"
+    if ( res$online) {
+      dat_aggr <- res$dat_aggr_up
+      dat_cont <- res$dat_cont_up
+      if ( !exists( "ix_dat")) ix_dat <- 1:ncell(r)
+      print( paste("return_level & gridded output: number of cells",res$n)) 
+    # scores that require to store the whole dataset in memory
+    #  mat... matrix (number of cells, subset not NAs) x (number of times)
+    } else {
+      if ( !exists("mat")) {
+        mat    <- res$mat_col
+        ix_dat <- res$ix
+        if ( !is.na( argv$ffin_ref_template)) 
+          mat_ref <- res$mat_ref_col
+      } else {
+        if ( any( !(res$ix %in% ix_dat))) {
+          print("WARNING: return & gridded output, wrong indexes: statistics is supposed to use always the same cells")
+          next
+        }
+        mat <- cbind( mat, res$mat_col)
+        if ( !is.na( argv$ffin_ref_template)) 
+          mat_ref <- cbind(  mat_ref, res$mat_ref_col)
+      }
+    }
+    rm( res)
+  } # end if return level
   #----------------------------------------------------------------------------
   # store in a raster stack 
   if ( gridded_output & !argv$verif & !argv$gridclimind) {
@@ -520,6 +559,106 @@ if ( argv$summ_stat_fun == "gamma_parest") {
   dat_to_gamma[which(dat_to_gamma<0)] <- 0
   res <- gamma_get_shape_rate_from_dataset_constrOptim( dat_to_gamma)
   save( file=argv$ffout_summ_stat, dat_to_gamma, res)
+}
+#----------------------------------------------------------------------------
+# return level
+if (argv$return_level) {
+  cat(paste("-- Return Levels --\n"))
+  if ( argv$return_level_elab %in% c("fitGEV_bayesian")) {
+    ntime  <- dim(mat)[2]
+    nyears <- length(argv$return_level_year4retlev)
+    # define input and output grids
+    r_in <- rmaster
+    ix_in <- which( !is.na( getValues(r_in)))
+    if (!is.na(argv$return_level_aggfact) & argv$return_level_aggfact > 1) {
+      r_out <- aggregate( rmaster, fact=argv$return_level_aggfact,
+                         fun=mean, na.rm=T, expand=T)
+    } else {
+      r_out <- r_in
+    }
+    ix_out <- which( !is.na( getValues(r_out)))
+    # get x,y coordinates
+    # ..._in vectors are aligned with mat[,]
+    xy_in <- xyFromCell( r_in, 1:ncell(r_in))
+    x_in  <- xy_in[ix_in,1]
+    y_in  <- xy_in[ix_in,2]
+    rm(xy_in)
+    n_in <- length(x_in)
+    xy_out <- xyFromCell( r_out, 1:ncell(r_out))
+    x_out  <- xy_out[ix_out,1]
+    y_out  <- xy_out[ix_out,2]
+    rm(xy_out)
+    n_out_tot <- length(x_out)
+    cat(paste("total number of time instants =", ntime, "\n"))
+    cat(paste("total number of input points  =", n_in, "\n"))
+    cat(paste("total number of output points =", n_out_tot, "\n"))
+    # define the number of points used to compute return levels
+    if ( !is.na(argv$return_level_m1) & !is.na(argv$return_level_m2)) {
+      if ( (argv$return_level_m1 > n_out_tot) &
+           (argv$return_level_m2 > n_out_tot))
+        boom(str=paste("Check input arguments, max points is",n_out_tot))
+      m1_def <- argv$return_level_m1 
+      m2_def <- min( c(n_out_tot,argv$return_level_m2)) 
+      n_out <- m2_def - argv$return_level_m1 + 1
+    } else {
+      m1_def <- 1
+      m2_def <- n_out_tot
+      n_out <- length(x_out)
+    }
+    cat(paste("requested elaboration from point ", m1_def, "to", m2_def,"\n"))
+    cat(paste("# output points  =", n_out,"\n"))
+    # loop over output points
+    m <- m1_def - 1
+    retlev <- array( data=NA, dim=c(n_out,3))
+    while (m <= m2_def) {
+      m1 <- m + 1
+      m2 <- min( c( m + argv$return_level_loop_deltam, m2_def))
+      m1_out <- m1 - m1_def + 1
+      m2_out <- m2 - m1_def + 1
+      m_dim <- m2 - m1 + 1
+      cat(paste("loop over output points ",m1,m2,"(",m1_out,m2_out,")","\n"))
+      x_m <- x_out[m1:m2]
+      y_m <- y_out[m1:m2]
+      # find input points nearest to output points
+      nn2 <- nn2( cbind( x_in, y_in), 
+                  query = cbind( x_m, y_m), 
+                  k = argv$return_level_nn2k, 
+                  searchtype = "radius", 
+                  radius = argv$return_level_nn2radius)
+      # multicores
+      if ( !is.na( argv$cores)) {
+        res <- t( mcmapply( return_level_fun,
+                            1:m_dim,
+                            mc.cores   = argv$cores,
+                            SIMPLIFY   = T, 
+                            MoreArgs   = list( 
+                                  lab = argv$return_level_elab,
+                                  iter_reg = argv$return_level_iter_reg,
+                                  year4retlev = argv$return_level_year4retlev,
+                                  randomseed = argv$return_level_randomseed,
+                                  iter_bay = argv$return_level_iter_bay,
+                                  burn = argv$return_level_burn)))
+      # no-multicores
+      } else {
+        res <- t( mapply( return_level_fun,
+                          1:m_dim,
+                          SIMPLIFY   = T, 
+                          MoreArgs   = list( 
+                                  lab = argv$return_level_elab,
+                                  iter_reg = argv$return_level_iter_reg,
+                                  year4retlev = argv$return_level_year4retlev,
+                                  randomseed = argv$return_level_randomseed,
+                                  iter_bay = argv$return_level_iter_bay,
+                                  burn = argv$return_level_burn)))
+      }
+      # save results in background data structure
+      retlev[m1_out:m2_out,] <- res[1:m_dim,]
+      # next bunch of gridpoints
+      m <- m + argv$return_level_loop_deltam
+    } # end loop over gridpoints
+    save( file=argv$ffout, argv, retlev, r_in, r_out, mat, m1_def, m2_def)
+  }
+  gridded_output <- FALSE
 }
 #------------------------------------------------------------------------------
 # Aggregate gridpoint-by-gridpoint over time

@@ -1014,6 +1014,60 @@ p<- add_argument(p, "--temporal_trend_FDR",
                  help="false discovery rate for the Benjamini‐Hochberg meta-test of the p-values used to assess statistical significance",
                  type="numeric",
                  default=0.05)
+
+#..............................................................................
+p <- add_argument(p, "--return_level",
+                  help="return level. Compute return levels over an output grid given a sequence of precipitation fields over an input grid. Output and input grid may differ.",
+                  flag=T)
+p<- add_argument(p, "--return_level_elab",
+                 help="elaboration, one of: \"fitGEV_bayesian\"",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--return_level_m1",
+                 help="begin elaboration from this output point (if NA then use all points)",
+                 type="integer",
+                 default=NA)
+p<- add_argument(p, "--return_level_m2",
+                 help="end elaboration at this output point (if NA then use all points)",
+                 type="integer",
+                 default=NA)
+p<- add_argument(p, "--return_level_aggfact",
+                 help="aggregation factor (in number of input grid point) to pass from input grid to output grid (if NA inptu and output are the same grid)",
+                 type="integer",
+                 default=NA)
+p<- add_argument(p, "--return_level_loop_deltam",
+                 help="optimization of computing resources used in the loop over input point (the larger, the faster but more memory is used)",
+                 type="integer",
+                 default=10000)
+p<- add_argument(p, "--return_level_nn2k",
+                 help="number of nearest point to consider for the regionalization (or spatial resampling)",
+                 type="integer",
+                 default=310)
+p<- add_argument(p, "--return_level_nn2radius",
+                 help="radius within nearest point are considered for the regionalization (or spatial resampling). Should be linked to nn2k",
+                 type="integer",
+                 default=10000)
+p<- add_argument(p, "--return_level_iter_reg",
+                 help="number of iterations used for regionalization (or spatial resampling)",
+                 type="integer",
+                 default=10)
+p<- add_argument(p, "--return_level_year4retlev",
+                 help="number of years used to compute the return levels (can be more than one)",
+                 type="integer",
+                 nargs=Inf,
+                 default=NA)
+p<- add_argument(p, "--return_level_randomseed",
+                 help="set to a value different from NA to have reproducible results (the value does not matters)",
+                 type="integer",
+                 default=1)
+p<- add_argument(p, "--return_level_iter_bay",
+                 help="number of iterations used in the MCMC part of the Bayesian estimation",
+                 type="integer",
+                 default=50000)
+p<- add_argument(p, "--return_level_burn",
+                 help="burn in parameter, number of iterations not considered when using MCMC part of the Bayesian estimation",
+                 type="integer",
+                 default=47000)
 #..............................................................................
 p <- add_argument(p, "--verbose",
                   help="verbose mode",
