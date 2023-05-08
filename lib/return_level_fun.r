@@ -33,36 +33,44 @@ return_level_fun <- function( i,
           proposalParams_mean <- c(location_j[j-1],log_scale_j[j-1],shape_j[j-1])
           proposalParams_sd   <- c(0.5,0.5,0.1)
         }
-
-        # use this for reproducible results
-        if (!is.na(randomseed)) set.seed(j)
-#        t0 <- Sys.time()
-        par_bay <- fevd( data,
-                         type="GEV", 
-                         method="Bayesian", 
-                         priorFun="fevdPriorShape",
-                         iter=iter_bay,
-                         proposalParams=list(mean=proposalParams_mean,
-                                             sd=proposalParams_sd))
-        t1 <- Sys.time()
-#        print( paste( "time", round(t1-t0,1), attr(t1-t0,"unit")))
-        location_j[j]  <-  mean(par_bay$results[(burn+1):iter_bay,1])
-        log_scale_j[j] <-  mean(par_bay$results[(burn+1):iter_bay,2])
-        shape_j[j]     <-  mean(par_bay$results[(burn+1):iter_bay,3])
-        # Return levels
-        retlev_bay <- return.level.fevd.bayesian_anyfunction( par_bay, 
-                                                              return.period = year4retlev,
-                                                              do.ci = TRUE,
-                                                              FUN="median",
-                                                              burn=burn)
-        if (length(year4retlev) == 1) {
-          retlev_j[j,1] <- as.numeric(retlev_bay[1])
-          retlev_j[j,2] <- as.numeric(retlev_bay[2])
-          retlev_j[j,3] <- as.numeric(retlev_bay[3])
+        if (!any(data!=0) | max(abs(diff(data)))==0) {
+          location_j[j]  <- NA
+          log_scale_j[j] <- NA
+          shape_j[j]     <- NA
+          retlev_j[j,1:nyears] <- rep(NA,nyears)
+          retlev_j[j,(nyears+1):(2*nyears)] <- rep(NA,nyears) 
+          retlev_j[j,(2*nyears+1):(3*nyears)] <- rep(NA,nyears)
         } else {
-          retlev_j[j,1:nyears] <- as.numeric(retlev_bay[,1])
-          retlev_j[j,(nyears+1):(2*nyears)] <- as.numeric(retlev_bay[,2])
-          retlev_j[j,(2*nyears+1):(3*nyears)] <- as.numeric(retlev_bay[,3])
+          # use this for reproducible results
+          if (!is.na(randomseed)) set.seed(j)
+#          t0 <- Sys.time()
+          par_bay <- fevd( data,
+                           type="GEV", 
+                           method="Bayesian", 
+                           priorFun="fevdPriorShape",
+                           iter=iter_bay,
+                           proposalParams=list(mean=proposalParams_mean,
+                                               sd=proposalParams_sd))
+          t1 <- Sys.time()
+#          print( paste( "time", round(t1-t0,1), attr(t1-t0,"unit")))
+          location_j[j]  <-  mean(par_bay$results[(burn+1):iter_bay,1])
+          log_scale_j[j] <-  mean(par_bay$results[(burn+1):iter_bay,2])
+          shape_j[j]     <-  mean(par_bay$results[(burn+1):iter_bay,3])
+          # Return levels
+          retlev_bay <- return.level.fevd.bayesian_anyfunction( par_bay, 
+                                                                return.period = year4retlev,
+                                                                do.ci = TRUE,
+                                                                FUN="median",
+                                                                burn=burn)
+          if (length(year4retlev) == 1) {
+            retlev_j[j,1] <- as.numeric(retlev_bay[1])
+            retlev_j[j,2] <- as.numeric(retlev_bay[2])
+            retlev_j[j,3] <- as.numeric(retlev_bay[3])
+          } else {
+            retlev_j[j,1:nyears] <- as.numeric(retlev_bay[,1])
+            retlev_j[j,(nyears+1):(2*nyears)] <- as.numeric(retlev_bay[,2])
+            retlev_j[j,(2*nyears+1):(3*nyears)] <- as.numeric(retlev_bay[,3])
+          }
         }
       } # end of regionalization loop
     }
