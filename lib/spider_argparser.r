@@ -843,27 +843,27 @@ p<- add_argument(p, "--ffout_y_rounddig",
 p<- add_argument(p, "--year_string",
                  help="string, placeholder for year",
                  type="character",
-                 default="yyyy")
+                 default="%Y")
 p<- add_argument(p, "--month_string",
                  help="string, placeholder for month",
                  type="character",
-                 default="mm")
+                 default="%m")
 p<- add_argument(p, "--day_string",
                  help="string, placeholder for day",
                  type="character",
-                 default="dd")
+                 default="%d")
 p<- add_argument(p, "--hour_string",
                  help="string, placeholder for hour",
                  type="character",
-                 default="hh")
+                 default="%H")
 p<- add_argument(p, "--min_string",
                  help="string, placeholder for minute",
                  type="character",
-                 default="MM")
+                 default="%M")
 p<- add_argument(p, "--sec_string",
                  help="string, placeholder for second",
                  type="character",
-                 default="SS")
+                 default="%S")
 #..............................................................................
 p <- add_argument(p, "--pam",
                   help="plot a map",

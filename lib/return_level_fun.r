@@ -44,7 +44,7 @@ return_level_fun <- function( i,
                          iter=iter_bay,
                          proposalParams=list(mean=proposalParams_mean,
                                              sd=proposalParams_sd))
-#        t1 <- Sys.time()
+        t1 <- Sys.time()
 #        print( paste( "time", round(t1-t0,1), attr(t1-t0,"unit")))
         location_j[j]  <-  mean(par_bay$results[(burn+1):iter_bay,1])
         log_scale_j[j] <-  mean(par_bay$results[(burn+1):iter_bay,2])
@@ -65,22 +65,22 @@ return_level_fun <- function( i,
           retlev_j[j,(2*nyears+1):(3*nyears)] <- as.numeric(retlev_bay[,3])
         }
       } # end of regionalization loop
-      retlev_def <- c(NA,NA,NA)
-      retlev_def[1] <- mean(retlev_j[,1])
-      retlev_def[2] <- mean(retlev_j[,2])
-      retlev_def[3] <- mean(retlev_j[,3])
     }
     if (verbose) {
       t1 <- Sys.time()
       cat( paste( "i=", i, ":time", round(t1-t0,1), attr(t1-t0,"unit"), "\n"))
     }
-    # first 3: GEV parameters; 
-    # next (3*nyears): average values of (2.5-percentiles of return levels; best estimate of return levels; 97.5-percentiles of return levels)
-    # next (3*nyears): standard deviations of (2.5-percentiles of return levels; best estimate of return levels; 97.5-percentiles of return levels)
-    return( c( mean(location_j),
-               mean(log_scale_j),
-               mean(shape_j),
-               apply(retlev_j,MAR=2,FUN=mean),
-               apply(retlev_j,MAR=2,FUN=sd)))
+    # first 3: GEV parameters;
+    # next nyears: average values of 2.5-percentiles
+    # next nyears: average values of best estimate of return levels 
+    # next nyears: average values of 97.5-percentiles of return levels 
+    # next nyears: standard deviations of 2.5-percentiles
+    # next nyears: standard deviations of best estimate of return levels 
+    # next nyears: standard deviations of 97.5-percentiles of return levels 
+    return( c( median(location_j,na.rm=T),
+               median(log_scale_j,na.rm=T),
+               median(shape_j,na.rm=T),
+               apply(retlev_j,MAR=2,FUN=median,na.rm=T),
+               apply(retlev_j,MAR=2,FUN=function(x){diff(quantile(x,probs=c(0.25,0.75),na.rm=T))})))
   }
 }

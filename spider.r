@@ -482,30 +482,15 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     if ( !exists( "rmaster")) { rmaster<-r; rmaster[]<-NA}
     res <- spider_return_level_prepare()
     if ( is.null( res)) next
-    # scores that are computed online
-    #  dat_... dimension is the number of cells of raster "r"
-    if ( res$online) {
-      dat_aggr <- res$dat_aggr_up
-      dat_cont <- res$dat_cont_up
-      if ( !exists( "ix_dat")) ix_dat <- 1:ncell(r)
-      print( paste("return_level & gridded output: number of cells",res$n)) 
-    # scores that require to store the whole dataset in memory
-    #  mat... matrix (number of cells, subset not NAs) x (number of times)
+    if ( !exists("mat")) {
+      mat    <- res$mat_col
+      ix_dat <- res$ix
     } else {
-      if ( !exists("mat")) {
-        mat    <- res$mat_col
-        ix_dat <- res$ix
-        if ( !is.na( argv$ffin_ref_template)) 
-          mat_ref <- res$mat_ref_col
-      } else {
-        if ( any( !(res$ix %in% ix_dat))) {
-          print("WARNING: return & gridded output, wrong indexes: statistics is supposed to use always the same cells")
-          next
-        }
-        mat <- cbind( mat, res$mat_col)
-        if ( !is.na( argv$ffin_ref_template)) 
-          mat_ref <- cbind(  mat_ref, res$mat_ref_col)
+      if ( any( !(res$ix %in% ix_dat))) {
+        print("WARNING: return & gridded output, wrong indexes: statistics is supposed to use always the same cells")
+        next
       }
+      mat <- cbind( mat, res$mat_col)
     }
     rm( res)
   } # end if return level
@@ -609,7 +594,7 @@ if (argv$return_level) {
     cat(paste("# output points  =", n_out,"\n"))
     # loop over output points
     m <- m1_def - 1
-    retlev <- array( data=NA, dim=c(n_out,3))
+#    retlev <- array( data=NA, dim=c(n_out,3))
     while (m <= m2_def) {
       m1 <- m + 1
       m2 <- min( c( m + argv$return_level_loop_deltam, m2_def))
@@ -652,6 +637,7 @@ if (argv$return_level) {
                                   burn = argv$return_level_burn)))
       }
       # save results in background data structure
+      if (m1_out == 1) retlev <- array( data=NA, dim=c(n_out,dim(res)[2]))
       retlev[m1_out:m2_out,] <- res[1:m_dim,]
       # next bunch of gridpoints
       m <- m + argv$return_level_loop_deltam
