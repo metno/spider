@@ -55,6 +55,9 @@ spider_gridclimind_prepare <- function( argv   = NULL,
   if ( argv$gridclimind_index %in% c( "quantile", "metnoheatwave", "rx5day", "rx3day")) {
     return( list( online=F, ix=ix, n=length(ix),
                   mat_col=vr, mat_ref_col=vref ))
+  } else if ( argv$gridclimind_index %in% c( "metnoheatwave2023")) {
+    return( list( online=F, ix=ix, n=length(ix),
+                  mat_col=vr, mat_ref_col=NULL))
   #
   # scores that are computed online
   } else {

@@ -91,7 +91,17 @@ score_fun<-function(i=NA,
     } else {
       score <- NA
     }
-#     score <- as.integer(  ( mean(mat[i,], na.rm=T) >= threshold) & ( mean(mat_ref[i,], na.rm=T) >= threshold1))
+
+  # Nordic definition for heat waves (2023)
+  # mat must be "tmax" 
+  # 5 day max greater than 27 C for 5 days in a row 
+  # mat is supposed to have 5 columns
+  } else if (lab=="metnoheatwave2023") {
+    if ( length(which(!is.na(mat[i,]))) == 5) {
+      score <- as.integer( sum(as.integer(mat[i,]>threshold1)) == 5 )
+    } else {
+      score <- NA
+    }
 
   # Highest 5-day precipitation amount
   } else if (lab=="rx5day") {
