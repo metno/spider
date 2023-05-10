@@ -397,6 +397,30 @@ p <- add_argument(p, "--master_mask",
                   help="should we use the master grid to maskout gridpoints?",
                   flag=T)
 #..............................................................................
+p <- add_argument(p, "--values_mask",
+                  help="mask out with values and conditions (greater than x, smaller than y, and so on)",
+                  flag=T)
+p<- add_argument(p, "--values_mask_vals1",
+                 help="threshold used for masking out points",
+                 type="character",
+                 nargs=Inf,
+                 default=NA)
+p<- add_argument(p, "--values_mask_vals2",
+                 help="threshold used for masking out points (use when condition is \"within\")",
+                 type="character",
+                 nargs=Inf,
+                 default=NA)
+p<- add_argument(p, "--values_mask_cond",
+                 help="type One of 'below' (< x), 'below=' (<= x), '=within' (<= x <), 'within' (< x <), 'within=' (< x <=), '=within=' (<= x <=), 'above' (> x), or 'above=' (>= x). \"values_mask_vals1\" is used for 'above' and 'below', while \"values_mask_vals2\" is used as an extra threshold for 'within'",
+                 type="character",
+                 nargs=Inf,
+                 default=NA)
+p<- add_argument(p, "--values_mask_pad",
+                 help="padding values (replacement values for masked out points)",
+                 type="character",
+                 nargs=Inf,
+                 default=NA)
+#..............................................................................
 p <- add_argument(p, "--polygon_mask",
                   help="mask out with polygons",
                   flag=T)
@@ -1207,5 +1231,32 @@ argv$gridded_dqc.clump_n <- as.numeric( argv$gridded_dqc.clump_n)
 #
 if (is.na(argv$space_fun)) argv$space_fun<-argv$fun
 if (is.na(argv$time_fun)) argv$time_fun<-argv$fun
+
+if (any(!is.na(argv$values_mask_vals1))) { 
+  aux <- vector(mode="numeric",length=length(argv$values_mask_vals1))
+  for (i in 1:length(argv$values_mask_vals1)) 
+    aux[i] <- as.numeric(gsub("_","-",argv$values_mask_vals1[i]))
+  argv$values_mask_vals1 <- aux
+}
+
+if (any(!is.na(argv$values_mask_vals2))) {
+  aux <- vector(mode="numeric",length=length(argv$values_mask_vals2))
+  for (i in 1:length(argv$values_mask_vals2)) 
+    aux[i] <- as.numeric(argv$values_mask_vals2[i])
+  argv$values_mask_vals2 <- aux
+}
+
+if (any(!is.na(argv$values_mask_pad))) {
+  aux <- vector(mode="numeric",length=length(argv$values_mask_pad))
+  for (i in 1:length(argv$values_mask_pad)) { 
+    if (argv$values_mask_pad[i]=="NA") {
+      aux[i] <- NA
+    } else {
+      aux[i] <- as.numeric(argv$values_mask_pad[i])
+    }
+  }
+  argv$values_mask_pad <- aux
+}
+
 return(argv)
 }

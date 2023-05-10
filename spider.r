@@ -270,18 +270,19 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   # Use the mask(s) if needed
   # special case of downscaling
   if ( argv$master_mask & 
-       !argv$latte & !argv$latte_express & !argv$downscale & !argv$upscale) {
+       !argv$latte & !argv$latte_express & !argv$downscale & !argv$upscale) 
     r <- spider_downscale() # mask is rmaster, so this is a downscaling for us
-    if ( is.null(r)) next
-    if ( !any( !is.na( values <- getValues(r)))) {
+  if (argv$polygon_mask) r <- spider_polygon_mask()
+  if (argv$values_mask) r <- spider_values_mask()
+  if ( argv$polygon_mask | 
+       argv$values_mask | 
+       (argv$master_mask & !argv$latte & !argv$latte_express & 
+        !argv$downscale & !argv$upscale)) {
+    if (is.null(r)) next
+    if (!any( !is.na( values <- getValues(r)))) {
       print(paste("warning: all NAs after mask"))
       next
     }
-  }
-  #
-  if (argv$polygon_mask) {
-    r <- spider_polygon_mask()
-    if ( is.null(r)) next
   }
   #----------------------------------------------------------------------------
   # Extract a list of points
@@ -506,8 +507,8 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
       } else if ( argv$time_fun == "mean")  {
         s <- s + 1/(n+1) * (r-s)
       } else if ( (argv$time_fun == "min") | (argv$time_fun == "max"))  {
-        if ( argv$time_fun == "min" ) aux <- pmin( getValues(r), getValues(s))
-        if ( argv$time_fun == "max" ) aux <- pmax( getValues(r), getValues(s))
+        if ( argv$time_fun == "min" ) aux <- pmin( getValues(r), getValues(s), na.rm=argv$fun_narm)
+        if ( argv$time_fun == "max" ) aux <- pmax( getValues(r), getValues(s), na.rm=argv$fun_narm)
         s[] <- aux
         rm(aux)
       } else {

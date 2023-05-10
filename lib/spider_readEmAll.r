@@ -3,6 +3,8 @@ spider_readEmAll <- function( argv=NA,
                               time=NA,
                               time_ref=NA) {
 #------------------------------------------------------------------------------
+  t_to_read.format <- "%Y%m%d%H%M%S"
+#  t_to_read.format <- "%Y%m%d%H%M"
   if ( class(argv)=="logical") 
     if ("argv" %in% ls(envir = .GlobalEnv)) 
       argv <- get("argv", envir = .GlobalEnv)
@@ -24,7 +26,7 @@ spider_readEmAll <- function( argv=NA,
     t_to_read <- format( as.POSIXct( as.numeric(
       as.POSIXct(time,format=argv$ffin_date.format,tz="GMT")) 
       + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
-                "%Y%m%d%H%M%S")
+                t_to_read.format)
     if (argv$debug) print(paste("time_to_read time file",t_to_read,time,ffin))
     r <- read_griddeddata( mode="data", ffin=ffin, t_to_read=t_to_read)
   }
@@ -49,7 +51,7 @@ spider_readEmAll <- function( argv=NA,
       t_to_read<-format( as.POSIXct( as.numeric(
         as.POSIXct(time,format=argv$ffin_date.format,tz="GMT")) 
         + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
-                  "%Y%m%d%H%M%S")
+                  t_to_read.format)
       if (argv$debug) print(paste("time_to_read time file",t_to_read,time,ffin))
       r <- read_griddeddata( mode="data", ffin=ffin, t_to_read=t_to_read)
     }
@@ -90,10 +92,10 @@ spider_readEmAll <- function( argv=NA,
       t_to_read<-format( as.POSIXct( as.numeric(
         as.POSIXct(time_ref,format=argv$ffin_date.format,tz="GMT")) 
         + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
-                  "%Y%m%d%H%M%S")
+                  t_to_read.format)
 #      t_to_read <- format(
 #                    as.POSIXct( time_ref, format=argv$ffin_date.format,tz="GMT"),
-#                    "%Y%m%d%H%M%S")
+#                    t_to_read.format)
       if (argv$debug) print(paste("time_to_read time file", t_to_read,time_ref, ffin_ref))
       r_ref<-read_griddeddata( mode="ref", ffin_ref=ffin_ref, t_to_read=t_to_read)
     }
@@ -118,7 +120,7 @@ spider_readEmAll <- function( argv=NA,
         t_to_read<-format( as.POSIXct( as.numeric(
           as.POSIXct(time_ref,format=argv$ffin_date.format,tz="GMT")) 
           + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
-                    "%Y%m%d%H%M%S")
+                    t_to_read.format)
         if (argv$debug) print(paste("time_to_read time file",t_to_read,time_ref,ffin_ref))
         r_ref <- read_griddeddata( mode="ref", ffin_ref=ffin_ref, t_to_read=t_to_read)
       }
