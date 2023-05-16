@@ -977,7 +977,7 @@ p <- add_argument(p, "--gridclimind",
                   help="gridded climate indices",
                   flag=T)
 p<- add_argument(p, "--gridclimind_index",
-                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\",\"freq\",\"maxcons\",\"HD17\",\"sdii\",\"quantile\",\"metnoheatwave\",\"rx5day\",\"rx3day\"",
+                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\",\"freq\",\"maxcons\",\"HD17\",\"sdii\",\"quantile\",\"metnoheatwave\",\"metnoheatwave2023\",\"rx5day\",\"rx3day\"",
                  type="character",
                  default=NA)
 p<- add_argument(p, "--prcptot_r",

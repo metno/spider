@@ -98,7 +98,7 @@ score_fun<-function(i=NA,
   # mat is supposed to have 5 columns
   } else if (lab=="metnoheatwave2023") {
     if ( length(which(!is.na(mat[i,]))) == 5) {
-      score <- as.integer( sum(as.integer(mat[i,]>threshold1)) == 5 )
+      score <- as.integer( sum(as.integer(mat[i,]>threshold)) == 5 )
     } else {
       score <- NA
     }
