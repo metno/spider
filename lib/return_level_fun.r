@@ -6,6 +6,7 @@ return_level_fun <- function( i,
                               randomseed=1,
                               iter_bay=50000,
                               burn=47000,
+                              sample_radius=NA,
                               verbose=T) {
 #------------------------------------------------------------------------------
   options(warn=2)
@@ -14,9 +15,18 @@ return_level_fun <- function( i,
     if ( (p <- length( ix <- (which(nn2$nn.idx[i,]!=0)))) == 0) {
       return(c(NA,NA,NA,rep(NA,(nyears*3))))
     } else {
-      # use this for reproducible results
-      if (!is.na(randomseed)) set.seed(i)
-      rand <- array(data=sample(x=p,size=(iter_reg*ntime),replace=T),dim=c(iter_reg,ntime))
+      if (is.na(sample_radius)) {
+        # use this for reproducible results
+        if (!is.na(randomseed)) set.seed(i)
+        rand <- array( data=sample(x=p,size=(iter_reg*ntime),replace=T),
+                       dim=c(iter_reg,ntime))
+      } else {
+        probs <- exp(-0.5*(nn2$nn.dists[i,ix])**2/sample_radius**2) / sum(exp(-0.5*(nn2$nn.dists[i,ix])**2/sample_radius**2))
+        # use this for reproducible results
+        if (!is.na(randomseed)) set.seed(i)
+        rand <- array( data=sample(x=p,size=(iter_reg*ntime),replace=T,prob=probs),
+                       dim=c(iter_reg,ntime))
+      }
       #
       retlev_j <- array( data=NA, dim=c(iter_reg, (nyears*3)))
       location_j  <- log_scale_j <- shape_j <- vector(mode="numeric",length=iter_reg)
@@ -24,16 +34,17 @@ return_level_fun <- function( i,
       for (j in 1:iter_reg) {
         # 1st iteration, use the timeseries of the closest input point
         if (j == 1) {
-          data <- mat[nn2$nn.idx[i,1],]
+          data <- as.vector(mat[nn2$nn.idx[i,1],])
           proposalParams_mean <- c(0,0,0)
           proposalParams_sd   <- c(0.5,0.5,0.1)
         # from the 2nd iteration, use resampled timeseries
         } else {
           for (k in 1:ntime) data[k] <- mat[nn2$nn.idx[i,ix[rand[j,k]]],k]
-          proposalParams_mean <- c(location_j[j-1],log_scale_j[j-1],shape_j[j-1])
+#          proposalParams_mean <- c(location_j[j-1],log_scale_j[j-1],shape_j[j-1])
+          proposalParams_mean <- c(0,0,0)
           proposalParams_sd   <- c(0.5,0.5,0.1)
         }
-        if (!any(data!=0) | max(abs(diff(data)))==0) {
+        if ((!any(data!=0)) | (max(abs(diff(data)))==0)) {
           location_j[j]  <- NA
           log_scale_j[j] <- NA
           shape_j[j]     <- NA
@@ -42,6 +53,7 @@ return_level_fun <- function( i,
           retlev_j[j,(2*nyears+1):(3*nyears)] <- rep(NA,nyears)
         } else {
           # use this for reproducible results
+          if (any(is.na(proposalParams_mean))) proposalParams_mean <- c(0,0,0)
           if (!is.na(randomseed)) set.seed(j)
 #          t0 <- Sys.time()
           par_bay <- fevd( data,

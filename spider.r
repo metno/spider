@@ -623,7 +623,8 @@ if (argv$return_level) {
                                   year4retlev = argv$return_level_year4retlev,
                                   randomseed = argv$return_level_randomseed,
                                   iter_bay = argv$return_level_iter_bay,
-                                  burn = argv$return_level_burn)))
+                                  burn = argv$return_level_burn,
+                                  sample_radius=(argv$return_level_nn2radius/3))))
       # no-multicores
       } else {
         res <- t( mapply( return_level_fun,
@@ -635,7 +636,8 @@ if (argv$return_level) {
                                   year4retlev = argv$return_level_year4retlev,
                                   randomseed = argv$return_level_randomseed,
                                   iter_bay = argv$return_level_iter_bay,
-                                  burn = argv$return_level_burn)))
+                                  burn = argv$return_level_burn,
+                                  sample_radius=(argv$return_level_nn2radius/3))))
       }
       # save results in background data structure
       if (m1_out == 1) retlev <- array( data=NA, dim=c(n_out,dim(res)[2]))
