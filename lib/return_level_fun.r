@@ -85,7 +85,7 @@ return_level_fun <- function( i,
           }
         }
       } # end of regionalization loop
-    }
+    } # end of if all data do have different values
     if (verbose) {
       t1 <- Sys.time()
       cat( paste( "i=", i, ":time", round(t1-t0,1), attr(t1-t0,"unit"), "\n"))
@@ -102,5 +102,5 @@ return_level_fun <- function( i,
                median(shape_j,na.rm=T),
                apply(retlev_j,MAR=2,FUN=median,na.rm=T),
                apply(retlev_j,MAR=2,FUN=function(x){diff(quantile(x,probs=c(0.25,0.75),na.rm=T))})))
-  }
+  } # End of fitGEV_bayesian
 }
