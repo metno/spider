@@ -606,11 +606,13 @@ if (argv$return_level) {
       x_m <- x_out[m1:m2]
       y_m <- y_out[m1:m2]
       # find input points nearest to output points
-      nn2 <- nn2( cbind( x_in, y_in), 
-                  query = cbind( x_m, y_m), 
-                  k = argv$return_level_nn2k, 
-                  searchtype = "radius", 
-                  radius = argv$return_level_nn2radius)
+      if (argv$return_level_nn2radius>=0) {
+        nn2 <- nn2( cbind( x_in, y_in), 
+                    query = cbind( x_m, y_m), 
+                    k = argv$return_level_nn2k, 
+                    searchtype = "radius", 
+                    radius = argv$return_level_nn2radius)
+      }
       # multicores
       if ( !is.na( argv$cores)) {
         res <- t( mcmapply( return_level_fun,
