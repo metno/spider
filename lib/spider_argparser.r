@@ -1031,7 +1031,7 @@ p <- add_argument(p, "--temporal_trend",
                   help="trend through time. NOTE: the output nc-file has preset varname, varlongname, varstandardname, varversion, diground.",
                   flag=T)
 p<- add_argument(p, "--temporal_trend_elab",
-                 help="trend through time elaboration, one of: \"Theil_Sen_regression\", \"Mann_Kendall_trend_test\"",
+                 help="trend through time elaboration, one of: \"Theil_Sen_regression\", \"Mann_Kendall_trend_test\",\"Mann_Kendall_trend_test_ALT\"",
                  type="character",
                  default=NA)
 p<- add_argument(p, "--temporal_trend_FDR",

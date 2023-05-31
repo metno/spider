@@ -34,6 +34,8 @@ temporal_trends_fun <- function( i     = NA,
       a <- median( residuals)
       res <- c( a, b)
     }
+
+  # Current Version is for complete observations only
   } else if ( lab == "Mann_Kendall_trend_test") {
     # REF: Wilks (2019) p. 178
     # S, test statistic
@@ -61,6 +63,14 @@ temporal_trends_fun <- function( i     = NA,
     # two-sided p-value (not adjusted for multiplicity testing)
     p <- 2 * pnorm( -abs(z), mean=0, sd=1)
     #
+    res <- c( z, p)
+  
+# Current Version is for complete observations only
+  } else if ( lab == "Mann_Kendall_trend_test_ALT") {
+    require(trend)
+    aux <- mk.test(data, alternative = "two.sided", continuity = TRUE)$p.value
+    z <- aux$statistic
+    p <- aux$p.value
     res <- c( z, p)
   }
   c( res[1], res[2], nt)

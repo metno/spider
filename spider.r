@@ -606,7 +606,7 @@ if (argv$return_level) {
       x_m <- x_out[m1:m2]
       y_m <- y_out[m1:m2]
       # find input points nearest to output points
-      if (argv$return_level_nn2radius>=0) {
+      if (argv$return_level_nn2radius >= 0) {
         nn2 <- nn2( cbind( x_in, y_in), 
                     query = cbind( x_m, y_m), 
                     k = argv$return_level_nn2k, 
@@ -1010,7 +1010,8 @@ if (gridded_output)  {
   # temporal trends 
   if (argv$temporal_trend) {
     if ( argv$temporal_trend_elab %in% c( "Theil_Sen_regression", 
-                                          "Mann_Kendall_trend_test")) {
+                                          "Mann_Kendall_trend_test",
+                                          "Mann_Kendall_trend_test_ALT")) {
       npoints <- dim(mat)[1]
       if ( !is.na( argv$cores)) {
         res <- mcmapply( temporal_trends_fun,
@@ -1028,7 +1029,7 @@ if (gridded_output)  {
       if (exists("mat")) rm(mat)
       if (exists("mat_ref")) rm(mat_ref)
       dat_cont <- res[3,]
-      if ( argv$temporal_trend_elab == "Mann_Kendall_trend_test") {
+      if ( argv$temporal_trend_elab %in% c("Mann_Kendall_trend_test","Mann_Kendall_trend_test_ALT")) {
         # Benjamini‐Hochberg meta test of the p-values used to assess statistical significance
         # REF: Wilks (2019) p. 195
         # Hypothesis testing (problem of test multiplicity, assessing statistical significance). Simplyfing a bit: H0(j)=no-trend at the j-th point; return TRUE(1) if H0(j) can be rejected with the preset global false discovery rate; return FALSE(0) if H0(j) cannot be rejected. The threshold used to assess significance varies from point to point. Results of individual tests are regarded as significant if the corresponding H0 is TRUE(1).
@@ -1049,19 +1050,19 @@ if (gridded_output)  {
     if ( length(ix)>0) {
       r1 <- r
       r1[ix_dat[ix]] <- res[1,ix]; r <- r1; r1[] <- NA
-      if ( argv$temporal_trend_elab == "Mann_Kendall_trend_test") {
+      if ( argv$temporal_trend_elab %in% c("Mann_Kendall_trend_test","Mann_Kendall_trend_test_ALT")) {
         r1[ix_dat[ix]] <- p_values_adj[ix]; r <- stack( r, r1); r1[] <- NA
       } else {
         r1[ix_dat[ix]] <- res[2,ix]; r <- stack( r, r1); r1[] <- NA
       }
       r1[ix_dat[ix]] <- res[3,ix]; r <- stack( r, r1); r1[] <- NA
-      if ( argv$temporal_trend_elab == "Mann_Kendall_trend_test") {
+      if ( argv$temporal_trend_elab %in% c("Mann_Kendall_trend_test","Mann_Kendall_trend_test_ALT")) {
         r1[ix_dat[ix]] <- as.numeric(trend_significance[ix]); r <- stack( r, r1)
       }
     } else {
       r1 <- r
       r <- stack( r, r1); r <- stack( r, r1); r <- stack( r, r1)
-      if ( argv$temporal_trend_elab == "Mann_Kendall_trend_test")
+      if ( argv$temporal_trend_elab %in% c("Mann_Kendall_trend_test","Mann_Kendall_trend_test_ALT"))
         r <- stack( r, r1)
     }
     rm( r1)
@@ -1116,7 +1117,7 @@ if (gridded_output)  {
       argv$ffout_varstandardname <- c( "intercept", "slope", "counter")
       argv$ffout_varversion      <- c( "1.0", "1.0", "1.0")
       argv$ffout_diground        <- 4
-    } else if ( argv$temporal_trend_elab ==  "Mann_Kendall_trend_test") {
+    } else if ( argv$temporal_trend_elab %in% c("Mann_Kendall_trend_test","Mann_Kendall_trend_test_ALT")) {
       argv$ffout_varname         <- c( "z", "p_value", "n", "trend")
       argv$ffout_varlongname     <- c( "standard Gaussian value Mann-Kendall trend test",
                                        "p-value Mann-Kendall trend test adjusted using Benjamini‐Hochberg method",
