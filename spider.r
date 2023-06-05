@@ -600,7 +600,7 @@ if (argv$return_level) {
     # loop over output points
     m <- m1_def - 1
 #    retlev <- array( data=NA, dim=c(n_out,3))
-    while (m <= m2_def) {
+    while (m < m2_def) {
       m1 <- m + 1
       m2 <- min( c( m + argv$return_level_loop_deltam, m2_def))
       m1_out <- m1 - m1_def + 1
