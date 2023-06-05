@@ -142,6 +142,10 @@ if (argv$return_level) {
   suppressPackageStartupMessages( library(  "tidyr")) 
   suppressPackageStartupMessages( library(  "RANN")) 
 }
+if (argv$temporal_trend) {
+  if (argv$temporal_trend_elab == "Mann_Kendall_trend_test_ALT")
+    suppressPackageStartupMessages( library( "trend"))
+} 
 #
 # adjust negative numbers
 argv$summ_stat_condition_threshold<-as.numeric(gsub("_","-",

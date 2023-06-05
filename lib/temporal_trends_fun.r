@@ -67,8 +67,7 @@ temporal_trends_fun <- function( i     = NA,
   
 # Current Version is for complete observations only
   } else if ( lab == "Mann_Kendall_trend_test_ALT") {
-    require(trend)
-    aux <- mk.test(data, alternative = "two.sided", continuity = TRUE)$p.value
+    aux <- mk.test(data, alternative = "two.sided", continuity = TRUE)
     z <- aux$statistic
     p <- aux$p.value
     res <- c( z, p)
