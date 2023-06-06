@@ -3,6 +3,7 @@ spider_gridclimind_prepare <- function( argv   = NULL,
                                         r      = NULL,
                                         r_ref  = NULL,
                                         dat_aggr = NULL,
+                                        dat_flag = NULL,
                                         dat_cont = NULL) {
 #------------------------------------------------------------------------------
   if ( is.null(argv))
@@ -27,6 +28,13 @@ spider_gridclimind_prepare <- function( argv   = NULL,
     } else {
       dat_cont   <- vector( length=ncell(r), mode="numeric")
       dat_cont[] <- NA
+    }
+  if ( is.null(dat_flag))
+    if ( "dat_flag" %in% ls(envir = .GlobalEnv)) {
+      dat_flag <- get( "dat_flag", envir = .GlobalEnv)
+    } else {
+      dat_flag   <- vector( length=ncell(r), mode="integer")
+      dat_flag[] <- NA
     }
   #
   n <- ncell(r)
@@ -61,8 +69,9 @@ spider_gridclimind_prepare <- function( argv   = NULL,
   #
   # scores that are computed online
   } else {
-    # dat / dat_cont / dat_aggr: n-vectors
+    # dat / dat_cont / dat_aggr/ dat_flag: n-vectors
     dat_cont[ix] <- dat_cont[ix] + 1
+    if (length(ixaux <- which(is.na(dat_flag[ix]))) > 0) dat_flag[ix][ixaux] <- 0
     dat <- vector( mode="numeric", length=n); dat[] <- NA
     dat[ix] <- 0
     # compute score for one timestep: begin
@@ -179,15 +188,36 @@ spider_gridclimind_prepare <- function( argv   = NULL,
         }
         dat_aggr[ix][ixb] <- dat_aggr[ix][ixb] + ( dat[ix][ixb] - dat_aggr[ix][ixb]) / dat_cont[ix][ixb]
       }
-#save(file="tmp.rdata",dat_cont,dat_aggr,dat,ixb,iy,ix)
-#q()
+    # -- gsl, Growing season length (days)
+    # Let tg(ij) be the daily mean temperature at day i of period j. Then counted is the no of days between the first occurrence of at least 6 consecutive days with: tg(ij) > 5 degC and the first occurrence after 1 July of at least 6 consecutive days with: tg(ij) < 5 degC
+    # Assumed we have 1 year of continous daily mean temperature values
+    # dat_flag = 0 GS not yet started; = 1 we are in GS; = 2 GS ended
+    # dat_cont counts the number of consecutive days where a condition is met (tg(ij)>5 if dat_flag = 0 or tg(ij)<5 if dat_flag = 1 and after 1st July)
+    # dat_aggr counts the number of days in the GS (1st day is the day with the 5 days before it -i.e. 6 days with the 1st GS day- having tg(ij)>5 degC; the last day is the day with the 5 days before it having tg(ij)<5 degC)
+
+    } else if (argv$gridclimind_index %in% c( "gsl") ) {
+      if ( length( iy <- which(dat_flag[ix] == 2)) > 0) dat_cont[ix][iy] <- 0
+      dat_flag0 <- dat_flag[ix] == 0
+      if ( length( iy <- which(dat_flag0 & vr <= argv$gsl_tg_threshold)) > 0) dat_cont[ix][iy] <- 0
+      if ( length( iy <- which(dat_flag0 & dat_cont[ix] >= argv$gsl_ndays_threshold)) > 0) { dat_cont[ix][iy] <- 0 ; dat_flag[ix][iy] <- 1}
+      dat_flag1 <- dat_flag[ix] == 1
+      if ( format(tseq[t],format="%m",tz="UTC") %in% c("07","08","09","10","11","12")) {
+        if ( length( iy <- which(dat_flag1 & vr >= argv$gsl_tg_threshold)) > 0) dat_cont[ix][iy] <- 0
+        if ( length( iy <- which(dat_flag1 & dat_cont[ix] >= argv$gsl_ndays_threshold)) > 0) { dat_cont[ix][iy] <- 0 ; dat_flag[ix][iy] <- 2}
+      } else {
+        if ( length( iy <- which(dat_flag1)) > 0) dat_cont[ix][iy] <- 0
+      }
+      dat_flag1 <- dat_flag[ix] == 1
+      if ( length( iy <- which(dat_flag1 &  is.na(dat_aggr[ix]))) > 0) dat_aggr[ix][iy] <- 0
+      if ( length( iy <- which(dat_flag1 & !is.na(dat_aggr[ix]))) > 0) dat_aggr[ix][iy] <- dat_aggr[ix][iy] + 1
     } else {
       return( NULL)
     }
     # update online score: end
     return( list( online=T, ix=ix, n=length(ix),
                   dat_aggr_up=dat_aggr, 
-                  dat_cont_up=dat_cont ))
+                  dat_cont_up=dat_cont,
+                  dat_flag_up=dat_flag ))
   }
 }
 

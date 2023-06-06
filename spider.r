@@ -426,6 +426,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     if ( res$online) {
       dat_aggr <- res$dat_aggr_up
       dat_cont <- res$dat_cont_up
+      dat_flag <- res$dat_flag_up
       if ( !exists( "ix_dat")) ix_dat <- 1:ncell(r)
       print( paste("gridclimind & gridded output: number of cells",res$n)) 
     # scores that require to store the whole dataset in memory

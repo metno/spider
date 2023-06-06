@@ -977,7 +977,7 @@ p <- add_argument(p, "--gridclimind",
                   help="gridded climate indices",
                   flag=T)
 p<- add_argument(p, "--gridclimind_index",
-                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\",\"freq\",\"maxcons\",\"HD17\",\"sdii\",\"quantile\",\"metnoheatwave\",\"metnoheatwave2023\",\"rx5day\",\"rx3day\"",
+                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\",\"freq\",\"maxcons\",\"HD17\",\"sdii\",\"quantile\",\"metnoheatwave\",\"metnoheatwave2023\",\"rx5day\",\"rx3day\",\"gsl\"",
                  type="character",
                  default=NA)
 p<- add_argument(p, "--prcptot_r",
@@ -1025,6 +1025,14 @@ p<- add_argument(p, "--metnohw_tmax_threshold",
                  help="MET Norway heat wave index, definition of the threshold for tmax",
                  type="numeric",
                  default=28)
+p<- add_argument(p, "--gsl_tg_threshold",
+                 help="Growing season lenght, daily mean temperature threshold (degC)",
+                 type="numeric",
+                 default=5)
+p<- add_argument(p, "--gsl_ndays_threshold",
+                 help="Growing season lenght, number of days for the warm/cold spell (days)",
+                 type="integer",
+                 default=6)
 
 #..............................................................................
 p <- add_argument(p, "--temporal_trend",
