@@ -196,6 +196,7 @@ spider_gridclimind_prepare <- function( argv   = NULL,
     # dat_aggr counts the number of days in the GS (1st day is the day with the 5 days before it -i.e. 6 days with the 1st GS day- having tg(ij)>5 degC; the last day is the day with the 5 days before it having tg(ij)<5 degC)
 
     } else if (argv$gridclimind_index %in% c( "gsl") ) {
+      if ( length( iy <- which(is.na(dat_aggr[ix]))) > 0) dat_aggr[ix][iy] <- 0
       if ( length( iy <- which(dat_flag[ix] == 2)) > 0) dat_cont[ix][iy] <- 0
       dat_flag0 <- dat_flag[ix] == 0
       if ( length( iy <- which(dat_flag0 & vr <= argv$gsl_tg_threshold)) > 0) dat_cont[ix][iy] <- 0
