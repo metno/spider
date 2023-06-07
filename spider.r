@@ -572,29 +572,32 @@ if ( argv$summ_stat_fun == "gamma_parest") {
 #----------------------------------------------------------------------------
 # zrq (Zhang running quantiles, Zhang et al (2005) JoC "Avoiding Inhomogeneity in Percentile-Based Indices of Temperature Extremes")
 if (argv$zrq) {
-  zrq_inbase_begin <- as.POSIXlt( str2Rdate(argv$zrq_inbase_begin, format="%Y-%m-%d"))
-  zrq_typicalyear_end <- as.POSIXlt( str2Rdate( paste0(substr(argv$zrq_inbase_begin,1,4),"-12-31"), format="%Y-%m-%d"))
-  zrq_inbase_end   <- as.POSIXlt( str2Rdate(argv$zrq_inbase_end,   format="%Y-%m-%d"))
-  zrq_qtiles <- as.numeric(argv$zrq_qtiles[q])
+options(warn=2)
+  zrq_inbase_begin <- as.POSIXlt( str2Rdate(argv$zrq_inbase_begin, format="%Y-%m-%d"), tz="UTC")
+  zrq_typicalyear_end <- as.POSIXlt( str2Rdate( paste0(substr(argv$zrq_inbase_begin,1,4),"-12-31"), format="%Y-%m-%d"), tz="UTC")
+  zrq_inbase_end   <- as.POSIXlt( str2Rdate(argv$zrq_inbase_end,   format="%Y-%m-%d"), tz="UTC")
+  zrq_qtiles <- as.numeric(argv$zrq_qtiles)/100
   n_qtiles <- length(zrq_qtiles)
   # outbase quantiles
   for (t in 1:n_tseq) {
     if ( tseq[t] < zrq_inbase_begin | tseq[t] > zrq_typicalyear_end) next
     ix_t <- zrq_datesel_fun( t, inbase=F, ndays=2)$ix
+  t00 <- Sys.time()
     # multicores
     if ( !is.na( argv$cores)) {
       res <- t( mcmapply( zrq_outbase_fun,
                           1:nix,
                           mc.cores   = argv$cores,
-                          SIMPLIFY   = T, 
-                          MoreArgs   = list( qtiles = argv$zrq_qtiles)))
+                          SIMPLIFY   = T))
     # no-multicores
     } else {
       res <- t( mapply( zrq_outbase_fun,
                         1:nix,
-                        SIMPLIFY   = T, 
-                        MoreArgs   = list( qtiles = argv$zrq_qtiles)))
+                        SIMPLIFY   = T))
     }
+  t11 <- Sys.time()
+  print( paste( "time", round(t11-t00,1), attr(t11-t00,"unit")))
+print(dim(res))
     # save output file
     ffout_aux <- replaceDate( string       = argv$zrq_ffout_outbase_template,
                               date.str     = format( tseq[t], format=argv$ffin_date.format, tz="GMT"),
@@ -607,9 +610,9 @@ if (argv$zrq) {
                               format       = argv$ffin_date.format)
     for (q in 1:length(argv$zrq_qtiles)) {
       ffout <- gsub( "%Q", formatC(argv$zrq_qtiles[q],width=2,flag="0"), ffout_aux)
-      dir.create( dirname(ffou), showWarnings = FALSE, recursive = TRUE)
+      dir.create( dirname(ffout), showWarnings = FALSE, recursive = TRUE)
       zrq_qtile <- argv$zrq_qtiles[q]
-      save( file=ffout, zrq_qtile, zrq_inbase_begin, zrq_typicalyear_end, zrq_inbase_end, ...)
+      save( file=ffout, zrq_qtile, zrq_inbase_begin, zrq_typicalyear_end, zrq_inbase_end, res)
     }
   } # end outbase zrq quantiles
 
@@ -627,14 +630,14 @@ if (argv$zrq) {
       res <- t( mcmapply( zrq_inbase_fun,
                           1:nix,
                           mc.cores   = argv$cores,
-                          SIMPLIFY   = T, 
-                          MoreArgs   = list( qtiles = argv$zrq_qtiles)))
+                          SIMPLIFY   = T)) 
+#                          MoreArgs   = list( qtiles = zrq_qtiles)))
     # no-multicores
     } else {
       res <- t( mapply( zrq_inbase_fun,
                         1:nix,
-                        SIMPLIFY   = T, 
-                        MoreArgs   = list( qtiles = argv$zrq_qtiles)))
+                        SIMPLIFY   = T))
+#                        MoreArgs   = list( qtiles = zrq_qtiles)))
     }
     # save output file
     ffout_aux <- replaceDate( string       = argv$zrq_ffout_inbase_template,
@@ -650,7 +653,7 @@ if (argv$zrq) {
       ffout <- gsub( "%Q", formatC(argv$zrq_qtiles[q],width=2,flag="0"), ffout_aux)
       dir.create( dirname(ffou), showWarnings = FALSE, recursive = TRUE)
       zrq_qtile <- argv$zrq_qtiles[q]
-      save( file=ffout, zrq_qtile, zrq_inbase_begin, zrq_typicalyear_end, zrq_inbase_end, ...)
+      save( file=ffout, zrq_qtile, zrq_inbase_begin, zrq_typicalyear_end, zrq_inbase_end, res)
     }
   } # end inbase zrq quantiles
 } # end zrq

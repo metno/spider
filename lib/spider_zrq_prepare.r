@@ -15,6 +15,7 @@ spider_zrq_prepare <- function( argv = NULL, r = NULL) {
   flag <- !is.na( vr) & !is.nan( vr) & is.finite( vr)
   # ix: pointer to elements of r that are not NAs and finite (m-vector)
   if ( length( ix <- which( flag)) == 0) return(NULL)
+  ix <- ix[1:700000]
   m  <- length( ix)
   vr <- vr[ix]
   #
