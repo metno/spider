@@ -1033,6 +1033,31 @@ p<- add_argument(p, "--gsl_ndays_threshold",
                  help="Growing season lenght, number of days for the warm/cold spell (days)",
                  type="integer",
                  default=6)
+#..............................................................................
+p <- add_argument(p, "--zrq",
+                  help="Zhang (2005) running quantile",
+                  flag=T)
+p<- add_argument(p, "--zrq_inbase_begin",
+                 help="date for the beginning of the in-base (inside the base period) period %Y-%m-%d",
+                 type="character",
+                 default="1991-01-01")
+p<- add_argument(p, "--zrq_inbase_end",
+                 help="date for the end of the in-base period %Y-%m-%d",
+                 type="character",
+                 default="2020-12-31")
+p<- add_argument(p, "--zrq_qtiles",
+                 help="list of quantiles",
+                 type="numeric",
+                 nargs=Inf,
+                 default=NA)
+p<- add_argument(p, "--zrq_ffout_outbase_template",
+                 help="template for the output file of the out-base (outside the base period) quantiles",
+                 type="character",
+                 default=ffout_default)
+p<- add_argument(p, "--zrq_ffout_inbase_template",
+                 help="template for the output file of the in-base quantiles",
+                 type="character",
+                 default=ffout_default)
 
 #..............................................................................
 p <- add_argument(p, "--temporal_trend",

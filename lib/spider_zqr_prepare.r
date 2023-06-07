@@ -1,5 +1,5 @@
-#+ prepare data for calculation of return levels
-spider_return_level_prepare <- function( argv = NULL, r = NULL) {
+#+ prepare data for calculation of zrq
+spider_zrq_prepare <- function( argv = NULL, r = NULL) {
 #------------------------------------------------------------------------------
   if ( is.null(argv))
     if ( "argv" %in% ls(envir = .GlobalEnv)) 
@@ -18,11 +18,6 @@ spider_return_level_prepare <- function( argv = NULL, r = NULL) {
   m  <- length( ix)
   vr <- vr[ix]
   #
-  # scores that require to store the whole dataset in memory
-  if ( argv$return_level_elab %in% c("fitGEV_bayesian")) {
-    return( list( online=F, ix=ix, n=length(ix), mat_col=vr))
-  } else {
-    return(NULL)
-  } 
+  return( list( online=F, ix=ix, n=length(ix), mat_col=vr))
 }
 

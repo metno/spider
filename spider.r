@@ -125,7 +125,6 @@ if ( argv$time_aggregation        |
      argv$latte_express           |
      argv$estvertprof             |
      argv$gridclimind             | 
-     argv$return_level            | 
      argv$latte                   | 
     (argv$verif & argv$ffout!=ffout_default) ) 
   gridded_output<-T
@@ -501,6 +500,25 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     rm( res)
   } # end if return level
   #----------------------------------------------------------------------------
+  # prepare for zrq (Zhang running quantiles, Zhang et al (2005) JoC "Avoiding Inhomogeneity in Percentile-Based Indices of Temperature Extremes")
+  if ( argv$zrq) {
+    if ( !exists( "rmaster")) { rmaster<-r; rmaster[]<-NA}
+    res <- spider_zrq_prepare()
+    if ( is.null( res)) next
+    if ( !exists("mat")) {
+      mat    <- res$mat_col
+      ix_dat <- res$ix
+      nix    <- res$n
+    } else {
+      if ( any( !(res$ix %in% ix_dat))) {
+        print("WARNING: return & gridded output, wrong indexes: statistics is supposed to use always the same cells")
+        next
+      }
+      mat <- cbind( mat, res$mat_col)
+    }
+    rm( res)
+  } # end if zrq
+  #----------------------------------------------------------------------------
   # store in a raster stack 
   if ( gridded_output & !argv$verif & !argv$gridclimind) {
     if ( !exists( "s")) {
@@ -551,6 +569,91 @@ if ( argv$summ_stat_fun == "gamma_parest") {
   res <- gamma_get_shape_rate_from_dataset_constrOptim( dat_to_gamma)
   save( file=argv$ffout_summ_stat, dat_to_gamma, res)
 }
+#----------------------------------------------------------------------------
+# zrq (Zhang running quantiles, Zhang et al (2005) JoC "Avoiding Inhomogeneity in Percentile-Based Indices of Temperature Extremes")
+if (argv$zrq) {
+  zrq_inbase_begin <- as.POSIXlt( str2Rdate(argv$zrq_inbase_begin, format="%Y-%m-%d"))
+  zrq_typicalyear_end <- as.POSIXlt( str2Rdate( paste0(substr(argv$zrq_inbase_begin,1,4),"-12-31"), format="%Y-%m-%d"))
+  zrq_inbase_end   <- as.POSIXlt( str2Rdate(argv$zrq_inbase_end,   format="%Y-%m-%d"))
+  zrq_qtiles <- as.numeric(argv$zrq_qtiles[q])
+  n_qtiles <- length(zrq_qtiles)
+  # outbase quantiles
+  for (t in 1:n_tseq) {
+    if ( tseq[t] < zrq_inbase_begin | tseq[t] > zrq_typicalyear_end) next
+    ix_t <- zrq_datesel_fun( t, inbase=F, ndays=2)$ix
+    # multicores
+    if ( !is.na( argv$cores)) {
+      res <- t( mcmapply( zrq_outbase_fun,
+                          1:nix,
+                          mc.cores   = argv$cores,
+                          SIMPLIFY   = T, 
+                          MoreArgs   = list( qtiles = argv$zrq_qtiles)))
+    # no-multicores
+    } else {
+      res <- t( mapply( zrq_outbase_fun,
+                        1:nix,
+                        SIMPLIFY   = T, 
+                        MoreArgs   = list( qtiles = argv$zrq_qtiles)))
+    }
+    # save output file
+    ffout_aux <- replaceDate( string       = argv$zrq_ffout_outbase_template,
+                              date.str     = format( tseq[t], format=argv$ffin_date.format, tz="GMT"),
+                              year_string  = argv$year_string,
+                              month_string = argv$month_string,
+                              day_string   = argv$day_string,
+                              hour_string  = argv$hour_string,
+                              min_string   = argv$min_string,
+                              sec_string   = argv$sec_string,
+                              format       = argv$ffin_date.format)
+    for (q in 1:length(argv$zrq_qtiles)) {
+      ffout <- gsub( "%Q", formatC(argv$zrq_qtiles[q],width=2,flag="0"), ffout_aux)
+      dir.create( dirname(ffou), showWarnings = FALSE, recursive = TRUE)
+      zrq_qtile <- argv$zrq_qtiles[q]
+      save( file=ffout, zrq_qtile, zrq_inbase_begin, zrq_typicalyear_end, zrq_inbase_end, ...)
+    }
+  } # end outbase zrq quantiles
+
+  # inbase quantiles
+  nbaseyears <- as.integer(format( zrq_inbase_end, format="%Y")) - as.integer(format( zrq_inbase_begin, format="%Y")) + 1
+  for (t in 1:n_tseq) {
+    if ( tseq[t] < zrq_inbase_begin | tseq[t] > zrq_inbase_end) next
+    res <- zrq_datesel_fun( t, inbase=T, ndays=2)
+    ix_t <- res$ix
+    ix_t_years <- res$ix_years
+    years_loop <- unique(ix_t_years,na.rm=T)
+    rm(res)
+    # multicores
+    if ( !is.na( argv$cores)) {
+      res <- t( mcmapply( zrq_inbase_fun,
+                          1:nix,
+                          mc.cores   = argv$cores,
+                          SIMPLIFY   = T, 
+                          MoreArgs   = list( qtiles = argv$zrq_qtiles)))
+    # no-multicores
+    } else {
+      res <- t( mapply( zrq_inbase_fun,
+                        1:nix,
+                        SIMPLIFY   = T, 
+                        MoreArgs   = list( qtiles = argv$zrq_qtiles)))
+    }
+    # save output file
+    ffout_aux <- replaceDate( string       = argv$zrq_ffout_inbase_template,
+                              date.str     = format( tseq[t], format=argv$ffin_date.format, tz="GMT"),
+                              year_string  = argv$year_string,
+                              month_string = argv$month_string,
+                              day_string   = argv$day_string,
+                              hour_string  = argv$hour_string,
+                              min_string   = argv$min_string,
+                              sec_string   = argv$sec_string,
+                              format       = argv$ffin_date.format)
+    for (q in 1:length(argv$zrq_qtiles)) {
+      ffout <- gsub( "%Q", formatC(argv$zrq_qtiles[q],width=2,flag="0"), ffout_aux)
+      dir.create( dirname(ffou), showWarnings = FALSE, recursive = TRUE)
+      zrq_qtile <- argv$zrq_qtiles[q]
+      save( file=ffout, zrq_qtile, zrq_inbase_begin, zrq_typicalyear_end, zrq_inbase_end, ...)
+    }
+  } # end inbase zrq quantiles
+} # end zrq
 #----------------------------------------------------------------------------
 # return level
 if (argv$return_level) {
@@ -655,7 +758,7 @@ if (argv$return_level) {
     save( file=argv$ffout, argv, retlev, r_in, r_out, mat, m1_def, m2_def)
   }
   gridded_output <- FALSE
-}
+} # end return_level
 #------------------------------------------------------------------------------
 # Aggregate gridpoint-by-gridpoint over time
 if (gridded_output)  {
