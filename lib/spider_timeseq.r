@@ -3,7 +3,6 @@ spider_timeseq<-function( argv) {
 #------------------------------------------------------------------------------
 
   # input - sequence of time steps 
-print(argv$date1)
   # (a) get tseq from the date file
   if ( !is.na( argv$ffin_date.file)) {
     if ( !file.exists( argv$ffin_date.file))
@@ -201,6 +200,13 @@ print(argv$date1)
       print( paste( "number of time steps =", n_tseq_out))
     }
     date_out <- format( tseq_out, format=date_out.format, tz="UTC")
+  }
+  #----------------------------------------------------------------------------
+  # zrq special 
+  if (argv$zrq) {
+    ix <- zrq_datesel_fun( tseq, inbase=F)$ix
+    tseq <- tseq[ix]
+    n_tseq <- length(tseq)
   }
   #----------------------------------------------------------------------------
   if ( !exists( "tseq_ref")) tseq_ref<-NA

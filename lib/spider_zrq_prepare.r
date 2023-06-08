@@ -12,12 +12,25 @@ spider_zrq_prepare <- function( argv = NULL, r = NULL) {
   # vr: values of r (n-vector)
   vr   <- getValues(r)
   init <- vector( mode="numeric", length=n); init[] <- NA
-  flag <- !is.na( vr) & !is.nan( vr) & is.finite( vr)
+  flag <- !is.na( vr) & !is.nan( vr) & is.finite( vr) & abs(vr)<1000000
   # ix: pointer to elements of r that are not NAs and finite (m-vector)
   if ( length( ix <- which( flag)) == 0) return(NULL)
-  ix <- ix[1:700000]
+  if (!is.na(argv$zrq_m1) & !is.na(argv$zrq_m2)) 
+    ix <- ix[argv$zrq_m1:argv$zrq_m2]
   m  <- length( ix)
   vr <- vr[ix]
+  if (!is.na(argv$zrq_r)) {
+    if (argv$zrq_b == "below") {
+      ixna <- which( vr >= argv$zrq_r)
+    } else if (argv$zrq_b == "below=") {
+      ixna <- which( vr > argv$zrq_r)
+    } else if (argv$zrq_b == "above") {
+      ixna <- which( vr <= argv$zrq_r)
+    } else if (argv$zrq_b == "above=") {
+      ixna <- which( vr < argv$zrq_r)
+    }
+    if (length(ixna)>0) vr[ixna] <- NA
+  }
   #
   return( list( online=F, ix=ix, n=length(ix), mat_col=vr))
 }

@@ -98,6 +98,7 @@ date_out_ix     <- res$date_out_ix
 tseq_ref <- res$tseq_ref
 tseq_out <- res$tseq_out
 rm( res)
+if (argv$zrq) print(tseq)
 #------------------------------------------------------------------------------
 # Initialization
 # default is time_aggregation
@@ -577,12 +578,19 @@ options(warn=2)
   zrq_typicalyear_end <- as.POSIXlt( str2Rdate( paste0(substr(argv$zrq_inbase_begin,1,4),"-12-31"), format="%Y-%m-%d"), tz="UTC")
   zrq_inbase_end   <- as.POSIXlt( str2Rdate(argv$zrq_inbase_end,   format="%Y-%m-%d"), tz="UTC")
   zrq_qtiles <- as.numeric(argv$zrq_qtiles)/100
+  zrq_qtiles_perc <- argv$zrq_qtiles
+  zrq_date <- argv$zrq_date
   n_qtiles <- length(zrq_qtiles)
+  zrq_m1 <- argv$zrq_m1
+  zrq_m2 <- argv$zrq_m2
+  rmaster_projection <- projection( rmaster, asText=T)
+  rmaster_res <- res(rmaster)
+  rmaster_extent <- extent(rmaster)
+
   # outbase quantiles
-  for (t in 1:n_tseq) {
-    if ( tseq[t] < zrq_inbase_begin | tseq[t] > zrq_typicalyear_end) next
-    ix_t <- zrq_datesel_fun( t, inbase=F, ndays=2)$ix
-  t00 <- Sys.time()
+  if (argv$zrq_outbase) {
+    t0a <- Sys.time()
+    t00 <- Sys.time()
     # multicores
     if ( !is.na( argv$cores)) {
       res <- t( mcmapply( zrq_outbase_fun,
@@ -595,67 +603,83 @@ options(warn=2)
                         1:nix,
                         SIMPLIFY   = T))
     }
-  t11 <- Sys.time()
-  print( paste( "time", round(t11-t00,1), attr(t11-t00,"unit")))
+    t11 <- Sys.time()
+    print( paste( "time", round(t11-t00,1), attr(t11-t00,"unit")))
 print(dim(res))
     # save output file
     ffout_aux <- replaceDate( string       = argv$zrq_ffout_outbase_template,
-                              date.str     = format( tseq[t], format=argv$ffin_date.format, tz="GMT"),
+                              date.str     = argv$zrq_date,
                               year_string  = argv$year_string,
                               month_string = argv$month_string,
                               day_string   = argv$day_string,
                               hour_string  = argv$hour_string,
                               min_string   = argv$min_string,
                               sec_string   = argv$sec_string,
-                              format       = argv$ffin_date.format)
-    for (q in 1:length(argv$zrq_qtiles)) {
-      ffout <- gsub( "%Q", formatC(argv$zrq_qtiles[q],width=2,flag="0"), ffout_aux)
+                              format       = "%Y-%m-%d")
+    for (q in 1:n_qtiles) {
+      ffout <- gsub( "%Q", formatC(zrq_qtiles_perc[q],width=2,flag="0"), ffout_aux)
       dir.create( dirname(ffout), showWarnings = FALSE, recursive = TRUE)
-      zrq_qtile <- argv$zrq_qtiles[q]
-      save( file=ffout, zrq_qtile, zrq_inbase_begin, zrq_typicalyear_end, zrq_inbase_end, res)
+      zrq_qtile <- zrq_qtiles_perc[q]
+      qres <- res[,q]
+      save( file=ffout, zrq_qtile, zrq_inbase_begin, zrq_typicalyear_end, zrq_inbase_end, qres, ix_dat, nix, zrq_m1, zrq_m2, rmaster_projection, rmaster_res, rmaster_extent, zrq_date)
+      t1a <- Sys.time()
+      print( paste( "writing output file", ffout,
+                    " / time", round(t1a-t0a,1), attr(t1a-t0a,"unit")))
     }
   } # end outbase zrq quantiles
 
   # inbase quantiles
-  nbaseyears <- as.integer(format( zrq_inbase_end, format="%Y")) - as.integer(format( zrq_inbase_begin, format="%Y")) + 1
-  for (t in 1:n_tseq) {
-    if ( tseq[t] < zrq_inbase_begin | tseq[t] > zrq_inbase_end) next
-    res <- zrq_datesel_fun( t, inbase=T, ndays=2)
+  if (argv$zrq_inbase) {
+    t0a <- Sys.time()
+    nbaseyears <- as.integer(format( zrq_inbase_end, format="%Y")) - as.integer(format( zrq_inbase_begin, format="%Y")) + 1
+print(nbaseyears)
+    res <- zrq_datesel_fun( tseq, inbase=T)
+print(res)
     ix_t <- res$ix
     ix_t_years <- res$ix_years
     years_loop <- unique(ix_t_years,na.rm=T)
     rm(res)
+print(paste("inbase",argv$zrq_date))
+    t00 <- Sys.time()
     # multicores
     if ( !is.na( argv$cores)) {
       res <- t( mcmapply( zrq_inbase_fun,
                           1:nix,
                           mc.cores   = argv$cores,
                           SIMPLIFY   = T)) 
-#                          MoreArgs   = list( qtiles = zrq_qtiles)))
     # no-multicores
     } else {
       res <- t( mapply( zrq_inbase_fun,
                         1:nix,
                         SIMPLIFY   = T))
-#                        MoreArgs   = list( qtiles = zrq_qtiles)))
     }
+    t11 <- Sys.time()
+    print( paste( "time", round(t11-t00,1), attr(t11-t00,"unit")))
+print(dim(res))
     # save output file
     ffout_aux <- replaceDate( string       = argv$zrq_ffout_inbase_template,
-                              date.str     = format( tseq[t], format=argv$ffin_date.format, tz="GMT"),
+                              date.str     = argv$zrq_date,
                               year_string  = argv$year_string,
                               month_string = argv$month_string,
                               day_string   = argv$day_string,
                               hour_string  = argv$hour_string,
                               min_string   = argv$min_string,
                               sec_string   = argv$sec_string,
-                              format       = argv$ffin_date.format)
-    for (q in 1:length(argv$zrq_qtiles)) {
-      ffout <- gsub( "%Q", formatC(argv$zrq_qtiles[q],width=2,flag="0"), ffout_aux)
-      dir.create( dirname(ffou), showWarnings = FALSE, recursive = TRUE)
-      zrq_qtile <- argv$zrq_qtiles[q]
-      save( file=ffout, zrq_qtile, zrq_inbase_begin, zrq_typicalyear_end, zrq_inbase_end, res)
+                              format       = "%Y-%m-%d")
+    for (q in 1:n_qtiles) {
+      ffout <- gsub( "%Q", formatC(zrq_qtiles_perc[q],width=2,flag="0"), ffout_aux)
+      dir.create( dirname(ffout), showWarnings = FALSE, recursive = TRUE)
+      zrq_qtile <- zrq_qtiles_perc[q]
+      q_i <- (q-1)*(nbaseyears-1)+1
+      q_j <- q*(nbaseyears-1)
+      qres <- res[,q_i:q_j]
+      save( file=ffout, zrq_qtile, zrq_inbase_begin, zrq_typicalyear_end, zrq_inbase_end, qres, ix_dat, nix, zrq_m1, zrq_m2, rmaster_projection, rmaster_res, rmaster_extent)
+      t1a <- Sys.time()
+      print( paste( "writing output file", ffout,
+                    " / time", round(t1a-t0a,1), attr(t1a-t0a,"unit")))
     }
   } # end inbase zrq quantiles
+  gridded_output <- FALSE
 } # end zrq
 #----------------------------------------------------------------------------
 # return level

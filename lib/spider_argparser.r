@@ -1035,8 +1035,18 @@ p<- add_argument(p, "--gsl_ndays_threshold",
                  default=6)
 #..............................................................................
 p <- add_argument(p, "--zrq",
-                  help="Zhang (2005) running quantile",
+                  help="Zhang et al. (2005) running quantile",
                   flag=T)
+p <- add_argument(p, "--zrq_outbase",
+                  help="Zhang et al. (2005) running quantile outside the base period",
+                  flag=T)
+p <- add_argument(p, "--zrq_inbase",
+                  help="Zhang et al. (2005) running quantile inside the base period",
+                  flag=T)
+p<- add_argument(p, "--zrq_date",
+                 help="compute the running quantiles for this date %Y-%m-%d",
+                 type="character",
+                 default="1991-01-01")
 p<- add_argument(p, "--zrq_inbase_begin",
                  help="date for the beginning of the in-base (inside the base period) period %Y-%m-%d",
                  type="character",
@@ -1058,6 +1068,26 @@ p<- add_argument(p, "--zrq_ffout_inbase_template",
                  help="template for the output file of the in-base quantiles",
                  type="character",
                  default=ffout_default)
+p<- add_argument(p, "--zrq_m1",
+                 help="start elaboration from this grid point (taking into account only not NAs grid points)",
+                 type="integer",
+                 default=NA)
+p<- add_argument(p, "--zrq_m2",
+                 help="end elaboration at this grid point (taking into account only not NAs grid points)",
+                 type="integer",
+                 default=NA)
+p<- add_argument(p, "--zrq_ndays",
+                 help="consider a window of plus/minus this no of days centered on the day provided with zrq_date",
+                 type="integer",
+                 default=2)
+p<- add_argument(p, "--zrq_r",
+                 help="thresholding value (NA=no thresholding)",
+                 type="numeric",
+                 default=NA)
+p<- add_argument(p, "--zrq_b",
+                 help="condition to use for threhsolding. One of 'below' ( values < x are kept, all the others are set NAs), 'below=' (<= x), 'above' (> x), or 'above=' (>= x).",
+                 type="character",
+                 default="above=")
 
 #..............................................................................
 p <- add_argument(p, "--temporal_trend",
