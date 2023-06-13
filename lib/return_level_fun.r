@@ -18,7 +18,7 @@ return_level_fun <- function( i,
       retlev_j <- array( data=NA, dim=c(iter_reg, (nyears*3)))
       location_j  <- log_scale_j <- shape_j <- vector(mode="numeric",length=iter_reg)
       j <- 1
-      data <- as.vector(mat[i,])
+      data <- as.vector(mat[(m1:m2)[i],])
       proposalParams_mean <- c(0,0,0)
       proposalParams_sd   <- c(0.5,0.5,0.1)
       if ((!any(data!=0)) | (max(abs(diff(data)))==0)) {
