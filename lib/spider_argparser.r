@@ -421,6 +421,30 @@ p<- add_argument(p, "--values_mask_pad",
                  nargs=Inf,
                  default=NA)
 #..............................................................................
+p <- add_argument(p, "--mastervalues_mask",
+                  help="mask out rmaster grid with values and conditions (greater than x, smaller than y, and so on)",
+                  flag=T)
+p<- add_argument(p, "--mastervalues_mask_vals1",
+                 help="threshold used for masking out points",
+                 type="character",
+                 nargs=Inf,
+                 default=NA)
+p<- add_argument(p, "--mastervalues_mask_vals2",
+                 help="threshold used for masking out points (use when condition is \"within\")",
+                 type="character",
+                 nargs=Inf,
+                 default=NA)
+p<- add_argument(p, "--mastervalues_mask_cond",
+                 help="type One of 'below' (< x), 'below=' (<= x), '=within' (<= x <), 'within' (< x <), 'within=' (< x <=), '=within=' (<= x <=), 'above' (> x), or 'above=' (>= x). \"mastervalues_mask_vals1\" is used for 'above' and 'below', while \"mastervalues_mask_vals2\" is used as an extra threshold for 'within'",
+                 type="character",
+                 nargs=Inf,
+                 default=NA)
+p<- add_argument(p, "--mastervalues_mask_pad",
+                 help="padding values (replacement values for masked out points)",
+                 type="character",
+                 nargs=Inf,
+                 default=NA)
+#..............................................................................
 p <- add_argument(p, "--polygon_mask",
                   help="mask out with polygons",
                   flag=T)

@@ -272,12 +272,18 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
   } 
   #----------------------------------------------------------------------------
   # Use the mask(s) if needed
-  # special case of downscaling
+  # mask out values from rmaster (useful if we then use rmaster as the mask)
+  if ( argv$mastervalues_mask)
+    rmaster <- spider_mastervalues_mask()
+  # using rmaster as the mask is a special case of downscaling
   if ( argv$master_mask & 
        !argv$latte & !argv$latte_express & !argv$downscale & !argv$upscale) 
     r <- spider_downscale() # mask is rmaster, so this is a downscaling for us
+  # the mask is a polygon
   if (argv$polygon_mask) r <- spider_polygon_mask()
+  # masks through thresholding
   if (argv$values_mask) r <- spider_values_mask()
+  # safe-check: not all points have been masked out
   if ( argv$polygon_mask | 
        argv$values_mask | 
        (argv$master_mask & !argv$latte & !argv$latte_express & 
@@ -621,7 +627,7 @@ print(dim(res))
       dir.create( dirname(ffout), showWarnings = FALSE, recursive = TRUE)
       zrq_qtile <- zrq_qtiles_perc[q]
       qres <- res[,q]
-      save( file=ffout, zrq_qtile, zrq_inbase_begin, zrq_typicalyear_end, zrq_inbase_end, qres, ix_dat, nix, zrq_m1, zrq_m2, rmaster_projection, rmaster_res, rmaster_extent, zrq_date)
+      save( file=ffout, zrq_qtile, zrq_inbase_begin, zrq_typicalyear_end, zrq_inbase_end, qres, ix_dat, nix, zrq_m1, zrq_m2, rmaster_projection, rmaster_res, rmaster_extent, zrq_date, rmaster)
       t1a <- Sys.time()
       print( paste( "writing output file", ffout,
                     " / time", round(t1a-t0a,1), attr(t1a-t0a,"unit")))
@@ -673,7 +679,7 @@ print(dim(res))
       q_i <- (q-1)*(nbaseyears-1)+1
       q_j <- q*(nbaseyears-1)
       qres <- res[,q_i:q_j]
-      save( file=ffout, zrq_qtile, zrq_inbase_begin, zrq_typicalyear_end, zrq_inbase_end, qres, ix_dat, nix, zrq_m1, zrq_m2, rmaster_projection, rmaster_res, rmaster_extent)
+      save( file=ffout, zrq_qtile, zrq_inbase_begin, zrq_typicalyear_end, zrq_inbase_end, qres, ix_dat, nix, zrq_m1, zrq_m2, rmaster_projection, rmaster_res, rmaster_extent, zrq_date, rmaster)
       t1a <- Sys.time()
       print( paste( "writing output file", ffout,
                     " / time", round(t1a-t0a,1), attr(t1a-t0a,"unit")))
