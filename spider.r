@@ -98,7 +98,7 @@ date_out_ix     <- res$date_out_ix
 tseq_ref <- res$tseq_ref
 tseq_out <- res$tseq_out
 rm( res)
-if (argv$zrq) print(tseq)
+if (argv$zrq | argv$rqb) print(tseq)
 #------------------------------------------------------------------------------
 # Initialization
 # default is time_aggregation
@@ -146,6 +146,8 @@ if (argv$temporal_trend) {
   if (argv$temporal_trend_elab == "Mann_Kendall_trend_test_ALT")
     suppressPackageStartupMessages( library( "trend"))
 } 
+if (argv$rqb) 
+  suppressPackageStartupMessages( library( "boot"))
 #
 # adjust negative numbers
 argv$summ_stat_condition_threshold<-as.numeric(gsub("_","-",
@@ -526,6 +528,25 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     rm( res)
   } # end if zrq
   #----------------------------------------------------------------------------
+  # prepare for rqb (Running quantiles Bootstrapper)
+  if ( argv$rqb) {
+    if ( !exists( "rmaster")) { rmaster<-r; rmaster[]<-NA}
+    res <- spider_rqb_prepare()
+    if ( is.null( res)) next
+    if ( !exists("mat")) {
+      mat    <- res$mat_col
+      ix_dat <- res$ix
+      nix    <- res$n
+    } else {
+      if ( any( !(res$ix %in% ix_dat))) {
+        print("WARNING: return & gridded output, wrong indexes: statistics is supposed to use always the same cells")
+        next
+      }
+      mat <- cbind( mat, res$mat_col)
+    }
+    rm( res)
+  } # end if rqb
+  #----------------------------------------------------------------------------
   # store in a raster stack 
   if ( gridded_output & !argv$verif & !argv$gridclimind) {
     if ( !exists( "s")) {
@@ -577,9 +598,65 @@ if ( argv$summ_stat_fun == "gamma_parest") {
   save( file=argv$ffout_summ_stat, dat_to_gamma, res)
 }
 #----------------------------------------------------------------------------
+# rqb (Running quantile bootstrapper)
+if (argv$rqb) {
+  options(warn=2)
+  rqb_inbase_begin <- as.POSIXlt( str2Rdate(argv$rqb_inbase_begin, format="%Y-%m-%d"), tz="UTC")
+  rqb_typicalyear_end <- as.POSIXlt( str2Rdate( paste0(substr(argv$rqb_inbase_begin,1,4),"-12-31"), format="%Y-%m-%d"), tz="UTC")
+  rqb_inbase_end   <- as.POSIXlt( str2Rdate(argv$rqb_inbase_end,   format="%Y-%m-%d"), tz="UTC")
+  rqb_qtiles <- as.numeric(argv$rqb_qtiles)/100
+  rqb_qtiles_perc <- argv$rqb_qtiles
+  rqb_date <- argv$rqb_date
+  n_qtiles <- length(rqb_qtiles)
+  rqb_m1 <- argv$rqb_m1
+  rqb_m2 <- argv$rqb_m2
+  rmaster_projection <- projection( rmaster, asText=T)
+  rmaster_res <- res(rmaster)
+  rmaster_extent <- extent(rmaster)
+
+  t0a <- Sys.time()
+  t00 <- Sys.time()
+  # multicores
+  if ( !is.na( argv$cores)) {
+    res <- t( mcmapply( rqb_fun,
+                        1:nix,
+                        mc.cores   = argv$cores,
+                        SIMPLIFY   = T))
+  # no-multicores
+  } else {
+    res <- t( mapply( rqb_fun,
+                      1:nix,
+                      SIMPLIFY   = T))
+  }
+  t11 <- Sys.time()
+  print( paste( "time", round(t11-t00,1), attr(t11-t00,"unit")))
+  # save output file
+  ffout_aux <- replaceDate( string       = argv$rqb_ffout_template,
+                            date.str     = argv$rqb_date,
+                            year_string  = argv$year_string,
+                            month_string = argv$month_string,
+                            day_string   = argv$day_string,
+                            hour_string  = argv$hour_string,
+                            min_string   = argv$min_string,
+                            sec_string   = argv$sec_string,
+                            format       = "%Y-%m-%d")
+  for (q in 1:n_qtiles) {
+    ffout <- gsub( "%Q", formatC(rqb_qtiles_perc[q],width=2,flag="0"), ffout_aux)
+    dir.create( dirname(ffout), showWarnings = FALSE, recursive = TRUE)
+    rqb_qtile <- rqb_qtiles_perc[q]
+    qres <- res[,q]
+    save( file=ffout, rqb_qtile, rqb_inbase_begin, rqb_typicalyear_end, rqb_inbase_end, qres, ix_dat, nix, rqb_m1, rqb_m2, rmaster_projection, rmaster_res, rmaster_extent, rqb_date, rmaster)
+    t1a <- Sys.time()
+    print( paste( "writing output file", ffout,
+                  " / time", round(t1a-t0a,1), attr(t1a-t0a,"unit")))
+  }
+
+  gridded_output <- FALSE
+} # end rqb
+#----------------------------------------------------------------------------
 # zrq (Zhang running quantiles, Zhang et al (2005) JoC "Avoiding Inhomogeneity in Percentile-Based Indices of Temperature Extremes")
 if (argv$zrq) {
-options(warn=2)
+  options(warn=2)
   zrq_inbase_begin <- as.POSIXlt( str2Rdate(argv$zrq_inbase_begin, format="%Y-%m-%d"), tz="UTC")
   zrq_typicalyear_end <- as.POSIXlt( str2Rdate( paste0(substr(argv$zrq_inbase_begin,1,4),"-12-31"), format="%Y-%m-%d"), tz="UTC")
   zrq_inbase_end   <- as.POSIXlt( str2Rdate(argv$zrq_inbase_end,   format="%Y-%m-%d"), tz="UTC")
@@ -611,7 +688,6 @@ options(warn=2)
     }
     t11 <- Sys.time()
     print( paste( "time", round(t11-t00,1), attr(t11-t00,"unit")))
-print(dim(res))
     # save output file
     ffout_aux <- replaceDate( string       = argv$zrq_ffout_outbase_template,
                               date.str     = argv$zrq_date,
@@ -638,14 +714,11 @@ print(dim(res))
   if (argv$zrq_inbase) {
     t0a <- Sys.time()
     nbaseyears <- as.integer(format( zrq_inbase_end, format="%Y")) - as.integer(format( zrq_inbase_begin, format="%Y")) + 1
-print(nbaseyears)
     res <- zrq_datesel_fun( tseq, inbase=T)
-print(res)
     ix_t <- res$ix
     ix_t_years <- res$ix_years
     years_loop <- unique(ix_t_years,na.rm=T)
     rm(res)
-print(paste("inbase",argv$zrq_date))
     t00 <- Sys.time()
     # multicores
     if ( !is.na( argv$cores)) {
@@ -661,7 +734,6 @@ print(paste("inbase",argv$zrq_date))
     }
     t11 <- Sys.time()
     print( paste( "time", round(t11-t00,1), attr(t11-t00,"unit")))
-print(dim(res))
     # save output file
     ffout_aux <- replaceDate( string       = argv$zrq_ffout_inbase_template,
                               date.str     = argv$zrq_date,

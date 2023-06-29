@@ -202,8 +202,8 @@ spider_timeseq<-function( argv) {
     date_out <- format( tseq_out, format=date_out.format, tz="UTC")
   }
   #----------------------------------------------------------------------------
-  # zrq special 
-  if (argv$zrq) {
+  # zrq or rqb special 
+  if (argv$zrq  | argv$rqb) {
     ix <- zrq_datesel_fun( tseq, inbase=F)$ix
     tseq <- tseq[ix]
     n_tseq <- length(tseq)
