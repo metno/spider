@@ -385,6 +385,10 @@ p <- add_argument(p, "--r",
                   type="character",
                   default=NA,
                   nargs=Inf)
+p<- add_argument(p, "--ffin_rflexy_rdata",
+                 help="full file name for the input .RData file with the threshold",
+                 type="character",
+                 default=NA)
 p<- add_argument(p, "--b",
                  help="type. used for summ_stat = \"freqdist\". One of 'below' (< x), 'below=' (<= x), '=within' (<= x <), 'within' (< x <), 'within=' (< x <=), '=within=' (<= x <=), 'above' (> x), or 'above=' (>= x). For threshold plots (ets, hit, within, etc) 'below/above' computes frequency below/above the threshold, and 'within' computes the frequency between consecutive thresholds",
                  type="character",
@@ -1001,7 +1005,7 @@ p <- add_argument(p, "--gridclimind",
                   help="gridded climate indices",
                   flag=T)
 p<- add_argument(p, "--gridclimind_index",
-                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\",\"freq\",\"maxcons\",\"HD17\",\"sdii\",\"quantile\",\"metnoheatwave\",\"metnoheatwave2023\",\"rx5day\",\"rx3day\",\"gsl\"",
+                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\",\"freq\",\"maxcons\",\"HD17\",\"sdii\",\"quantile\",\"metnoheatwave\",\"metnoheatwave2023\",\"rx5day\",\"rx3day\",\"gsl\",\"freq_rflexy\",\"prcptot_rflexy\"",
                  type="character",
                  default=NA)
 p<- add_argument(p, "--prcptot_r",
@@ -1040,6 +1044,9 @@ p<- add_argument(p, "--maxcons_b",
                  default="above=")
 p<- add_argument(p, "--freq_as_perc",
                  help="return freq as percentage over the total number of samples",
+                 flag=T)
+p<- add_argument(p, "--prcptot_as_perc",
+                 help="return prcptot as percentage over the total precipitation",
                  flag=T)
 p<- add_argument(p, "--metnohw_tmin_threshold",
                  help="MET Norway heat wave index, definition of the threshold for tmin",

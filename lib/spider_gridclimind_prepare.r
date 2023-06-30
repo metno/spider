@@ -2,10 +2,12 @@
 spider_gridclimind_prepare <- function( argv   = NULL, 
                                         r      = NULL,
                                         r_ref  = NULL,
-                                        dat_aggr = NULL,
-                                        dat_flag = NULL,
-                                        dat_cont = NULL) {
+                                        dat_aggr    = NULL,
+                                        dat_aggrAlt = NULL,
+                                        dat_flag    = NULL,
+                                        dat_cont    = NULL) {
 #------------------------------------------------------------------------------
+  # initializations
   if ( is.null(argv))
     if ( "argv" %in% ls(envir = .GlobalEnv)) 
       argv <- get( "argv", envir = .GlobalEnv)
@@ -22,6 +24,13 @@ spider_gridclimind_prepare <- function( argv   = NULL,
       dat_aggr   <- vector( length=ncell(r), mode="numeric")
       dat_aggr[] <- NA
     }
+  if ( is.null(dat_aggrAlt))
+    if ( "dat_aggrAlt" %in% ls(envir = .GlobalEnv)) {
+      dat_aggrAlt <- get( "dat_aggrAlt", envir = .GlobalEnv)
+    } else {
+      dat_aggrAlt   <- vector( length=ncell(r), mode="numeric")
+      dat_aggrAlt[] <- NA
+    }
   if ( is.null(dat_cont))
     if ( "dat_cont" %in% ls(envir = .GlobalEnv)) {
       dat_cont <- get( "dat_cont", envir = .GlobalEnv)
@@ -36,7 +45,33 @@ spider_gridclimind_prepare <- function( argv   = NULL,
       dat_flag   <- vector( length=ncell(r), mode="integer")
       dat_flag[] <- NA
     }
-  #
+  # read file with "flexible" thresholds (i.e. one value for each grid point)
+  if (!is.na(argv$ffin_rflexy_rdata)) {
+    ffin_rflexy<-replaceDate(string   = argv$ffin_rflexy_rdata,
+                             date.str = format(tseq[t],
+                                        format=argv$ffin_date.format,tz="GMT"),
+                             year_string  = argv$year_string,
+                             month_string = argv$month_string,
+                             day_string   = argv$day_string,
+                             hour_string  = argv$hour_string,
+                             sec_string   = argv$sec_string,
+                             format       = argv$ffin_date.format)
+    if (!file.exists(ffin_rflexy)) {
+      cat( paste( "file not found", ffin_rflexy, "\n"))
+      q()
+    } else {
+      rflexy_env <- new.env( parent = emptyenv())
+      load( ffin_rflexy, envir=rflexy_env)
+      if (!rasters_match( rmaster, rflexy_env$rmaster)) 
+        cat( paste( "Warning reading file", ffin_rflexy, "the two rmasters are different\n"))
+      rflexy <- r 
+      rflexy[] <- NA
+      rflexy[rflexy_env$ix_dat] <- rflexy_env$qres
+      rm(rflexy_env)
+    }
+  }
+
+  # begin elaborations
   n <- ncell(r)
   # vr: values of r (n-vector)
   vr   <- getValues(r)
@@ -46,6 +81,9 @@ spider_gridclimind_prepare <- function( argv   = NULL,
   if ( !is.na(argv$ffin_ref_template)) {
     vref <- getValues(r_ref)
     flag <- flag & !is.na( vref) & !is.nan( vref) & is.finite( vref)
+  }
+  if (!is.na(argv$ffin_rflexy_rdata)) {
+    vrflexy <- getValues(rflexy)
   }
   # ix: pointer to elements of r that are not NAs and finite (m-vector)
   # (except if one wants to count the number of NAs (freq and freq_r is NA)
@@ -57,6 +95,11 @@ spider_gridclimind_prepare <- function( argv   = NULL,
   m  <- length( ix)
   vr <- vr[ix]
   if ( !is.na(argv$ffin_ref_template)) vref <- vref[ix]
+  if ( !is.na(argv$ffin_rflexy_rdata)) {
+    vrflexy <- vrflexy[ix]
+    flag_vrflexy <- !is.na( vrflexy) & !is.nan( vrflexy) & is.finite( vrflexy)
+    ix_vrflexy <- which( is.na(vrflexy) | is.nan(vrflexy) | !is.finite(vrflexy))
+  }
   # NOTE: vr and vref are now m-vectors
   #
   # scores that require to store the whole dataset in memory
@@ -69,11 +112,13 @@ spider_gridclimind_prepare <- function( argv   = NULL,
   #
   # scores that are computed online
   } else {
-    # dat / dat_cont / dat_aggr/ dat_flag: n-vectors
+    # dat / dat_cont / dat_aggr/ dat_aggAlt/ dat_flag: n-vectors
     dat_cont[ix] <- dat_cont[ix] + 1
     if (length(ixaux <- which(is.na(dat_flag[ix]))) > 0) dat_flag[ix][ixaux] <- 0
     dat <- vector( mode="numeric", length=n); dat[] <- NA
     dat[ix] <- 0
+    dat_alt <- vector( mode="numeric", length=n); dat_alt[] <- NA
+    dat_alt[ix] <- 0
     # compute score for one timestep: begin
     # ixb: pointer to elements of r (m-vec) that satisfy the specified condition
     # %%%%%%%%%% degree_days_sum %%%%%%%%%%%%%%%%%%%%%%%
@@ -119,6 +164,15 @@ spider_gridclimind_prepare <- function( argv   = NULL,
         else if ( argv$prcptot_b == "above=") { ixb <- which( vr >= argv$prcptot_r) }
       }
       if ( length(ixb) > 0) dat[ix][ixb] <- vr[ixb]
+      dat_alt[ix] <- vr
+    # %%%%%%%%%% prcptot %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    } else if ( argv$gridclimind_index == "prcptot_rflexy" ) {
+      if ( argv$prcptot_b == "below") {       ixb <- which( vr <  vrflexy & flag_vrflexy) }
+      else if ( argv$prcptot_b == "below=") { ixb <- which( vr <= vrflexy & flag_vrflexy) }
+      else if ( argv$prcptot_b == "above")  { ixb <- which( vr >  vrflexy & flag_vrflexy) }
+      else if ( argv$prcptot_b == "above=") { ixb <- which( vr >= vrflexy & flag_vrflexy) }
+      if ( length(ixb) > 0) dat[ix][ixb] <- vr[ixb]
+      dat_alt[ix] <- vr
     # %%%%%%%%%% freq %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     } else if ( argv$gridclimind_index == "freq" ) {
       if ( is.na(argv$freq_r)) {
@@ -134,6 +188,14 @@ spider_gridclimind_prepare <- function( argv   = NULL,
         else if ( argv$freq_b == "within=")  { ixb <- which( vr >  argv$freq_r[1] & vr <= argv$freq_r[2]) }
       }
       if ( length(ixb) > 0) dat[ix][ixb] <- rep( 1, length(ixb))
+    # %%%%%%%%%% freq %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    } else if ( argv$gridclimind_index == "freq_rflexy" ) {
+      if ( argv$freq_b == "below")         { ixb <- which( vr <  vrflexy & flag_vrflexy) }
+      else if ( argv$freq_b == "below=")   { ixb <- which( vr <= vrflexy & flag_vrflexy) }
+      else if ( argv$freq_b == "above")    { ixb <- which( vr >  vrflexy & flag_vrflexy) }
+      else if ( argv$freq_b == "above=")   { ixb <- which( vr >= vrflexy & flag_vrflexy) }
+      if ( length(ixb) > 0) dat[ix][ixb] <- rep( 1, length(ixb))
+      if ( length(ix_vrflexy) > 0) dat[ix][ix_vrflexy] <- rep( NA, length(ix_vrflexy))
     # %%%%%%%%%% maximum number of consecutive cases %%%%%%%%%%%%%%%%
     } else if ( argv$gridclimind_index == "maxcons" ) {
       if ( is.na(argv$maxcons_r)) {
@@ -154,14 +216,26 @@ spider_gridclimind_prepare <- function( argv   = NULL,
     # update online score: begin
     # -- online sum
     if ( argv$gridclimind_index %in% c( "degree_days_sum", "degree_days",
-                                        "prcptot",
                                         "HD17",
-                                        "freq") ) {
+                                        "freq",
+                                        "freq_rflexy")) {
       if ( length( iy <- !is.na( dat_cont[ix])) > 0) 
         dat_aggr[ix][iy] <- dat_aggr[ix][iy] + dat[ix][iy]
       if ( length( iy <-  is.na( dat_cont[ix])) > 0) {
         dat_cont[ix][iy] <- 1 
         dat_aggr[ix][iy] <- dat[ix][iy]
+      }
+    # -- online prcptot flexible threshold 
+    } else if (argv$gridclimind_index %in% c( "prcptot", 
+                                              "prcptot_rflexy") ) {
+      if ( length( iy <- !is.na( dat_cont[ix])) > 0) { 
+        dat_aggr[ix][iy] <- dat_aggr[ix][iy] + dat[ix][iy]
+        dat_aggrAlt[ix][iy] <- dat_aggrAlt[ix][iy] + dat_alt[ix][iy]
+      }
+      if ( length( iy <-  is.na( dat_cont[ix])) > 0) {
+        dat_cont[ix][iy] <- 1 
+        dat_aggr[ix][iy] <- dat[ix][iy]
+        dat_aggrAlt[ix][iy] <- dat_alt[ix][iy]
       }
     # -- online max number of consecutive cases
     } else if (argv$gridclimind_index %in% c( "maxcons") ) {
@@ -217,6 +291,7 @@ spider_gridclimind_prepare <- function( argv   = NULL,
     # update online score: end
     return( list( online=T, ix=ix, n=length(ix),
                   dat_aggr_up=dat_aggr, 
+                  dat_aggrAlt_up=dat_aggrAlt, 
                   dat_cont_up=dat_cont,
                   dat_flag_up=dat_flag ))
   }

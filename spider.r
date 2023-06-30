@@ -433,6 +433,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
     #  dat_... dimension is the number of cells of raster "r"
     if ( res$online) {
       dat_aggr <- res$dat_aggr_up
+      dat_aggrAlt <- res$dat_aggrAlt_up
       dat_cont <- res$dat_cont_up
       dat_flag <- res$dat_flag_up
       if ( !exists( "ix_dat")) ix_dat <- 1:ncell(r)
@@ -1208,8 +1209,12 @@ if (gridded_output)  {
       rm( rmaster)
       r[] <- NA
       ix <- which( !is.na(dat_cont) & (dat_cont/n_tseq)>=argv$frac)
-      if ( argv$gridclimind_index == "freq" & argv$freq_as_perc) {
+      if ( argv$gridclimind_index %in% c("freq","freq_rflexy") & 
+           argv$freq_as_perc) {
         if ( length(ix)>0) r[ix_dat[ix]] <- dat_aggr[ix] / dat_cont[ix] * 100
+      } else if ( argv$gridclimind_index %in% c("prcptot","prcptot_rflexy") & 
+                  argv$prcptot_as_perc) {
+        if ( length(ix)>0) r[ix_dat[ix]] <- dat_aggr[ix] / dat_aggrAlt[ix] * 100
       } else {
         if ( length(ix)>0) r[ix_dat[ix]] <- dat_aggr[ix]
       }
