@@ -460,6 +460,10 @@ p<- add_argument(p, "--polygon_layer",
                  help="layer name in the input file with polygons (shapefile)",
                  type="character",
                  default=NA)
+p<- add_argument(p, "--polygon_proj4",
+                 help="polygon PROJ4",
+                 type="character",
+                 default=NA)
 p<- add_argument(p, "--polygon_data_field",
                  help="data field name in the input file with polygons (shapefile)",
                  type="character",

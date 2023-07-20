@@ -8,7 +8,8 @@ spider_polygon_mask <- function() {
   poly <- suppressWarnings( suppressMessages( 
            readOGR( argv$ffin_polygon_shp, argv$polygon_layer,
                     stringsAsFactors=F, verbose=F)))
-  if ( as.character(poly@proj4string) != as.character(crs(r))) 
+#  if ( as.character(poly@proj4string) != as.character(crs(r))) 
+  if ( as.character(argv$polygon_proj4) != as.character(crs(r))) 
     poly <- spTransform( poly, crs(r))
   if ( any( !is.na( argv$polygon_ids))) {
     pix <- which( names(poly@data) == argv$polygon_data_field)
