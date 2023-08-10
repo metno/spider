@@ -1169,6 +1169,10 @@ p<- add_argument(p, "--rqb_b",
                  help="condition to use for threhsolding. One of 'below' ( values < x are kept, all the others are set NAs), 'below=' (<= x), 'above' (> x), or 'above=' (>= x).",
                  type="character",
                  default="above=")
+p<- add_argument(p, "--rqb_nboot",
+                 help="number of bootstrap replicates",
+                 type="integer",
+                 default=100)
 
 #..............................................................................
 p <- add_argument(p, "--temporal_trend",

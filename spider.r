@@ -367,7 +367,7 @@ for (t in 1:n_tseq) { # MAIN LOOP @@BEGIN@@ (jump to @@END@@)
                                         time = t_to_read_ffin)
     # - Frequency distributions
     } else if ( argv$summ_stat_fun == "freqdist") {
-      res <- spider_summ_stat_freqdist( first  = first)
+      res <- spider_summ_stat_freqdist( first  = first, time=t_to_read_ffin)
     # - Ellipsis, object-based summary statistics 
     } else if ( argv$summ_stat_fun == "ellipsis") {
       if ( !exists( "ell_list")) ell_list <- list()
@@ -611,6 +611,7 @@ if (argv$rqb) {
   n_qtiles <- length(rqb_qtiles)
   rqb_m1 <- argv$rqb_m1
   rqb_m2 <- argv$rqb_m2
+  rqb_nboot <- argv$rqb_nboot
   rmaster_projection <- projection( rmaster, asText=T)
   rmaster_res <- res(rmaster)
   rmaster_extent <- extent(rmaster)
@@ -622,12 +623,14 @@ if (argv$rqb) {
     res <- t( mcmapply( rqb_fun,
                         1:nix,
                         mc.cores   = argv$cores,
-                        SIMPLIFY   = T))
+                        SIMPLIFY   = T,
+                        MoreArgs   = list( nboot = rqb_nboot)))
   # no-multicores
   } else {
     res <- t( mapply( rqb_fun,
                       1:nix,
-                      SIMPLIFY   = T))
+                      SIMPLIFY   = T,
+                      MoreArgs   = list( nboot = rqb_nboot)))
   }
   t11 <- Sys.time()
   print( paste( "time", round(t11-t00,1), attr(t11-t00,"unit")))
@@ -646,7 +649,10 @@ if (argv$rqb) {
     dir.create( dirname(ffout), showWarnings = FALSE, recursive = TRUE)
     rqb_qtile <- rqb_qtiles_perc[q]
     qres <- res[,q]
-    save( file=ffout, rqb_qtile, rqb_inbase_begin, rqb_typicalyear_end, rqb_inbase_end, qres, ix_dat, nix, rqb_m1, rqb_m2, rmaster_projection, rmaster_res, rmaster_extent, rqb_date, rmaster)
+    qres_sd <- res[,q+n_qtiles]
+    save( file=ffout, rqb_qtile, rqb_inbase_begin, rqb_typicalyear_end, rqb_inbase_end, 
+           qres, qres_sd, ix_dat, nix, rqb_m1, rqb_m2, rmaster_projection, rmaster_res, 
+           rmaster_extent, rqb_date, rmaster, rqb_nboot)
     t1a <- Sys.time()
     print( paste( "writing output file", ffout,
                   " / time", round(t1a-t0a,1), attr(t1a-t0a,"unit")))

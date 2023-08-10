@@ -1,14 +1,12 @@
 #+
-spider_summ_stat_freqdist <- function( argv  = NULL, 
-                                       r     = NULL,
-                                       first = F) {
+spider_summ_stat_freqdist <- function( first = F, time=NA) {
 #------------------------------------------------------------------------------
-  if ( is.null(argv))
-    if ( "argv" %in% ls(envir = .GlobalEnv)) 
-      get( "argv", envir = .GlobalEnv)
-  if ( is.null(r))
-    if ( "r" %in% ls(envir = .GlobalEnv)) 
-      get( "r", envir = .GlobalEnv)
+#  if ( is.null(argv))
+#    if ( "argv" %in% ls(envir = .GlobalEnv)) 
+#      get( "argv", envir = .GlobalEnv)
+#  if ( is.null(r))
+#    if ( "r" %in% ls(envir = .GlobalEnv)) 
+#      get( "r", envir = .GlobalEnv)
 # first time in, define variables
 # NOTE: case of "within", num is a vector with dimension nr-1
 #       otherwise, num is a vector with dimension nr
@@ -73,5 +71,5 @@ spider_summ_stat_freqdist <- function( argv  = NULL,
   }
   data_string <- paste0( data_string, ";", numtot)
   cat( file=argv$ffout_summ_stat, append=T,
-      paste0( t_to_read, data_string, "\n"))
+      paste0( time, data_string, "\n"))
 }
