@@ -211,6 +211,13 @@ spider_gridclimind_prepare <- function( argv   = NULL,
         else if ( argv$maxcons_b == "within=")  { ixb <- which( !(vr >  argv$maxcons_r[1] & vr <= argv$maxcons_r[2])) }
       }
       if ( length(ixb) > 0) dat_cont[ix][ixb] <- 0
+    # %%%%%%%%%% maximum number of consecutive cases gridpoint-by-gridpoint threshold %%%%%%%%%%
+    } else if ( argv$gridclimind_index == "maxcons_rflexy" ) {
+      if ( argv$maxcons_b == "below")         { ixb <- which( !(vr <  vrflexy & flag_vrflexy)) }
+      else if ( argv$maxcons_b == "below=")   { ixb <- which( !(vr <= vrflexy & flag_vrflexy)) }
+      else if ( argv$maxcons_b == "above")    { ixb <- which( !(vr >  vrflexy & flag_vrflexy)) }
+      else if ( argv$maxcons_b == "above=")   { ixb <- which( !(vr >= vrflexy & flag_vrflexy)) }
+      if ( length(ixb) > 0) dat_cont[ix][ixb] <- 0
     }
     # compute score for one timestep: end
     # update online score: begin
@@ -238,7 +245,7 @@ spider_gridclimind_prepare <- function( argv   = NULL,
         dat_aggrAlt[ix][iy] <- dat_alt[ix][iy]
       }
     # -- online max number of consecutive cases
-    } else if (argv$gridclimind_index %in% c( "maxcons") ) {
+    } else if (argv$gridclimind_index %in% c( "maxcons", "maxcons_rflexy") ) {
       if ( length( iy <- !is.na( dat_cont[ix])) > 0) { 
         dat_aggr[ix][iy] <- pmax( dat_aggr[ix][iy], dat_cont[ix][iy], na.rm=T)
       }
