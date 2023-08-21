@@ -1052,7 +1052,7 @@ p<- add_argument(p, "--sdi_b",
                  default="above=")
 p<- add_argument(p, "--spell_length",
                  help="(minimum) spell lenght (in days)",
-                 type="integer",
+                 type="numeric",
                  default=6)
 p<- add_argument(p, "--freq_as_perc",
                  help="return freq as percentage over the total number of samples",

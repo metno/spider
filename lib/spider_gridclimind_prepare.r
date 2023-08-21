@@ -267,16 +267,15 @@ spider_gridclimind_prepare <- function( argv   = NULL,
           if ( any( is.na( dat_aggr[ix][iy][iz]))) dat_aggr[ix][iy][iz][which(is.na(dat_aggr[ix][iy][iz]))] <- 0
           dat_aggr[ix][iy][iz] <- dat_aggr[ix][iy][iz] + argv$spell_length
         }
-        if ( length( iz <- dat_cont[ix][iy] > argv$spell_length) > 0) {
-          dat_aggr[ix][iy][iz] <- dat_aggr[ix][iy][iz] + dat_cont[ix][iy][iz] - argv$spell_length
+        if ( length( iz <- which(dat_cont[ix][iy] > argv$spell_length)) > 0) {
+          dat_aggr[ix][iy][iz] <- dat_aggr[ix][iy][iz] + 1
         }
       }
-      if ( length( iy <-  is.na( dat_cont[ix])) > 0) {
-        dat_cont[ix][iy] <- 1 
-      }
+      if ( length( iy <- which( is.na( dat_cont[ix]))) > 0) dat_cont[ix][iy] <- 1 
+      if ( length( iy <- which( is.na( dat_aggr[ix]))) > 0) dat_aggr[ix][iy] <- 0 
     # -- online mean
     } else if (argv$gridclimind_index %in% c( "mean") ) {
-      if ( length( iy <- is.na( dat_cont[ix])) > 0) {
+      if ( length( iy <- which( is.na( dat_cont[ix]))) > 0) {
         dat_cont[ix][iy] <- 1
         dat_aggr[ix][iy] <- dat[ix][iy] 
       }
@@ -284,7 +283,7 @@ spider_gridclimind_prepare <- function( argv   = NULL,
     # -- sdii, kind of online mean
     } else if (argv$gridclimind_index %in% c( "sdii") ) {
       if ( length(ixb) > 0) {
-        if ( length( iy <- is.na( dat_cont[ix][ixb])) > 0) {
+        if ( length( iy <- which( is.na( dat_cont[ix][ixb]))) > 0) {
           dat_cont[ix][ixb][iy] <- 1
           dat_aggr[ix][ixb][iy] <- dat[ix][ixb][iy] 
         }
