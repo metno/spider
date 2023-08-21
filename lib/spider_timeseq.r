@@ -204,7 +204,8 @@ spider_timeseq<-function( argv) {
   #----------------------------------------------------------------------------
   # zrq or rqb special 
   if (argv$zrq  | argv$rqb) {
-    ix <- zrq_datesel_fun( tseq, inbase=F)$ix
+    if (argv$zrq) ix <- zrq_datesel_fun( tseq, inbase=F)$ix
+    if (argv$rqb) ix <- rqb_datesel_fun( tseq, inbase=F)$ix
     tseq <- tseq[ix]
     n_tseq <- length(tseq)
   }
