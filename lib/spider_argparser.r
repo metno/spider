@@ -1009,7 +1009,7 @@ p <- add_argument(p, "--gridclimind",
                   help="gridded climate indices",
                   flag=T)
 p<- add_argument(p, "--gridclimind_index",
-                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\",\"freq\",\"maxcons\",\"HD17\",\"sdii\",\"quantile\",\"metnoheatwave\",\"metnoheatwave2023\",\"rx5day\",\"rx3day\",\"gsl\",\"freq_rflexy\",\"prcptot_rflexy\"",
+                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\",\"freq\",\"maxcons\",\"maxcons_rflexy\",\"HD17\",\"sdii\",\"quantile\",\"metnoheatwave\",\"metnoheatwave2023\",\"rx5day\",\"rx3day\",\"gsl\",\"freq_rflexy\",\"prcptot_rflexy\",\"sdi_rflexy\"",
                  type="character",
                  default=NA)
 p<- add_argument(p, "--prcptot_r",
@@ -1046,6 +1046,14 @@ p<- add_argument(p, "--maxcons_b",
                  help="type one of 'below' (< x), 'below=' (<= x), 'above' (> x), 'above=' (>= x), 'within' (<x<), '=within' (<=x<), '=within=' (<=x<=), 'within=' (<x<=).",
                  type="character",
                  default="above=")
+p<- add_argument(p, "--sdi_b",
+                 help="type one of 'below' (< x), 'below=' (<= x), 'above' (> x), 'above=' (>= x), 'within' (<x<), '=within' (<=x<), '=within=' (<=x<=), 'within=' (<x<=).",
+                 type="character",
+                 default="above=")
+p<- add_argument(p, "--spell_length",
+                 help="(minimum) spell lenght (in days)",
+                 type="integer",
+                 default=6)
 p<- add_argument(p, "--freq_as_perc",
                  help="return freq as percentage over the total number of samples",
                  flag=T)
