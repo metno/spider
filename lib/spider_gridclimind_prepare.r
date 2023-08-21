@@ -218,6 +218,13 @@ spider_gridclimind_prepare <- function( argv   = NULL,
       else if ( argv$maxcons_b == "above")    { ixb <- which( vr <=  vrflexy & flag_vrflexy) }
       else if ( argv$maxcons_b == "above=")   { ixb <- which( vr <   vrflexy & flag_vrflexy) }
       if ( length(ixb) > 0) dat_cont[ix][ixb] <- 0
+    # %%%%%%%%%% cold/warm spell duration index (gridpoint-by-gridpoint threshold) %%%%%%%%%%
+    } else if ( argv$gridclimind_index == "sdi_rflexy" ) {
+      if ( argv$sdi_b == "below")         { ixb <- which( vr >=  vrflexy & flag_vrflexy) }
+      else if ( argv$sdi_b == "below=")   { ixb <- which( vr >   vrflexy & flag_vrflexy) }
+      else if ( argv$sdi_b == "above")    { ixb <- which( vr <=  vrflexy & flag_vrflexy) }
+      else if ( argv$sdi_b == "above=")   { ixb <- which( vr <   vrflexy & flag_vrflexy) }
+      if ( length(ixb) > 0) dat_cont[ix][ixb] <- 0
     }
     # compute score for one timestep: end
     # update online score: begin
@@ -226,32 +233,46 @@ spider_gridclimind_prepare <- function( argv   = NULL,
                                         "HD17",
                                         "freq",
                                         "freq_rflexy")) {
-      if ( length( iy <- !is.na( dat_cont[ix])) > 0) 
+      if ( length( iy <- which( !is.na( dat_cont[ix]))) > 0) 
         dat_aggr[ix][iy] <- dat_aggr[ix][iy] + dat[ix][iy]
-      if ( length( iy <-  is.na( dat_cont[ix])) > 0) {
+      if ( length( iy <- which( is.na( dat_cont[ix]))) > 0) {
         dat_cont[ix][iy] <- 1 
         dat_aggr[ix][iy] <- dat[ix][iy]
       }
     # -- online prcptot flexible threshold 
     } else if (argv$gridclimind_index %in% c( "prcptot", 
                                               "prcptot_rflexy") ) {
-      if ( length( iy <- !is.na( dat_cont[ix])) > 0) { 
+      if ( length( iy <- which( !is.na( dat_cont[ix]))) > 0) { 
         dat_aggr[ix][iy] <- dat_aggr[ix][iy] + dat[ix][iy]
         dat_aggrAlt[ix][iy] <- dat_aggrAlt[ix][iy] + dat_alt[ix][iy]
       }
-      if ( length( iy <-  is.na( dat_cont[ix])) > 0) {
+      if ( length( iy <- which( is.na( dat_cont[ix]))) > 0) {
         dat_cont[ix][iy] <- 1 
         dat_aggr[ix][iy] <- dat[ix][iy]
         dat_aggrAlt[ix][iy] <- dat_alt[ix][iy]
       }
     # -- online max number of consecutive cases
     } else if (argv$gridclimind_index %in% c( "maxcons", "maxcons_rflexy") ) {
-      if ( length( iy <- !is.na( dat_cont[ix])) > 0) { 
+      if ( length( iy <- which( !is.na( dat_cont[ix]))) > 0) { 
         dat_aggr[ix][iy] <- pmax( dat_aggr[ix][iy], dat_cont[ix][iy], na.rm=T)
+      }
+      if ( length( iy <- which( is.na( dat_cont[ix]))) > 0) {
+        dat_cont[ix][iy] <- 1 
+        dat_aggr[ix][iy] <- dat_cont[ix][iy]
+      }
+# -- online max number of consecutive cases
+    } else if (argv$gridclimind_index %in% c( "sdi_rflexy") ) {
+      if ( length( iy <- which(!is.na( dat_cont[ix]))) > 0) { 
+        if ( length( iz <- which(dat_cont[ix][iy] == argv$spell_length)) > 0) {
+          if ( any( is.na( dat_aggr[ix][iy][iz]))) dat_aggr[ix][iy][iz][which(is.na(dat_aggr[ix][iy][iz]))] <- 0
+          dat_aggr[ix][iy][iz] <- dat_aggr[ix][iy][iz] + argv$spell_length
+        }
+        if ( length( iz <- dat_cont[ix][iy] > argv$spell_length) > 0) {
+          dat_aggr[ix][iy][iz] <- dat_aggr[ix][iy][iz] + dat_cont[ix][iy][iz] - argv$spell_length
+        }
       }
       if ( length( iy <-  is.na( dat_cont[ix])) > 0) {
         dat_cont[ix][iy] <- 1 
-        dat_aggr[ix][iy] <- dat_cont[ix][iy]
       }
     # -- online mean
     } else if (argv$gridclimind_index %in% c( "mean") ) {
