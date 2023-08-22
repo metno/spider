@@ -331,7 +331,7 @@ spider_gridclimind_prepare <- function( argv   = NULL,
             dat_aggr[ix][iy][iz] <- dat_aggr[ix][iy][iz] +  pmin( dat_cont[ix][iy][iz], diff_from_b+1) 
           # in case of "sdi_rflexy" and we are after the end of the aggregation period, 
           # use only the days within the aggregation period 
-          if ( argv$gridclimind_index == "sdi_rflexy" & diff_from_e >= 0) { 
+          } else if ( argv$gridclimind_index == "sdi_rflexy" & diff_from_e >= 0) { 
             dat_aggr[ix][iy][iz] <- dat_aggr[ix][iy][iz] +  dat_cont[ix][iy][iz] - diff_from_e
           # in case of "sdi_rflexy_alt", use dat_cont 
           } else if ( argv$gridclimind_index == "sdi_rflexy_alt") {

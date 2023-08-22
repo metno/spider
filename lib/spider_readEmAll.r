@@ -22,6 +22,7 @@ spider_readEmAll <- function( argv=NA,
   if (!file.exists(ffin)) {
     print(paste("file not found",ffin))
     r <- NULL
+    return(NULL)
   } else {
     t_to_read <- format( as.POSIXct( as.numeric(
       as.POSIXct(time,format=argv$ffin_date.format,tz="GMT")) 
