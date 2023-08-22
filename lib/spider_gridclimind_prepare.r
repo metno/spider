@@ -114,7 +114,7 @@ spider_gridclimind_prepare <- function( argv   = NULL,
   } else {
     # dat / dat_cont / dat_aggr/ dat_aggAlt/ dat_flag: n-vectors
     dat_cont[ix] <- dat_cont[ix] + 1
-    if (length(ixaux <- which(is.na(dat_flag[ix]))) > 0) dat_flag[ix][ixaux] <- 0
+    if (length(ixaux <- which( is.na(dat_flag[ix]))) > 0) dat_flag[ix][ixaux] <- 0
     dat <- vector( mode="numeric", length=n); dat[] <- NA
     dat[ix] <- 0
     dat_alt <- vector( mode="numeric", length=n); dat_alt[] <- NA
@@ -211,6 +211,27 @@ spider_gridclimind_prepare <- function( argv   = NULL,
         else if ( argv$maxcons_b == "within=")  { ixb <- which( !(vr >  argv$maxcons_r[1] & vr <= argv$maxcons_r[2])) }
       }
       if ( length(ixb) > 0) dat_cont[ix][ixb] <- 0
+    # %%%%%%%%%% maximum number of consecutive cases alternative version (used for altCDD and altCWD) %%%%%%%%%%%%%%%%
+    } else if ( argv$gridclimind_index == "maxcons_alt" ) {
+      if ( is.na(argv$maxcons_r)) {
+        ixb <- which( is.na(vr) | is.nan(vr) | !is.finite( vr))
+      } else {
+        if ( argv$maxcons_b == "below")         { ixb <- which( !(vr <  argv$maxcons_r)) }
+        else if ( argv$maxcons_b == "below=")   { ixb <- which( !(vr <= argv$maxcons_r)) }
+        else if ( argv$maxcons_b == "above")    { ixb <- which( !(vr >  argv$maxcons_r)) }
+        else if ( argv$maxcons_b == "above=")   { ixb <- which( !(vr >= argv$maxcons_r)) }
+        else if ( argv$maxcons_b == "within")   { ixb <- which( !(vr >  argv$maxcons_r[1] & vr <  argv$maxcons_r[2])) }
+        else if ( argv$maxcons_b == "=within")  { ixb <- which( !(vr >= argv$maxcons_r[1] & vr <  argv$maxcons_r[2])) }
+        else if ( argv$maxcons_b == "=within=") { ixb <- which( !(vr >= argv$maxcons_r[1] & vr <= argv$maxcons_r[2])) }
+        else if ( argv$maxcons_b == "within=")  { ixb <- which( !(vr >  argv$maxcons_r[1] & vr <= argv$maxcons_r[2])) }
+      }
+      if ( tseq[t] >= as.POSIXlt( str2Rdate(argv$spell_date_begin, format="%Y-%m-%d"), tz="UTC") &
+           tseq[t] <= as.POSIXlt( str2Rdate(argv$spell_date_end, format="%Y-%m-%d"), tz="UTC"))
+        dat_flag[ix] <- 1
+      if ( length(ixb) > 0) {
+        dat_cont[ix][ixb] <- 0
+        dat_flag[ix][ixb] <- 0
+      }
     # %%%%%%%%%% maximum number of consecutive cases gridpoint-by-gridpoint threshold %%%%%%%%%%
     } else if ( argv$gridclimind_index == "maxcons_rflexy" ) {
       if ( argv$maxcons_b == "below")         { ixb <- which( vr >=  vrflexy & flag_vrflexy) }
@@ -218,13 +239,32 @@ spider_gridclimind_prepare <- function( argv   = NULL,
       else if ( argv$maxcons_b == "above")    { ixb <- which( vr <=  vrflexy & flag_vrflexy) }
       else if ( argv$maxcons_b == "above=")   { ixb <- which( vr <   vrflexy & flag_vrflexy) }
       if ( length(ixb) > 0) dat_cont[ix][ixb] <- 0
-    # %%%%%%%%%% cold/warm spell duration index (gridpoint-by-gridpoint threshold) %%%%%%%%%%
-    } else if ( argv$gridclimind_index == "sdi_rflexy" ) {
+    # %%%%%%%%%% cold/warm spell duration index (gridpoint-by-gridpoint threshold) alternative version (used for altCSDI and altWSDI)%%%%%%%%%%
+    } else if ( argv$gridclimind_index %in% c( "sdi_rflexy", "sdi_rflexy_alt" )) {
+# dat_aggr is the vector of climate indices
+# dat_cont is the vector that counts the consecutive occurrence for a prescribed condition (i.e. min temperature less than the 10-th percentile)
+# dat_flag is the vector that is equal to 1 if the timestep is whithin the aggregation period AND the prescribed condition is TRUE; otherwise it is set to 0
+# dat_aggrAlt is the vector that is equal to 1 if the spell has been added to dat_aggr before; otherwise, it is equal to 0 and it is the first time we add the spell to dat_aggr. If it is the first time we consider the spell, then we need to add a number that caould be greater than 1.
+      # time differences in days (tseq[t]-spell_date_begin and tseq[t]-spell_date_end
+      diff_from_b <- as.numeric( difftime( tseq[t], as.POSIXlt( str2Rdate(argv$spell_date_begin, format="%Y-%m-%d"), tz="UTC"), tz="UTC", units="days"))
+      diff_from_e <- as.numeric( difftime( tseq[t], as.POSIXlt( str2Rdate(argv$spell_date_end, format="%Y-%m-%d"), tz="UTC"), tz="UTC", units="days"))
+      # initializations
+      if ( length( ixaux <- which( is.na( dat_aggrAlt[ix]))) > 0) dat_aggrAlt[ix][ixaux] <- 0
+      if ( length( ixaux <- which( is.na( dat_aggr[ix])))    > 0) dat_aggr[ix][ixaux]    <- 0
+      # test the condition gridpoint-by-gridpoint
       if ( argv$sdi_b == "below")         { ixb <- which( vr >=  vrflexy & flag_vrflexy) }
       else if ( argv$sdi_b == "below=")   { ixb <- which( vr >   vrflexy & flag_vrflexy) }
       else if ( argv$sdi_b == "above")    { ixb <- which( vr <=  vrflexy & flag_vrflexy) }
       else if ( argv$sdi_b == "above=")   { ixb <- which( vr <   vrflexy & flag_vrflexy) }
-      if ( length(ixb) > 0) dat_cont[ix][ixb] <- 0
+      # if the timestep is within the aggregation period, then set dat_flaf to 1
+      if ( diff_from_b >= 0 & diff_from_e <= 0)
+        dat_flag[ix] <- 1
+      # for all gridpoints where the condition is not valid, set dat_cont, dat_flag and dat_aggr to 0
+      if ( length(ixb) > 0) {
+        dat_cont[ix][ixb] <- 0
+        dat_flag[ix][ixb] <- 0
+        dat_aggrAlt[ix][ixb] <- 0
+      }
     }
     # compute score for one timestep: end
     # update online score: begin
@@ -260,17 +300,47 @@ spider_gridclimind_prepare <- function( argv   = NULL,
         dat_cont[ix][iy] <- 1 
         dat_aggr[ix][iy] <- dat_cont[ix][iy]
       }
-# -- online max number of consecutive cases
-    } else if (argv$gridclimind_index %in% c( "sdi_rflexy") ) {
-      if ( length( iy <- which(!is.na( dat_cont[ix]))) > 0) { 
-        if ( length( iz <- which(dat_cont[ix][iy] == argv$spell_length)) > 0) {
-          if ( any( is.na( dat_aggr[ix][iy][iz]))) dat_aggr[ix][iy][iz][which(is.na(dat_aggr[ix][iy][iz]))] <- 0
-          dat_aggr[ix][iy][iz] <- dat_aggr[ix][iy][iz] + argv$spell_length
+    # -- online max number of consecutive cases
+    } else if (argv$gridclimind_index %in% c( "maxcons_alt") ) {
+      if ( length( iy <- which( !is.na( dat_cont[ix]) & dat_flag[ix] == 1)) > 0) { 
+        dat_aggr[ix][iy] <- pmax( dat_aggr[ix][iy], dat_cont[ix][iy], na.rm=T)
+      }
+      if ( length( iy <- which( is.na( dat_cont[ix]))) > 0) {
+        dat_cont[ix][iy] <- 1 
+        dat_aggr[ix][iy] <- dat_cont[ix][iy]
+      }
+# -- cold/warm spell duration index (gridpoint-by-gridpoint threshold) alternative version (used for altCSDI and altWSDI)
+    } else if (argv$gridclimind_index %in% c( "sdi_rflexy", "sdi_rflexy_alt") ) {
+      # for all points where the condition is valid and with at least one timestep within the aggregation period ...
+      if ( length( iy <- which(!is.na( dat_cont[ix]) & dat_flag[ix] == 1)) > 0) { 
+        # for those spells where we need to update the index ...
+        if ( length( iz <- which( dat_aggrAlt[ix][iy] == 1 & dat_cont[ix][iy] >= argv$spell_length)) > 0) {
+          # in case of "sdi_rflexy", update only if the current timestep is within the aggregation period
+          if ( argv$gridclimind_index == "sdi_rflexy" & diff_from_b >= 0  & diff_from_e <= 0) {
+            dat_aggr[ix][iy][iz] <- dat_aggr[ix][iy][iz] + 1 
+          # in case of "sdi_rflexy_alt", always update
+          } else if ( argv$gridclimind_index == "sdi_rflexy_alt") {
+            dat_aggr[ix][iy][iz] <- dat_aggr[ix][iy][iz] + 1 
+          }
         }
-        if ( length( iz <- which(dat_cont[ix][iy] > argv$spell_length)) > 0) {
-          dat_aggr[ix][iy][iz] <- dat_aggr[ix][iy][iz] + 1
+        # for those spells that have not been yet considered in the calculations ... 
+        if ( length( iz <- which( dat_aggrAlt[ix][iy] == 0 & dat_cont[ix][iy] >= argv$spell_length)) > 0) {
+          # in case of "sdi_rflexy" and we are inside the aggregation period, use either dat_cont or 
+          # the number of days within the period (useful if we are at the begininng of the period)
+          if ( argv$gridclimind_index == "sdi_rflexy" & diff_from_b >= 0  & diff_from_e <= 0) { 
+            dat_aggr[ix][iy][iz] <- dat_aggr[ix][iy][iz] +  pmin( dat_cont[ix][iy][iz], diff_from_b+1) 
+          # in case of "sdi_rflexy" and we are after the end of the aggregation period, 
+          # use only the days within the aggregation period 
+          if ( argv$gridclimind_index == "sdi_rflexy" & diff_from_e >= 0) { 
+            dat_aggr[ix][iy][iz] <- dat_aggr[ix][iy][iz] +  dat_cont[ix][iy][iz] - diff_from_e
+          # in case of "sdi_rflexy_alt", use dat_cont 
+          } else if ( argv$gridclimind_index == "sdi_rflexy_alt") {
+            dat_aggr[ix][iy][iz] <- dat_aggr[ix][iy][iz] + dat_cont[ix][iy][iz]
+          }
+          dat_aggrAlt[ix][iy][iz] <- 1
         }
       }
+      # the next two lines are probably never used, but they shouldn't be dangerous either
       if ( length( iy <- which( is.na( dat_cont[ix]))) > 0) dat_cont[ix][iy] <- 1 
       if ( length( iy <- which( is.na( dat_aggr[ix]))) > 0) dat_aggr[ix][iy] <- 0 
     # -- online mean

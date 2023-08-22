@@ -1009,7 +1009,7 @@ p <- add_argument(p, "--gridclimind",
                   help="gridded climate indices",
                   flag=T)
 p<- add_argument(p, "--gridclimind_index",
-                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\",\"freq\",\"maxcons\",\"maxcons_rflexy\",\"HD17\",\"sdii\",\"quantile\",\"metnoheatwave\",\"metnoheatwave2023\",\"rx5day\",\"rx3day\",\"gsl\",\"freq_rflexy\",\"prcptot_rflexy\",\"sdi_rflexy\"",
+                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\",\"freq\",\"maxcons\",\"maxcons_rflexy\",\"maxcons_alt\",\"HD17\",\"sdii\",\"quantile\",\"metnoheatwave\",\"metnoheatwave2023\",\"rx5day\",\"rx3day\",\"gsl\",\"freq_rflexy\",\"prcptot_rflexy\",\"sdi_rflexy\",\"sdi_rflexy_alt\"",
                  type="character",
                  default=NA)
 p<- add_argument(p, "--prcptot_r",
@@ -1046,6 +1046,14 @@ p<- add_argument(p, "--maxcons_b",
                  help="type one of 'below' (< x), 'below=' (<= x), 'above' (> x), 'above=' (>= x), 'within' (<x<), '=within' (<=x<), '=within=' (<=x<=), 'within=' (<x<=).",
                  type="character",
                  default="above=")
+p<- add_argument(p, "--spell_date_begin",
+                 help="date of the base period (fortmat %Y-%m-%d, used for \"maxcons_alt\" and \"sdi_rflexy_alt\")",
+                 type="character",
+                 default="1991-01-01")
+p<- add_argument(p, "--spell_date_end",
+                 help="date of the base period (fortmat %Y-%m-%d, used for \"maxcons_alt\" and \"sdi_rflexy_alt\")",
+                 type="character",
+                 default="1991-12-31")
 p<- add_argument(p, "--sdi_b",
                  help="type one of 'below' (< x), 'below=' (<= x), 'above' (> x), 'above=' (>= x), 'within' (<x<), '=within' (<=x<), '=within=' (<=x<=), 'within=' (<x<=).",
                  type="character",
