@@ -8,6 +8,11 @@ spider_readEmAll <- function( argv=NA,
   if ( class(argv)=="logical") 
     if ("argv" %in% ls(envir = .GlobalEnv)) 
       argv <- get("argv", envir = .GlobalEnv)
+
+  t_to_read<-format( as.POSIXct( as.numeric(
+    as.POSIXct(time,format=argv$ffin_date.format,tz="GMT")) 
+    + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
+              t_to_read.format)
   #
   ffin <- replaceDate( string       = argv$ffin_template,
                        date.str     = format( time,
@@ -22,12 +27,11 @@ spider_readEmAll <- function( argv=NA,
   if (!file.exists(ffin)) {
     print(paste("file not found",ffin))
     r <- NULL
-    return(NULL)
   } else {
-    t_to_read <- format( as.POSIXct( as.numeric(
-      as.POSIXct(time,format=argv$ffin_date.format,tz="GMT")) 
-      + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
-                t_to_read.format)
+#    t_to_read <- format( as.POSIXct( as.numeric(
+#      as.POSIXct(time,format=argv$ffin_date.format,tz="GMT")) 
+#      + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
+#                t_to_read.format)
     if (argv$debug) print(paste("time_to_read time file",t_to_read,time,ffin))
     r <- read_griddeddata( mode="data", ffin=ffin, t_to_read=t_to_read)
   }
@@ -49,10 +53,10 @@ spider_readEmAll <- function( argv=NA,
         print(paste("file not found",ffin))
         return( NULL)
       }
-      t_to_read<-format( as.POSIXct( as.numeric(
-        as.POSIXct(time,format=argv$ffin_date.format,tz="GMT")) 
-        + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
-                  t_to_read.format)
+#      t_to_read<-format( as.POSIXct( as.numeric(
+#        as.POSIXct(time,format=argv$ffin_date.format,tz="GMT")) 
+#        + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
+#                  t_to_read.format)
       if (argv$debug) print(paste("time_to_read time file",t_to_read,time,ffin))
       r <- read_griddeddata( mode="data", ffin=ffin, t_to_read=t_to_read)
     }
@@ -77,6 +81,10 @@ spider_readEmAll <- function( argv=NA,
   # read reference file
   r_ref <- NA
   if (!is.na(argv$ffin_ref_template)) {
+    t_to_read<-format( as.POSIXct( as.numeric(
+      as.POSIXct(time_ref,format=argv$ffin_date.format,tz="GMT")) 
+      + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
+                t_to_read.format)
     ffin_ref<-replaceDate(string   = argv$ffin_ref_template,
                           date.str = format(time_ref,
                                      format=argv$ffin_date.format,tz="GMT"),
@@ -90,10 +98,10 @@ spider_readEmAll <- function( argv=NA,
       print( paste( "file not found", ffin_ref))
       r_ref <- NULL
     } else {
-      t_to_read<-format( as.POSIXct( as.numeric(
-        as.POSIXct(time_ref,format=argv$ffin_date.format,tz="GMT")) 
-        + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
-                  t_to_read.format)
+#      t_to_read<-format( as.POSIXct( as.numeric(
+#        as.POSIXct(time_ref,format=argv$ffin_date.format,tz="GMT")) 
+#        + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
+#                  t_to_read.format)
 #      t_to_read <- format(
 #                    as.POSIXct( time_ref, format=argv$ffin_date.format,tz="GMT"),
 #                    t_to_read.format)
@@ -118,10 +126,10 @@ spider_readEmAll <- function( argv=NA,
           print(paste("file not found",ffin_ref))
           return( NULL)
         }
-        t_to_read<-format( as.POSIXct( as.numeric(
-          as.POSIXct(time_ref,format=argv$ffin_date.format,tz="GMT")) 
-          + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
-                    t_to_read.format)
+#        t_to_read<-format( as.POSIXct( as.numeric(
+#          as.POSIXct(time_ref,format=argv$ffin_date.format,tz="GMT")) 
+#          + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
+#                    t_to_read.format)
         if (argv$debug) print(paste("time_to_read time file",t_to_read,time_ref,ffin_ref))
         r_ref <- read_griddeddata( mode="ref", ffin_ref=ffin_ref, t_to_read=t_to_read)
       }
