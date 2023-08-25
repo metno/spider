@@ -134,7 +134,7 @@ spider_gridclimind_prepare <- function( argv   = NULL,
       if ( length(ixb) > 0) dat[ix][ixb] <- vr[ixb] - argv$degday_r 
     # %%%%%%%%%% ETCCDI Heating degree days %%%%%%%%%%%%%%%
     } else if ( argv$gridclimind_index == "HD17" ) {
-      dat[ix] <- 17 - vr
+      if ( length( ixb <- which( vr < 17)) > 0 ) dat[ix][ixb] <- 17 - vr[ixb]
     # %%%%%%%%%% ETCCDI Simple daily intensity index %%%%%%
     } else if ( argv$gridclimind_index == "sdii" ) {
       dat_cont[ix] <- dat_cont[ix] - 1
@@ -244,7 +244,7 @@ spider_gridclimind_prepare <- function( argv   = NULL,
 # dat_aggr is the vector of climate indices
 # dat_cont is the vector that counts the consecutive occurrence for a prescribed condition (i.e. min temperature less than the 10-th percentile)
 # dat_flag is the vector that is equal to 1 if the timestep is whithin the aggregation period AND the prescribed condition is TRUE; otherwise it is set to 0
-# dat_aggrAlt is the vector that is equal to 1 if the spell has been added to dat_aggr before; otherwise, it is equal to 0 and it is the first time we add the spell to dat_aggr. If it is the first time we consider the spell, then we need to add a number that caould be greater than 1.
+# dat_aggrAlt is the vector that is equal to 1 if the spell has been added to dat_aggr before; otherwise, it is equal to 0 and it is the first time we add the spell to dat_aggr. If it is the first time we consider the spell, then we need to add a number that could be greater than 1.
       # time differences in days (tseq[t]-spell_date_begin and tseq[t]-spell_date_end
       diff_from_b <- as.numeric( difftime( tseq[t], as.POSIXlt( str2Rdate(argv$spell_date_begin, format="%Y-%m-%d"), tz="UTC"), tz="UTC", units="days"))
       diff_from_e <- as.numeric( difftime( tseq[t], as.POSIXlt( str2Rdate(argv$spell_date_end, format="%Y-%m-%d"), tz="UTC"), tz="UTC", units="days"))
