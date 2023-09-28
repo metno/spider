@@ -62,8 +62,13 @@ spider_gridclimind_prepare <- function( argv   = NULL,
     } else {
       rflexy_env <- new.env( parent = emptyenv())
       load( ffin_rflexy, envir=rflexy_env)
-      if (!rasters_match( rmaster, rflexy_env$rmaster)) 
+      if (!rasters_match( rmaster, rflexy_env$rmaster)) {
         cat( paste( "Warning reading file", ffin_rflexy, "the two rmasters are different\n"))
+#        print("rmaster")
+#        print(rmaster)
+#        print("rflexy_env$rmaster")
+#        print(rflexy_env$rmaster)
+      }
       rflexy <- r 
       rflexy[] <- NA
       rflexy[rflexy_env$ix_dat] <- rflexy_env$qres
@@ -103,7 +108,7 @@ spider_gridclimind_prepare <- function( argv   = NULL,
   # NOTE: vr and vref are now m-vectors
   #
   # scores that require to store the whole dataset in memory
-  if ( argv$gridclimind_index %in% c( "quantile", "metnoheatwave", "rx5day", "rx3day")) {
+  if ( argv$gridclimind_index %in% c( "quantile", "metnoheatwave", "rx5day", "rx3day", "rx2day", "rx4day")) {
     return( list( online=F, ix=ix, n=length(ix),
                   mat_col=vr, mat_ref_col=vref ))
   } else if ( argv$gridclimind_index %in% c( "metnoheatwave2023")) {

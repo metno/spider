@@ -1160,7 +1160,7 @@ if (gridded_output)  {
   # gridded climate indices 
   if ( argv$gridclimind) {
     # indices all dataset in memory
-    if ( argv$gridclimind_index %in% c("quantile", "metnoheatwave", "metnoheatwave2023", "rx5day", "rx3day")) { 
+    if ( argv$gridclimind_index %in% c("quantile", "metnoheatwave", "metnoheatwave2023", "rx5day", "rx3day", "rx2day", "rx4day")) { 
       if (argv$gridclimind_index == "quantile") {
           threshold  <- argv$which_quantile
           threshold1 <- argv$quantile_geq_threshold
@@ -1177,7 +1177,7 @@ if (gridded_output)  {
           type       <- "above="
       }
 
-      if (argv$gridclimind_index %in% c("rx5day","rx3day")) {
+      if (argv$gridclimind_index %in% c("rx5day","rx3day","rx2day","rx4day")) {
           threshold  <- NA
           threshold1 <- NA
           type       <- ""

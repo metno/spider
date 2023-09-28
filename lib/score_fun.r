@@ -118,6 +118,22 @@ score_fun<-function(i=NA,
     } else {
       score <- NA
     }
+  
+  # Highest 2-day precipitation amount
+  } else if (lab=="rx2day") {
+    if ( any(!is.na(mat[i,]))) {
+      score <- max( filter( mat[i,], filter=rep(1,2), sides=1), na.rm=T)
+    } else {
+      score <- NA
+    }
+
+  # Highest 4-day precipitation amount
+  } else if (lab=="rx4day") {
+    if ( any(!is.na(mat[i,]))) {
+      score <- max( filter( mat[i,], filter=rep(1,4), sides=1), na.rm=T)
+    } else {
+      score <- NA
+    }
 
   # quantile do not use mat_ref
   } else if (lab=="quantile") {

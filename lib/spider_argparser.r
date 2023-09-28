@@ -1009,7 +1009,7 @@ p <- add_argument(p, "--gridclimind",
                   help="gridded climate indices",
                   flag=T)
 p<- add_argument(p, "--gridclimind_index",
-                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\",\"freq\",\"maxcons\",\"maxcons_rflexy\",\"maxcons_alt\",\"HD17\",\"sdii\",\"quantile\",\"metnoheatwave\",\"metnoheatwave2023\",\"rx5day\",\"rx3day\",\"gsl\",\"freq_rflexy\",\"prcptot_rflexy\",\"sdi_rflexy\",\"sdi_rflexy_alt\"",
+                 help="climate indices, one of: \"degree_days_sum\", \"degree_days\", \"prcptot\",\"freq\",\"maxcons\",\"maxcons_rflexy\",\"maxcons_alt\",\"HD17\",\"sdii\",\"quantile\",\"metnoheatwave\",\"metnoheatwave2023\",\"rx5day\",\"rx3day\",\"rx2day\",\"rx4day\",\"gsl\",\"freq_rflexy\",\"prcptot_rflexy\",\"sdi_rflexy\",\"sdi_rflexy_alt\"",
                  type="character",
                  default=NA)
 p<- add_argument(p, "--prcptot_r",
