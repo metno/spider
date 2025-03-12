@@ -1218,7 +1218,7 @@ if (gridded_output)  {
       if ( argv$gridclimind_index %in% c("freq","freq_rflexy") & 
            argv$freq_as_perc) {
         if ( length(ix)>0) r[ix_dat[ix]] <- dat_aggr[ix] / dat_cont[ix] * 100
-      } else if ( argv$gridclimind_index %in% c("prcptot","prcptot_rflexy") & 
+      } else if ( argv$gridclimind_index %in% c("prcptot","prcptot_rflexy","prcptot_as_snow","prcptot_as_rain") & 
                   argv$prcptot_as_perc) {
         if ( length(ix)>0) r[ix_dat[ix]] <- dat_aggr[ix] / dat_aggrAlt[ix] * 100
       } else {

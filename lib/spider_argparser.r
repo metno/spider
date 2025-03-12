@@ -572,6 +572,10 @@ p<- add_argument(p, "--ffin_template_alternative",
                  help="path to + name (template) of the input observation files",
                  type="character",
                  default=NA)
+p<- add_argument(p, "--ffin_varname_alternative",
+                 help="variable name for the alternative files (set to NA if it the same as for the orginal files)",
+                 type="character",
+                 default=NA)
 p <- add_argument(p, "--ffin_hour_offset",
                   help="hour offset",
                   type="numeric",
@@ -744,6 +748,10 @@ p<- add_argument(p, "--ffin_ref_template",
                  default=NA)
 p<- add_argument(p, "--ffin_ref_template_alternative",
                  help="path to + name (template) of the input observation files",
+                 type="character",
+                 default=NA)
+p<- add_argument(p, "--ffin_ref_varname_alternative",
+                 help="variable name for the alternative files (set to NA if it the same as for the orginal files)",
                  type="character",
                  default=NA)
 p <-  add_argument(p, "--tseq_ref_hour_offset",

@@ -58,7 +58,9 @@ spider_readEmAll <- function( argv=NA,
 #        + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
 #                  t_to_read.format)
       if (argv$debug) print(paste("time_to_read time file",t_to_read,time,ffin))
-      r <- read_griddeddata( mode="data", ffin=ffin, t_to_read=t_to_read)
+      var <- NA
+      if (!is.na(argv$ffin_varname_alternative)) var <- argv$ffin_varname_alternative
+      r <- read_griddeddata( mode="data", var=var, ffin=ffin, t_to_read=t_to_read)
     }
     if (is.null(r)) {
       print(paste("warning: problem while reading time file",t_to_read,ffin))
@@ -131,7 +133,9 @@ spider_readEmAll <- function( argv=NA,
 #          + argv$ffin_hour_offset*3600, origin="1970-01-01",tz="GMT"),
 #                    t_to_read.format)
         if (argv$debug) print(paste("time_to_read time file",t_to_read,time_ref,ffin_ref))
-        r_ref <- read_griddeddata( mode="ref", ffin_ref=ffin_ref, t_to_read=t_to_read)
+        var <- NA
+        if (!is.na(argv$ffin_ref_varname_alternative)) var <- argv$ffin_ref_varname_alternative
+        r_ref <- read_griddeddata( mode="ref", var=var, ffin_ref=ffin_ref, t_to_read=t_to_read)
       }
       if (is.null(r_ref)) {
         print(paste("warning: problem while reading time file",t_to_read,ffin_ref))

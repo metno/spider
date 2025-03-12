@@ -178,6 +178,18 @@ spider_gridclimind_prepare <- function( argv   = NULL,
       else if ( argv$prcptot_b == "above=") { ixb <- which( vr >= vrflexy & flag_vrflexy) }
       if ( length(ixb) > 0) dat[ix][ixb] <- vr[ixb]
       dat_alt[ix] <- vr
+    # %%%%%%%%%% prcptot as snow %%%%%%%%%%%%%%%%%%%%%%
+    } else if ( argv$gridclimind_index == "prcptot_as_snow" ) {
+      # vref is supposed to be mean daily temperature in Celsius degrees
+      ixb <- which( (vr > 0.1) & (vref < 0.5))
+      if ( length(ixb) > 0) dat[ix][ixb] <- vr[ixb]
+      dat_alt[ix] <- vr
+    # %%%%%%%%%% prcptot as rain %%%%%%%%%%%%%%%%%%%%%%
+    } else if ( argv$gridclimind_index == "prcptot_as_rain" ) {
+      # vref is supposed to be mean daily temperature in Celsius degrees
+      ixb <- which( (vr > 0.1) & (vref >= 0.5))
+      if ( length(ixb) > 0) dat[ix][ixb] <- vr[ixb]
+      dat_alt[ix] <- vr
     # %%%%%%%%%% freq %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     } else if ( argv$gridclimind_index == "freq" ) {
       if ( is.na(argv$freq_r)) {
@@ -286,7 +298,9 @@ spider_gridclimind_prepare <- function( argv   = NULL,
       }
     # -- online prcptot flexible threshold 
     } else if (argv$gridclimind_index %in% c( "prcptot", 
-                                              "prcptot_rflexy") ) {
+                                              "prcptot_rflexy",
+                                              "prcptot_as_snow",
+                                              "prcptot_as_rain")) {
       if ( length( iy <- which( !is.na( dat_cont[ix]))) > 0) { 
         dat_aggr[ix][iy] <- dat_aggr[ix][iy] + dat[ix][iy]
         dat_aggrAlt[ix][iy] <- dat_aggrAlt[ix][iy] + dat_alt[ix][iy]
