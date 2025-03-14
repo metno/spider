@@ -1,6 +1,7 @@
 #+
 read_griddeddata<-function( mode="data",
                             var=NA,
+                            topdown=NA,
                             argv=NA,
                             ffin=NA,
                             t_to_read=NA,
@@ -16,7 +17,7 @@ read_griddeddata<-function( mode="data",
     ff_epos      <- argv$ffin_epos
     ff_e         <- argv$ffin_e
     ff_varname   <- ifelse( is.na(var), argv$ffin_varname, var)
-    ff_topdown   <- argv$ffin_topdown
+    ff_topdown   <- ifelse( is.na(topdown), argv$ffin_topdown, topdown)
     ff_ndim      <- argv$ffin_ndim
     ff_dimnames  <- argv$ffin_dimnames
     ff_proj4     <- argv$ffin_proj4
@@ -28,7 +29,7 @@ read_griddeddata<-function( mode="data",
     ff_epos      <- argv$ffin_ref_epos
     ff_e         <- argv$ffin_ref_e
     ff_varname   <- ifelse( is.na(var), argv$ffin_ref_varname, var)
-    ff_topdown   <- argv$ffin_ref_topdown
+    ff_topdown   <- ifelse( is.na(topdown), argv$ffin_ref_topdown, topdown)
     ff_ndim      <- argv$ffin_ref_ndim
     ff_dimnames  <- argv$ffin_ref_dimnames
     ff_proj4     <- argv$ffin_ref_proj4
@@ -40,7 +41,7 @@ read_griddeddata<-function( mode="data",
     ff_epos      <- argv$ffindem_epos
     ff_e         <- argv$ffindem_e
     ff_varname   <- ifelse( is.na(var), argv$ffindem_varname, var)
-    ff_topdown   <- argv$ffindem_topdown
+    ff_topdown   <- ifelse( is.na(topdown), argv$ffindem_topdown, topdown)
     ff_ndim      <- argv$ffindem_ndim
     ff_dimnames  <- argv$ffindem_dimnames
     ff_proj4     <- argv$ffin_proj4
@@ -52,7 +53,7 @@ read_griddeddata<-function( mode="data",
     ff_epos      <- argv$ffmaster_epos
     ff_e         <- argv$ffmaster_e
     ff_varname   <- ifelse( is.na(var), argv$ffmaster_varname, var)
-    ff_topdown   <- argv$ffmaster_topdown
+    ff_topdown   <- ifelse( is.na(topdown), argv$ffmaster_topdown, topdown)
     ff_ndim      <- argv$ffmaster_ndim
     ff_dimnames  <- argv$ffmaster_dimnames
     ff_proj4     <- argv$ffmaster_proj4
@@ -66,7 +67,7 @@ read_griddeddata<-function( mode="data",
       ff_e       <- argv$ffmaster_e
       ff_varname <- ifelse( is.na(argv$ffmasterdem_varname),
                      argv$ffmaster_varname, argv$ffmasterdem_varname)
-      ff_topdown <- argv$ffmaster_topdown
+      ff_topdown <- ifelse( is.na(topdown), argv$ffmaster_topdown, topdown)
       if ( is.na( argv$ffmasterdem_ndim)) {
         ff_ndim     <- argv$ffmaster_ndim
         ff_dimnames <- argv$ffmaster_dimnames
@@ -81,7 +82,7 @@ read_griddeddata<-function( mode="data",
       ff_e        <- argv$ffmasterdem_e
       ff_varname  <- ifelse( is.na(argv$ffmasterdem_varname),
                argv$ffmaster_varname, argv$ffmasterdem_varname)
-      ff_topdown  <- argv$ffmasterdem_topdown
+      ff_topdown  <- ifelse( is.na(topdown), argv$ffmasterdem_topdown, topdown)
       ff_ndim     <- argv$ffmasterdem_ndim
       ff_dimnames <- argv$ffmasterdem_dimnames
     }
